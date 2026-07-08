@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "capture-the-flag"
+version = "0.1.0"
+requires-python = ">=3.12"
+# game-engine-core is consumed exactly as a third-party consumer would, pinned
+# to a specific commit on GitHub (it is not published to PyPI). Bump this pin
+# deliberately to adopt a newer game-engine-core — see CONTRIBUTING.md.
+dependencies = [
+    "game-engine-core @ git+https://github.com/phil-hutchinson/game-engine-core.git@b577b3c7b4b7ccdcd567d793e61f39a636cec4bc",
+]
+
+[project.optional-dependencies]
+# The learning extra pulls game-engine-core's own learning extra (torch/numpy)
+# for the AI training work. Keep the pin identical to the base dependency above.
+learning = [
+    "game-engine-core[learning] @ git+https://github.com/phil-hutchinson/game-engine-core.git@b577b3c7b4b7ccdcd567d793e61f39a636cec4bc",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["capture_the_flag*"]
+
+[tool.pyright]
+# Scope to first-party code; keeps stray local dirs (e.g. an old .venv) out.
+include = ["capture_the_flag", "tests"]
+# Pin the target version: pyright otherwise infers it from the interpreter it
+# happens to find (it does not read requires-python).
+pythonVersion = "3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff.lint]
+# Ruff's defaults (pyflakes, pycodestyle errors) plus: UP and TID for the
+# CONTRIBUTING.md language/import conventions, I to keep imports sorted,
+# B (bugbear) for likely-bug patterns.
+extend-select = ["UP", "TID", "I", "B"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+# Tests import the package absolutely, like a consumer would; "parents" blocks
+# ..-style reaches out of a module's own subtree.
+ban-relative-imports = "parents"
+
+[tool.ruff.lint.per-file-ignores]
+# Relative imports are the required convention inside the package.
+"capture_the_flag/**" = ["TID252"]

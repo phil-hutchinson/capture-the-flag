@@ -1,0 +1,30 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.env
+
+# Personal container environment (see devcontainer.json runArgs)
+.devcontainer/devcontainer.env
+
+# Personal Claude Code settings (e.g. command permission approvals);
+# shared commands in .claude/commands/ stay tracked
+.claude/settings.local.json
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+.DS_Store
+Thumbs.db
+
+.idea/
+.vscode/
+
+# Local scratchpad: design notes, plans, and other machine-local material
+.local/

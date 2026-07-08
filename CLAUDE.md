@@ -60,3 +60,10 @@ For this repository, the following terms should be used:
 over "move" to avoid ambiguity: in common usage "move" can mean one player's
 action *or* a full round of actions by all players. A ply is always unambiguous —
 it refers strictly to one player's turn.
+
+**Exception — the official rules document.** `doc/ruleset/rules.md` is written for
+a non-technical player audience and deliberately uses **"move"** (not "ply") for
+this same concept throughout. This is the *only* document where "move" is the
+preferred term; everywhere else (code, tests, plans, design docs) use "ply." When
+editing `rules.md`, keep it in "move" terminology and do not "correct" it to
+"ply."

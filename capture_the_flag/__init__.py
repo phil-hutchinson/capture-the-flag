@@ -25,6 +25,7 @@ from .board import (
 from .pieces import ARMY_ROSTER, ARMY_SIZE, Mobility, PieceType
 from .placement import Placement, assemble_position, random_placement
 from .position import BreachabilityCache, CtfPosition
+from .rendering import render_position_block
 from .side import Side
 
 __all__ = [
@@ -48,4 +49,5 @@ __all__ = [
     "parse_square",
     "path_between",
     "random_placement",
+    "render_position_block",
 ]

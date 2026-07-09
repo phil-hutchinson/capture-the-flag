@@ -4,10 +4,10 @@ Phase 1 is secret simultaneous placement; phase 2 is alternating perfect-
 information play. The game is built on the game-engine-core framework, consumed
 as a pinned dependency.
 
-This package currently exposes the domain primitives — board geometry and
-piece data — that everything else (position state, move generation, combat)
-builds on. The GamePosition / GamePly implementations, evaluators, and
-training code land in later stories.
+This package currently exposes the domain primitives (board geometry, piece
+data), the position state container, and the placement seam that everything
+else (move generation, combat, endings) builds on. The GamePly implementation,
+evaluators, and training code land in later stories.
 """
 
 from .board import (
@@ -23,6 +23,9 @@ from .board import (
     path_between,
 )
 from .pieces import ARMY_ROSTER, ARMY_SIZE, Mobility, PieceType
+from .placement import Placement, assemble_position, random_placement
+from .position import BreachabilityCache, CtfPosition
+from .side import Side
 
 __all__ = [
     "ARMY_ROSTER",
@@ -33,10 +36,16 @@ __all__ = [
     "LAKE_PATTERN",
     "LAKE_SQUARES",
     "WHITE_HOME_SQUARES",
+    "BreachabilityCache",
+    "CtfPosition",
     "Mobility",
+    "Placement",
     "PieceType",
+    "Side",
     "Square",
+    "assemble_position",
     "orthogonal_neighbors",
     "parse_square",
     "path_between",
+    "random_placement",
 ]

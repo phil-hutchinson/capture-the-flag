@@ -11,11 +11,14 @@ is a move-generation concern (see `moves.py`); this module only decides the
 """
 
 from enum import Enum
+from typing import TYPE_CHECKING
 
 from .board import Square, path_between
 from .pieces import PieceType
-from .position import CtfPosition
 from .side import Side
+
+if TYPE_CHECKING:
+    from .position import CtfPosition
 
 
 class CombatResult(Enum):
@@ -36,7 +39,7 @@ def _attack_direction(attacker: Square, defender: Square) -> tuple[int, int]:
 
 
 def _has_archer_support(
-    position: CtfPosition,
+    position: "CtfPosition",
     attacker: Square,
     defender: Square,
     defender_side: Side,
@@ -58,7 +61,7 @@ def _has_archer_support(
 
 
 def resolve_combat(
-    position: CtfPosition, attacker: Square, defender: Square
+    position: "CtfPosition", attacker: Square, defender: Square
 ) -> CombatResult:
     """Resolve an attack from `attacker` onto `defender` in `position`.
 

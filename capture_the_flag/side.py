@@ -12,3 +12,7 @@ from enum import Enum
 class Side(Enum):
     WHITE = 1
     BLACK = -1
+
+    @property
+    def opponent(self) -> "Side":
+        return Side.BLACK if self is Side.WHITE else Side.WHITE

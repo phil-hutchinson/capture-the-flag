@@ -6,8 +6,9 @@ as a pinned dependency.
 
 This package currently exposes the domain primitives (board geometry, piece
 data), the position state container with legal move generation, combat
-resolution, and the placement seam that everything else (transitions,
-endings) builds on. Evaluators and training code land in later stories.
+resolution, ply application (transitions, clocks, and the breachability
+cache), and the placement seam. Endings (`outcome`), evaluators, and training
+code land in later stories.
 """
 
 from .board import (
@@ -22,13 +23,16 @@ from .board import (
     parse_square,
     path_between,
 )
+from .breachability import BreachabilityCache
 from .combat import CombatResult, resolve_combat
 from .pieces import ARMY_ROSTER, ARMY_SIZE, Mobility, PieceType
 from .placement import Placement, assemble_position, random_placement
 from .ply import CtfPly
-from .position import BreachabilityCache, CtfPosition
+from .position import CtfPosition
+from .reachability import compute_breachability
 from .rendering import render_position_block
 from .side import Side
+from .transitions import apply_ply
 
 __all__ = [
     "ARMY_ROSTER",
@@ -48,7 +52,9 @@ __all__ = [
     "PieceType",
     "Side",
     "Square",
+    "apply_ply",
     "assemble_position",
+    "compute_breachability",
     "orthogonal_neighbors",
     "parse_square",
     "path_between",

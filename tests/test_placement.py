@@ -99,7 +99,10 @@ def test_assemble_position_side_to_move_and_clocks():
     assert position.white_inactivity_counter == 0
     assert position.black_inactivity_counter == 0
     assert position.progress_counter == 0
-    assert position.breachability is None
+    # assemble_position computes the initial breachability cache eagerly
+    # (rather than leaving it uncomputed) so outcome() can rely on it from
+    # the very first position.
+    assert position.breachability is not None
 
 
 def test_assemble_position_rejects_wrong_zone_or_roster():

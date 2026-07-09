@@ -1,38 +1,22 @@
 """Immutable game-state container for Capture the Flag.
 
 `CtfPosition` will fully implement `game-engine-core`'s `GamePosition`
-protocol once combat and transitions (`apply_ply`) and endings (`outcome`)
-land in later stories. This module carries the state itself (board
-occupancy, side to move, the three clocks (Sections 6.4-6.5), and a slot for
-the cached Unbreachable Flag data (Section 6.2) that a later story computes
-and maintains) plus `legal_plies`, which only needs the state to compute.
+protocol once endings (`outcome`) land in a later story. This module carries
+the state itself (board occupancy, side to move, the three clocks (Sections
+6.4-6.5), and a slot for the cached Unbreachable Flag data (Section 6.2))
+plus `legal_plies` and `apply_ply`, which only need the state to compute.
 """
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Literal, NamedTuple
+from typing import Literal
 
 from .board import Square
+from .breachability import BreachabilityCache
 from .moves import legal_plies as _legal_plies
 from .pieces import PieceType
 from .ply import CtfPly
 from .side import Side
-
-
-class BreachabilityCache(NamedTuple):
-    """Cached Unbreachable Flag (rules.md Section 6.2) inputs for both sides.
-
-    `<side>_flag_enclosed` is whether that side's Flag is walled off by its
-    own intact Towers (and the board edge). `<side>_sappers_available` is
-    whether that side has at least one Sapper currently able to reach an
-    enemy Tower. A side wins when its own flag is enclosed and the opponent's
-    Sappers are all unavailable.
-    """
-
-    white_flag_enclosed: bool
-    black_flag_enclosed: bool
-    white_sappers_available: bool
-    black_sappers_available: bool
 
 
 @dataclass(frozen=True)
@@ -60,3 +44,10 @@ class CtfPosition:
     def legal_plies(self) -> tuple[CtfPly, ...]:
         """Every legal ply for the side to move (rules.md Section 4.2)."""
         return _legal_plies(self)
+
+    def apply_ply(self, ply: CtfPly) -> "CtfPosition":
+        """The successor position after applying `ply` (rules.md Sections
+        4.3, 6.4, 6.5)."""
+        from .transitions import apply_ply as _apply_ply
+
+        return _apply_ply(self, ply)

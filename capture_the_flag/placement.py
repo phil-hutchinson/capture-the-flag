@@ -14,6 +14,7 @@ from types import MappingProxyType
 from .board import BLACK_HOME_SQUARES, WHITE_HOME_SQUARES, Square
 from .pieces import ARMY_ROSTER, PieceType
 from .position import CtfPosition
+from .reachability import compute_breachability
 from .side import Side
 
 Placement = Mapping[Square, PieceType]
@@ -73,4 +74,5 @@ def assemble_position(
         white_inactivity_counter=0,
         black_inactivity_counter=0,
         progress_counter=0,
+        breachability=compute_breachability(board),
     )

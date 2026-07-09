@@ -45,9 +45,16 @@ actually terminates.
   smarter placement (human entry, heuristic, learned) without touching the
   game itself.
 - **The runner.** A headless application that plays many random-vs-random games
-  and reports the outcomes — how each game ended and basic tallies across the
-  batch. The shared library's game and tournament running should be reused
-  rather than rebuilt.
+  and reports the outcomes — win/draw/loss tallies and game-length statistics
+  across the batch. The shared library's `StandardGame` is reused for phase-2
+  play (wrapped to add phase-1 placement) rather than rebuilt.
+
+  Note: categorizing *how* each game ended (flag capture vs. inactivity vs.
+  no-progress, etc.) is **deferred**. The library's `GameResult` currently
+  exposes only a `1/0/-1` outcome and discards the terminal position, so the
+  reason is recorded as `Unknown`. Surfacing it depends on a documented upstream
+  `game-engine-core` change (a `result_reason` field on `GameResult`); reusing
+  the round-robin tournament runner is likewise thrown back to that project.
 
 The engine should slot into the shared game-engine library's interfaces so that
 the library's engines, players, game runner, and (later) training machinery all
@@ -70,6 +77,8 @@ work with this game without adaptation.
 - The runner plays large batches (thousands) of random-vs-random games from
   random placements with no errors, no illegal moves, and no game failing to
   terminate.
-- Batch results report every way a game ended; the outcomes seen are consistent
-  with the rules (and the run demonstrates the clocks actually bound game
-  length).
+- Batch results report win/draw/loss tallies and game-length statistics; the
+  outcomes seen are consistent with the rules, and the length statistics
+  demonstrate the clocks actually bound game length. (Categorizing the specific
+  ending reason is deferred pending the upstream `GameResult.result_reason`
+  change noted above; reasons are recorded as `Unknown` for now.)

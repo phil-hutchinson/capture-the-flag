@@ -212,6 +212,34 @@ two forms that these rules refer to by name:
 Sacrificial attacks are legal and interact with the inactivity and progress rules
 — see [Section 6.4](#64-loss--inactivity) and [Section 6.5](#65-draw--no-progress).
 
+### 4.4 Recording a move
+
+Every square has a unique name for writing moves down on a score sheet:
+columns are lettered **A–L** left to right, and rows are numbered **1–12**,
+where **row 1 is White's back rank** and **row 12 is Black's back rank** —
+regardless of which physical side of the board White sits at. For example,
+**A1** is White's near-left corner and **L12** is Black's far corner.
+
+A move is written as its source square followed by its destination square,
+with no space or separator between them — for example, **A4A5** for a move or
+attack from A4 to A5. A move always travels in a single straight line, and
+every square parses unambiguously (a letter followed by its 1–2 digit row
+number, ended by the next letter), so this alone is enough to record — and
+later replay — an entire game: the result of an attack always follows
+automatically from the position and the rules, so it does not need to be
+written down separately.
+
+A score sheet may instead use an extended form that also marks the *result*
+of each move directly. This form is always written with a `-` between the two
+squares (which is how it is told apart from the plain form above), with an
+`x` immediately after a square to mark that the piece standing there did not
+survive the move:
+
+- `A4-A5` — a move with no attack.
+- `A4-A5x` — the attacker wins (the defender is removed).
+- `A4x-A5` — the attacker loses (a complete sacrifice).
+- `A4x-A5x` — mutual loss (a trade).
+
 ---
 
 ## 5. Reachability

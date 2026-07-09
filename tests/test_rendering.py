@@ -1,16 +1,13 @@
-"""Golden test for the position-block text rendering.
+"""Golden test for the position-block text rendering and parsing.
 
 The expected output is the illustrative example from
 `.local/game-notation-suggestion.md` (both sides given the same formation),
 including the documented lake columns (B, C, F, G, J, K).
 """
 
-from types import MappingProxyType
-
 from capture_the_flag.board import Square
 from capture_the_flag.pieces import PieceType as P
-from capture_the_flag.position import CtfPosition
-from capture_the_flag.rendering import render_position_block
+from capture_the_flag.rendering import parse_position_block, render_position_block
 from capture_the_flag.side import Side
 
 # One army's row-by-row formation (front to back), reused for both sides so
@@ -49,7 +46,7 @@ def _row_board(side: Side, row: int, pieces: list[P]) -> dict[Square, tuple[Side
     return {Square(col, row): (side, piece) for col, piece in enumerate(pieces)}
 
 
-def _build_position() -> CtfPosition:
+def _build_board() -> dict[Square, tuple[Side, P]]:
     board: dict[Square, tuple[Side, P]] = {}
     board.update(_row_board(Side.WHITE, 1, _BACK_RANK))
     board.update(_row_board(Side.WHITE, 2, _ROW_2))
@@ -59,25 +56,31 @@ def _build_position() -> CtfPosition:
     board.update(_row_board(Side.BLACK, 10, _ROW_3))
     board.update(_row_board(Side.BLACK, 11, _ROW_2))
     board.update(_row_board(Side.BLACK, 12, _BACK_RANK))
-    return CtfPosition(
-        board=MappingProxyType(board),
-        side_to_move=Side.WHITE,
-        white_inactivity_counter=0,
-        black_inactivity_counter=0,
-        progress_counter=0,
-    )
+    return board
 
 
 def test_render_position_block_matches_golden_example():
-    position = _build_position()
-    assert render_position_block(position) == EXPECTED_BLOCK
+    assert render_position_block(_build_board()) == EXPECTED_BLOCK
 
 
 def test_render_position_block_has_twelve_lines_of_twelve_cells():
-    position = _build_position()
-    lines = render_position_block(position).split("\n")
+    lines = render_position_block(_build_board()).split("\n")
     assert len(lines) == 12
     for line in lines:
         cells = line.split(" ")
         assert len(cells) == 12
         assert all(len(cell) == 3 for cell in cells)
+
+
+def test_parse_position_block_round_trips_through_render():
+    board = _build_board()
+    rendered = render_position_block(board)
+    parsed = parse_position_block(rendered)
+    assert parsed == board
+    assert render_position_block(parsed) == rendered
+
+
+def test_parse_position_block_accepts_crlf():
+    rendered = render_position_block(_build_board())
+    crlf_text = rendered.replace("\n", "\r\n")
+    assert parse_position_block(crlf_text) == _build_board()

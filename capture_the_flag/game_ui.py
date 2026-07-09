@@ -12,7 +12,7 @@ class CtfGameUI(GameUI[CtfPly, CtfPosition]):
     is deferred to the text-UI story (00000005)."""
 
     def text_board(self, position: CtfPosition) -> str:
-        return render_position_block(position)
+        return render_position_block(position.board)
 
     def render_board(self, position: CtfPosition) -> None:
         print(self.text_board(position))

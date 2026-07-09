@@ -34,7 +34,8 @@ from .player import CtfPlayer, RandomCtfPlayer
 from .ply import CtfPly
 from .position import CtfPosition
 from .reachability import compute_breachability
-from .rendering import render_position_block
+from .record import write_record
+from .rendering import parse_position_block, render_position_block
 from .side import Side
 from .transitions import apply_ply
 
@@ -65,10 +66,12 @@ __all__ = [
     "compute_breachability",
     "compute_outcome",
     "orthogonal_neighbors",
+    "parse_position_block",
     "parse_square",
     "path_between",
     "play_match",
     "random_placement",
     "render_position_block",
     "resolve_combat",
+    "write_record",
 ]

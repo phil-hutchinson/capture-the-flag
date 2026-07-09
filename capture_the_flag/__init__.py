@@ -4,10 +4,10 @@ Phase 1 is secret simultaneous placement; phase 2 is alternating perfect-
 information play. The game is built on the game-engine-core framework, consumed
 as a pinned dependency.
 
-This package currently exposes the domain primitives (board geometry, piece
-data), the position state container with legal move generation, combat
+This package now exposes a fully playable, `game-engine-core`-compatible
+`CtfPosition`: board geometry and piece data, legal move generation, combat
 resolution, ply application (transitions, clocks, and the breachability
-cache), and the placement seam. Endings (`outcome`), evaluators, and training
+cache), endings (`outcome`), and the placement seam. Evaluators and training
 code land in later stories.
 """
 
@@ -25,6 +25,7 @@ from .board import (
 )
 from .breachability import BreachabilityCache
 from .combat import CombatResult, resolve_combat
+from .outcome import compute_outcome
 from .pieces import ARMY_ROSTER, ARMY_SIZE, Mobility, PieceType
 from .placement import Placement, assemble_position, random_placement
 from .ply import CtfPly
@@ -55,6 +56,7 @@ __all__ = [
     "apply_ply",
     "assemble_position",
     "compute_breachability",
+    "compute_outcome",
     "orthogonal_neighbors",
     "parse_square",
     "path_between",

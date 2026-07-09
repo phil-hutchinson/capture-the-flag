@@ -1,10 +1,9 @@
 """Immutable game-state container for Capture the Flag.
 
-`CtfPosition` will fully implement `game-engine-core`'s `GamePosition`
-protocol once endings (`outcome`) land in a later story. This module carries
-the state itself (board occupancy, side to move, the three clocks (Sections
-6.4-6.5), and a slot for the cached Unbreachable Flag data (Section 6.2))
-plus `legal_plies` and `apply_ply`, which only need the state to compute.
+`CtfPosition` fully implements `game-engine-core`'s `GamePosition` protocol:
+board occupancy, side to move, the three clocks (Sections 6.4-6.5), and the
+cached Unbreachable Flag data (Section 6.2), plus `legal_plies`,
+`apply_ply`, and `outcome`, which are computed from that state.
 """
 
 from collections.abc import Mapping
@@ -14,6 +13,7 @@ from typing import Literal
 from .board import Square
 from .breachability import BreachabilityCache
 from .moves import legal_plies as _legal_plies
+from .outcome import compute_outcome as _compute_outcome
 from .pieces import PieceType
 from .ply import CtfPly
 from .side import Side
@@ -51,3 +51,8 @@ class CtfPosition:
         from .transitions import apply_ply as _apply_ply
 
         return _apply_ply(self, ply)
+
+    @property
+    def outcome(self) -> Literal[1, 0, -1] | None:
+        """Current-player-relative outcome (rules.md Section 6)."""
+        return _compute_outcome(self)

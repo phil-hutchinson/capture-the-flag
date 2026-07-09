@@ -5,9 +5,9 @@ information play. The game is built on the game-engine-core framework, consumed
 as a pinned dependency.
 
 This package currently exposes the domain primitives (board geometry, piece
-data), the position state container with legal move generation, and the
-placement seam that everything else (combat, endings) builds on. Combat
-resolution, evaluators, and training code land in later stories.
+data), the position state container with legal move generation, combat
+resolution, and the placement seam that everything else (transitions,
+endings) builds on. Evaluators and training code land in later stories.
 """
 
 from .board import (
@@ -22,6 +22,7 @@ from .board import (
     parse_square,
     path_between,
 )
+from .combat import CombatResult, resolve_combat
 from .pieces import ARMY_ROSTER, ARMY_SIZE, Mobility, PieceType
 from .placement import Placement, assemble_position, random_placement
 from .ply import CtfPly
@@ -39,6 +40,7 @@ __all__ = [
     "LAKE_SQUARES",
     "WHITE_HOME_SQUARES",
     "BreachabilityCache",
+    "CombatResult",
     "CtfPly",
     "CtfPosition",
     "Mobility",
@@ -52,4 +54,5 @@ __all__ = [
     "path_between",
     "random_placement",
     "render_position_block",
+    "resolve_combat",
 ]

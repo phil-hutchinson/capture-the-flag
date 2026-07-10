@@ -189,6 +189,16 @@ Assassin-vs-Assassin).
   - "Friendly piece" **includes a Tower.** An Archer directly opposite a Sapper's
     line of demolition turns the demolition into a trade — the Tower is destroyed
     and the Sapper is slain.
+  - **The Flag is never supported.** Capturing the Flag is always an immediate
+    win for the attacker (see [Section 6.1](#61-win--flag-capture)), so an Archer
+    behind the Flag changes nothing: the attacking piece still moves onto the
+    Flag and wins, rather than trading. Support applies to every other defender,
+    but not to the Flag.
+  - **The Assassin is not immune.** The Assassin's guaranteed win on offense
+    (rank aside) still leaves it exposed to Archer support: when an Assassin
+    attacks a supported piece, the result is mutual loss — the target falls to
+    the Assassin and the Assassin falls to the Archer. (The Flag exemption above
+    still takes precedence: an Assassin attacking a supported Flag wins outright.)
   - If the trigger square is off the board, a lake, or otherwise not occupied by
     a friendly Archer facing that line, there is no support.
   - The Archer's *own* combat is ordinary: when an Archer attacks or is attacked
@@ -211,6 +221,34 @@ two forms that these rules refer to by name:
 
 Sacrificial attacks are legal and interact with the inactivity and progress rules
 — see [Section 6.4](#64-loss--inactivity) and [Section 6.5](#65-draw--no-progress).
+
+### 4.4 Recording a move
+
+Every square has a unique name for writing moves down on a score sheet:
+columns are lettered **A–L** left to right, and rows are numbered **1–12**,
+where **row 1 is White's back rank** and **row 12 is Black's back rank** —
+regardless of which physical side of the board White sits at. For example,
+**A1** is White's near-left corner and **L12** is Black's far corner.
+
+A move is written as its source square followed by its destination square,
+with no space or separator between them — for example, **A4A5** for a move or
+attack from A4 to A5. A move always travels in a single straight line, and
+every square parses unambiguously (a letter followed by its 1–2 digit row
+number, ended by the next letter), so this alone is enough to record — and
+later replay — an entire game: the result of an attack always follows
+automatically from the position and the rules, so it does not need to be
+written down separately.
+
+A score sheet may instead use an extended form that also marks the *result*
+of each move directly. This form is always written with a `-` between the two
+squares (which is how it is told apart from the plain form above), with an
+`x` immediately after a square to mark that the piece standing there did not
+survive the move:
+
+- `A4-A5` — a move with no attack.
+- `A4-A5x` — the attacker wins (the defender is removed).
+- `A4x-A5` — the attacker loses (a complete sacrifice).
+- `A4x-A5x` — mutual loss (a trade).
 
 ---
 

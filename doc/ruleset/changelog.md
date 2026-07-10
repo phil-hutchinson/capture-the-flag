@@ -10,6 +10,38 @@ this changelog to know when and how to update.
 
 ---
 
+## Version 1.1 — Story 00000004 — 2026-07-09
+
+Added the coordinate system and move notation to the player-facing rules, now
+that the reference engine's move generation and combat resolution are stable
+enough to promote them out of the working notation draft
+(`.local/game-notation-suggestion.md`):
+
+- **New Section 4.4, "Recording a move".** Squares are named by column letter
+  (A–L, left to right) and row number (1–12; row 1 is White's back rank, row
+  12 is Black's back rank). A move is written as source-then-destination with
+  no separator (e.g. `A4A5`) — sufficient on its own to record and replay a
+  game, since any attack's result follows automatically from the position and
+  the rules. A result-marking form (source-dash-destination, with `x` marking
+  a piece that did not survive) is documented as reserved for future score
+  sheets.
+- The full game-record file format (the position block, header tags, and move
+  sequence) is documented separately in `technical-notes.md`, since it is a
+  developer/file-interchange concern rather than player-facing.
+
+Also clarified two previously-unaddressed Archer support edge cases in
+Section 4.3 (behavioural, resolving ambiguities the reference engine hit rather
+than reworking the ability):
+
+- **The Flag is never supported.** Capturing the Flag is always an immediate
+  win for the attacker (Section 6.1); an Archer behind the Flag no longer
+  converts the capture into a mutual loss, so the attacker always moves onto
+  the Flag and wins.
+- **The Assassin is not immune to Archer support.** An Assassin attacking a
+  supported piece is a mutual loss (its guaranteed win removes the target; the
+  Archer removes the Assassin) — except against a supported Flag, where the
+  exemption above makes it an outright win.
+
 ## Version 1.0 — Story 00000001 — 2026-07-08
 
 Initial official ruleset, consolidated from the offline design notes into a single

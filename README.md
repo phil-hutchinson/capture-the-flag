@@ -10,14 +10,40 @@ which provides the game-agnostic engine, MCTS/PUCT search, and learning
 infrastructure. This repository implements the Capture the Flag ruleset,
 position/ply types, evaluators, and the phase 1 / phase 2 training on top of it.
 
-> **Status:** bootstrap. The scaffolding, dev container, and a smoke test are in
-> place; the ruleset and AI implementation land in subsequent stories.
+> **Status:** the rules engine is fully implemented and playable — board and
+> piece geometry, legal move generation, combat resolution, and every ending
+> condition, plus a random-placement seam and a headless random-vs-random
+> batch runner. AI beyond random play (evaluators, search, training) lands in
+> subsequent stories.
 
 ## Requirements
 
 - Python 3.12+
 - The dev container installs everything else (including the pinned
   `game-engine-core` dependency and PyTorch).
+
+## The engine
+
+`capture_the_flag/` implements the ruleset in
+[`doc/ruleset/rules.md`](doc/ruleset/rules.md) as a `game-engine-core`-compatible
+game: `CtfPosition`/`CtfPly` (board state, legal moves, combat, endings), a
+placement seam that assembles a starting position from two per-side
+placements, and a `CtfPlayer` seam so `game-engine-core`'s players and
+`StandardGame` drive phase-2 play unchanged.
+
+## Running a batch of random games
+
+A headless runner plays batches of random-vs-random games and writes a
+record file per game:
+
+```bash
+python -m capture_the_flag.batch_runner -n 100 -o games
+```
+
+`-n`/`--games` sets the batch size and `-o`/`--output-dir` the record output
+directory; `--seed` seeds the batch for reproducible runs. Each record file
+follows the format documented in
+[`doc/ruleset/technical-notes.md`](doc/ruleset/technical-notes.md).
 
 ## Development
 

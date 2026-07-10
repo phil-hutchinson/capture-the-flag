@@ -15,7 +15,10 @@ naming history, and cross-references belong in
 **Any change to `rules.md` must be accompanied by an entry in
 [`changelog.md`](changelog.md)** (newest first) recording the ruleset version, the
 story number, and the date, plus a short summary of what changed. Bump the version
-in both `changelog.md` and `technical-notes.md` when the rules change.
+in `changelog.md`, `technical-notes.md`, and the `RULESET_VERSION` constant in
+`capture_the_flag/record.py` when the rules change — the constant stamps the
+ruleset version into every game record, so a stale value silently mis-tags all
+records written after the change.
 
 **Why this is mandatory:** the rules are consumed outside this repository — in
 particular, a separate front-end player application depends on them and tracks the

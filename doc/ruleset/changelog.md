@@ -25,10 +25,22 @@ enough to promote them out of the working notation draft
   the rules. A result-marking form (source-dash-destination, with `x` marking
   a piece that did not survive) is documented as reserved for future score
   sheets.
-- No gameplay rules changed; this entry only adds notation. The full
-  game-record file format (the position block, header tags, and move
+- The full game-record file format (the position block, header tags, and move
   sequence) is documented separately in `technical-notes.md`, since it is a
   developer/file-interchange concern rather than player-facing.
+
+Also clarified two previously-unaddressed Archer support edge cases in
+Section 4.3 (behavioural, resolving ambiguities the reference engine hit rather
+than reworking the ability):
+
+- **The Flag is never supported.** Capturing the Flag is always an immediate
+  win for the attacker (Section 6.1); an Archer behind the Flag no longer
+  converts the capture into a mutual loss, so the attacker always moves onto
+  the Flag and wins.
+- **The Assassin is not immune to Archer support.** An Assassin attacking a
+  supported piece is a mutual loss (its guaranteed win removes the target; the
+  Archer removes the Assassin) — except against a supported Flag, where the
+  exemption above makes it an outright win.
 
 ## Version 1.0 — Story 00000001 — 2026-07-08
 

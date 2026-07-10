@@ -106,8 +106,15 @@ def resolve_combat(
             else:
                 base_result = CombatResult.MUTUAL_LOSS
 
-    if base_result is CombatResult.ATTACKER_WINS and _has_archer_support(
-        position, attacker, defender, defender_side
+    # Archer support never protects the Flag: capturing the Flag is always an
+    # immediate win for the attacker (rules.md Section 6.1), so the attacker
+    # survives and moves onto the square rather than trading. Every other
+    # winning attack -- including the Assassin's guaranteed win -- is still
+    # subject to the Archer's strike.
+    if (
+        base_result is CombatResult.ATTACKER_WINS
+        and defender_piece is not PieceType.FLAG
+        and _has_archer_support(position, attacker, defender, defender_side)
     ):
         return CombatResult.MUTUAL_LOSS
     return base_result

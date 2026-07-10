@@ -164,6 +164,30 @@ def test_breachability_recomputed_when_a_tower_is_destroyed():
     assert expected.white_flag_enclosed is False
 
 
+def test_sapper_capturing_supported_flag_does_not_recompute_or_crash():
+    # Regression: a Sapper capturing a Flag with an Archer directly behind it
+    # used to convert the capture into a mutual loss, removing the Sapper and
+    # triggering a breachability recompute on a board whose Flag was gone --
+    # crashing in `_flag_enclosed`. The Flag is now never Archer-supported, so
+    # the Sapper wins outright, only the Flag is removed, and no recompute runs.
+    sapper = Square(3, 2)  # D2, Black
+    flag = Square(3, 3)  # D3, White
+    archer = Square(3, 4)  # D4, White -- one square beyond the Flag
+    board = {
+        sapper: (Side.BLACK, P.SAPPER),
+        flag: (Side.WHITE, P.FLAG),
+        archer: (Side.WHITE, P.ARCHER),
+        Square(11, 12): (Side.BLACK, P.FLAG),  # Black's Flag, so it still exists
+    }
+    position = _position(board, side_to_move=Side.BLACK)
+
+    new_position = position.apply_ply(CtfPly(sapper, flag))
+
+    assert new_position.board[flag] == (Side.BLACK, P.SAPPER)  # Sapper advanced
+    assert archer in new_position.board  # the Archer survives untouched
+    assert new_position.breachability == _SENTINEL_BREACHABILITY  # not recomputed
+
+
 def test_breachability_recomputed_when_a_sapper_is_captured():
     white_flag = Square(11, 1)
     black_flag = Square(11, 12)

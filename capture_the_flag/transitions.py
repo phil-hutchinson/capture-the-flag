@@ -75,8 +75,14 @@ def apply_ply(position: CtfPosition, ply: CtfPly) -> CtfPosition:
     captured = is_attack and result in _CAPTURING_RESULTS
     new_progress_counter = 0 if captured else position.progress_counter + 1
 
+    # Recompute the Unbreachable Flag cache only when a wall changed -- a Tower
+    # or Sapper was removed. A captured Flag ends the game (Section 6.1), so a
+    # ply that removes a Flag is skipped: the cache is dead state, and
+    # `compute_breachability` would fail to locate the now-removed Flag.
     breachability = position.breachability
-    if any(piece in (PieceType.TOWER, PieceType.SAPPER) for piece in removed_pieces):
+    if PieceType.FLAG not in removed_pieces and any(
+        piece in (PieceType.TOWER, PieceType.SAPPER) for piece in removed_pieces
+    ):
         breachability = compute_breachability(new_board)
 
     return CtfPosition(

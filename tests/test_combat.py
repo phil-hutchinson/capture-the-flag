@@ -166,3 +166,29 @@ def test_archer_covered_tower_becomes_a_trade_with_the_sapper():
     }
     position = _position(board)
     assert resolve_combat(position, ATTACKER, DEFENDER) is CombatResult.MUTUAL_LOSS
+
+
+@pytest.mark.parametrize("attacker_piece", [*NUMBERED_PIECES, P.ASSASSIN])
+def test_archer_never_supports_the_flag(attacker_piece):
+    # An Archer directly behind the Flag provides no support: capturing the
+    # Flag is always an immediate win for the attacker (rules.md 6.1), even for
+    # a Sapper or the Assassin.
+    board = {
+        ATTACKER: (Side.WHITE, attacker_piece),
+        DEFENDER: (Side.BLACK, P.FLAG),
+        TRIGGER: (Side.BLACK, P.ARCHER),
+    }
+    position = _position(board)
+    assert resolve_combat(position, ATTACKER, DEFENDER) is CombatResult.ATTACKER_WINS
+
+
+def test_archer_support_converts_assassin_attack_to_mutual_loss():
+    # The Assassin wins against the target by its special rule, but is not
+    # immune to Archer support: the result is a trade (rules.md 4.3).
+    board = {
+        ATTACKER: (Side.WHITE, P.ASSASSIN),
+        DEFENDER: (Side.BLACK, P.MILITIA),
+        TRIGGER: (Side.BLACK, P.ARCHER),
+    }
+    position = _position(board)
+    assert resolve_combat(position, ATTACKER, DEFENDER) is CombatResult.MUTUAL_LOSS

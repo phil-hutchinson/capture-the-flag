@@ -24,8 +24,12 @@ class CtfPosition:
     """A single, immutable point-in-time game state.
 
     `board` maps an occupied square to the `(Side, PieceType)` standing on
-    it; a square absent from `board` is empty. `breachability` is `None`
-    until a later story populates and maintains it.
+    it; a square absent from `board` is empty. `breachability` is the cached
+    Unbreachable Flag data (Section 6.2): `placement.assemble_position`
+    populates it at game start and `transitions.apply_ply` maintains it,
+    recomputing only on a ply that removes a Tower or Sapper. The `None`
+    default is a convenience for tests that construct a bare position and do
+    not exercise the 6.2 ending, not a real in-game state.
     """
 
     board: Mapping[Square, tuple[Side, PieceType]]

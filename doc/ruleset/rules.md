@@ -189,6 +189,16 @@ Assassin-vs-Assassin).
   - "Friendly piece" **includes a Tower.** An Archer directly opposite a Sapper's
     line of demolition turns the demolition into a trade — the Tower is destroyed
     and the Sapper is slain.
+  - **The Flag is never supported.** Capturing the Flag is always an immediate
+    win for the attacker (see [Section 6.1](#61-win--flag-capture)), so an Archer
+    behind the Flag changes nothing: the attacking piece still moves onto the
+    Flag and wins, rather than trading. Support applies to every other defender,
+    but not to the Flag.
+  - **The Assassin is not immune.** The Assassin's guaranteed win on offense
+    (rank aside) still leaves it exposed to Archer support: when an Assassin
+    attacks a supported piece, the result is mutual loss — the target falls to
+    the Assassin and the Assassin falls to the Archer. (The Flag exemption above
+    still takes precedence: an Assassin attacking a supported Flag wins outright.)
   - If the trigger square is off the board, a lake, or otherwise not occupied by
     a friendly Archer facing that line, there is no support.
   - The Archer's *own* combat is ordinary: when an Archer attacks or is attacked

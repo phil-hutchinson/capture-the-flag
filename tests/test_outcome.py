@@ -81,6 +81,35 @@ def test_no_legal_move_is_a_loss():
     assert position.outcome == -1
 
 
+def test_opponent_inactivity_win_precedes_active_no_legal_move():
+    # White is boxed in (only immobile pieces), but Black's just-completed ply
+    # already tripped Black's inactivity limit -- the game ended with Black
+    # losing (White wins), not with White losing for having no legal move.
+    board = {
+        Square(0, 1): (Side.WHITE, P.FLAG),
+        Square(0, 2): (Side.WHITE, P.TOWER),
+        _BLACK_FLAG_SQUARE: (Side.BLACK, P.FLAG),
+        Square(5, 5): (Side.BLACK, P.INFANTRY),
+    }
+    position = _position(board, side_to_move=Side.WHITE, black_inactivity_counter=50)
+    assert position.legal_plies == ()  # White really is boxed in
+    assert position.outcome == 1
+
+
+def test_no_progress_draw_precedes_active_no_legal_move():
+    # Same boxed-in White, but the shared progress counter hit its limit on
+    # Black's previous ply -- a draw, reached before White's turn begins.
+    board = {
+        Square(0, 1): (Side.WHITE, P.FLAG),
+        Square(0, 2): (Side.WHITE, P.TOWER),
+        _BLACK_FLAG_SQUARE: (Side.BLACK, P.FLAG),
+        Square(5, 5): (Side.BLACK, P.INFANTRY),
+    }
+    position = _position(board, side_to_move=Side.WHITE, progress_counter=80)
+    assert position.legal_plies == ()
+    assert position.outcome == 0
+
+
 def test_inactivity_loss_for_active_player():
     board = {
         _WHITE_FLAG_SQUARE: (Side.WHITE, P.FLAG),

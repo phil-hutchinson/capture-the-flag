@@ -5,9 +5,10 @@ import random
 
 from capture_the_flag.match import play_match
 from capture_the_flag.player import RandomCtfPlayer
-from capture_the_flag.record import write_record
+from capture_the_flag.record import RULESET_NAME, RULESET_VERSION, write_record
 
 _RESULT_TAGS = {1: "1-0", -1: "0-1", 0: "1/2-1/2"}
+_RULESET_TAG = f'[Ruleset "{RULESET_NAME}:{RULESET_VERSION}"]'
 
 
 def _play(seed: int):
@@ -38,6 +39,7 @@ def test_write_record_has_the_documented_sections_in_order():
         '[Round "1"]',
         '[White "White"]',
         '[Black "Black"]',
+        _RULESET_TAG,
         f'[Result "{expected_result}"]',
         '[ResultReason "Unknown"]',
     ]
@@ -58,6 +60,7 @@ def test_write_record_omits_unpopulated_tags():
 
     header = record.strip("\n").split("\n\n")[0]
     assert header.splitlines() == [
+        _RULESET_TAG,
         f'[Result "{expected_result}"]',
         '[ResultReason "Unknown"]',
     ]
@@ -71,9 +74,20 @@ def test_write_record_omits_tags_individually():
     header = record.strip("\n").split("\n\n")[0]
     assert header.splitlines() == [
         '[White "White"]',
+        _RULESET_TAG,
         f'[Result "{expected_result}"]',
         '[ResultReason "Unknown"]',
     ]
+
+
+def test_write_record_always_includes_ruleset_tag():
+    # The Ruleset tag is mandatory even when no roster tags are supplied, so a
+    # reader can always tell which ruleset (variant and version) a game was
+    # played under.
+    match_result = _play(5)
+    record = write_record(match_result)
+    assert _RULESET_TAG in record
+    assert _RULESET_TAG == '[Ruleset "PRIMARY:1.1"]'  # current variant:version
 
 
 def test_write_record_result_reflects_absolute_outcome():
@@ -81,6 +95,23 @@ def test_write_record_result_reflects_absolute_outcome():
     record = write_record(match_result)
     expected_result = _RESULT_TAGS[match_result.game_result.outcome]
     assert f'[Result "{expected_result}"]' in record
+
+
+def test_write_record_escapes_quotes_and_backslashes_in_tag_values():
+    match_result = _play(5)
+    record = write_record(
+        match_result,
+        white_name='Ann "Ace" \\ Smith',
+        event="Line1\nLine2",
+    )
+    header = record.strip("\n").split("\n\n")[0]
+
+    # Quotes and backslashes are backslash-escaped; the newline is collapsed to
+    # a space, so every tag stays on its own well-formed line.
+    assert '[White "Ann \\"Ace\\" \\\\ Smith"]' in header
+    assert '[Event "Line1 Line2"]' in header
+    # The header still has exactly one line per tag (no split by the newline).
+    assert len(header.splitlines()) == 5  # Event, White, Ruleset, Result, ResultReason
 
 
 def test_write_record_lone_final_white_ply_on_odd_length_games():

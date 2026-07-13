@@ -12,9 +12,9 @@ position/ply types, evaluators, and the phase 1 / phase 2 training on top of it.
 
 > **Status:** the rules engine is fully implemented and playable — board and
 > piece geometry, legal move generation, combat resolution, and every ending
-> condition, plus a random-placement seam and a headless random-vs-random
-> batch runner. AI beyond random play (evaluators, search, training) lands in
-> subsequent stories.
+> condition — with a headless random-vs-random batch runner and a terminal
+> text UI for complete human-vs-human games. AI beyond random play
+> (evaluators, search, training) lands in subsequent stories.
 
 ## Requirements
 
@@ -46,6 +46,26 @@ result and how the game ended and renders moves in the ruleset's combat
 notation, and the run prints an outcome split, an ending-category breakdown, and
 game-length statistics. Record files follow the format documented in
 [`doc/ruleset/technical-notes.md`](doc/ruleset/technical-notes.md).
+
+## Playing a game in the terminal
+
+A human-vs-human runner plays one complete game — placement, alternating play,
+and an announced result:
+
+```bash
+python -m capture_the_flag.pvp_runner --white Alice --black Bob
+```
+
+Each player supplies their phase-1 setup at a prompt: either the name of a
+placement file read from the gitignored `placements/` folder
+(`-p`/`--placements-dir` overrides the folder), or `random` for a random legal
+placement. A placement file is 4 rows of 12 one-character piece symbols
+(`1`–`9`, `A`, `T`, `F`), written from the owning player's seat — first line
+nearest the lakes, last line the back rank — so the same file produces the
+same setup for either side. Moves are typed in the simple source–destination
+notation (e.g. `A2A3`); malformed or illegal input re-prompts with an
+explanation, and each turn's display shows the coordinate-labelled board,
+captured pieces, and the inactivity and no-progress clocks.
 
 ## Development
 

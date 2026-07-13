@@ -3,7 +3,8 @@
 `CtfPosition` fully implements `game-engine-core`'s `GamePosition` protocol:
 board occupancy, side to move, the three clocks (Sections 6.4-6.5), and the
 cached Unbreachable Flag data (Section 6.2), plus `legal_plies`,
-`apply_ply`, and `outcome`, which are computed from that state.
+`apply_ply`, `outcome`, and `outcome_reason`, which are computed from that
+state.
 """
 
 from collections.abc import Mapping
@@ -14,6 +15,7 @@ from .board import Square
 from .breachability import BreachabilityCache
 from .moves import legal_plies as _legal_plies
 from .outcome import compute_outcome as _compute_outcome
+from .outcome import compute_outcome_reason as _compute_outcome_reason
 from .pieces import PieceType
 from .ply import CtfPly
 from .side import Side
@@ -60,3 +62,9 @@ class CtfPosition:
     def outcome(self) -> Literal[1, 0, -1] | None:
         """Current-player-relative outcome (rules.md Section 6)."""
         return _compute_outcome(self)
+
+    @property
+    def outcome_reason(self) -> str | None:
+        """Why the game ended (rules.md Section 6): a short label once `outcome`
+        is non-`None`, else `None`. Recorded as `ResultReason` in game records."""
+        return _compute_outcome_reason(self)

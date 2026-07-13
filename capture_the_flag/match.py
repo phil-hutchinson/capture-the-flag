@@ -14,6 +14,7 @@ from game_engine_core.game.standard_game import StandardGame
 from game_engine_core.models.game_result import GameResult
 from game_engine_core.protocols.player import Player
 
+from .game_logging import CtfGameLogging
 from .game_ui import CtfGameUI
 from .placement import Placement, assemble_position
 from .player import CtfPlayer
@@ -37,9 +38,13 @@ def play_match(
     game_ui: CtfGameUI | None = None,
     render_final_board: bool = True,
 ) -> MatchResult:
-    """Play one complete match between `white_player` and `black_player`."""
-    ui = game_ui if game_ui is not None else CtfGameUI()
+    """Play one complete match between `white_player` and `black_player`.
 
+    `game_ui` is optional interactive display: pass `None` (the default) for
+    headless play. Since v0.1.1, board rendering — including `render_final_board`
+    — happens only when a `game_ui` is supplied; the game record is always fed by
+    `CtfGameLogging` independently of the UI.
+    """
     white_placement = white_player.get_placement(Side.WHITE)
     black_placement = black_player.get_placement(Side.BLACK)
     initial_position = assemble_position(white_placement, black_placement)
@@ -51,7 +56,8 @@ def play_match(
     game = StandardGame(
         initial_position=initial_position,
         players=players,
-        game_ui=ui,
+        game_logging=CtfGameLogging(),
+        game_ui=game_ui,
         render_final_board=render_final_board,
     )
     game_result = game.run()

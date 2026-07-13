@@ -65,12 +65,11 @@ def write_record(
 
     `white_name`, `black_name`, `event`, `site`, `date`, and `round_number`
     are best-effort roster tags: each is included only if supplied, and
-    omitted entirely otherwise. `Result` is derived from the game's
-    absolute outcome; `ResultReason` is always `"Unknown"` for now (Step 3 of
-    this story replaces it with `game_result.result_reason`). `Ruleset`,
-    `Result`, and `ResultReason` are always present: `Ruleset` records the
-    ruleset the game was played under (`PRIMARY:<version>`; see
-    `RULESET_VERSION`).
+    omitted entirely otherwise. `Result` is derived from the game's absolute
+    outcome and `ResultReason` from `game_result.result_reason` (the terminal
+    position's `outcome_reason`, e.g. `Flag Captured`). `Ruleset`, `Result`,
+    and `ResultReason` are always present: `Ruleset` records the ruleset the
+    game was played under (`PRIMARY:<version>`; see `RULESET_VERSION`).
 
     Tag values are escaped for the `[Name "value"]` syntax (see
     `_escape_tag_value`): `\\` and `"` are backslash-escaped and newlines are
@@ -92,7 +91,7 @@ def write_record(
     ]
     header_lines.append(f'[Ruleset "{_RULESET_TAG_VALUE}"]')
     header_lines.append(f'[Result "{_RESULT_TAGS[game_result.outcome]}"]')
-    header_lines.append('[ResultReason "Unknown"]')
+    header_lines.append(f'[ResultReason "{_escape_tag_value(game_result.result_reason)}"]')
 
     header = "\n".join(header_lines)
     move_sequence = _build_move_sequence(game_result.game_log)

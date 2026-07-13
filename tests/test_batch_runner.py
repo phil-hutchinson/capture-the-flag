@@ -5,6 +5,23 @@ import random
 import pytest
 
 from capture_the_flag.batch_runner import run_batch
+from capture_the_flag.outcome import (
+    REASON_FLAG_CAPTURED,
+    REASON_INACTIVITY,
+    REASON_NO_LEGAL_MOVE,
+    REASON_NO_PROGRESS,
+    REASON_UNBREACHABLE_FLAG,
+)
+
+_KNOWN_REASONS = frozenset(
+    {
+        REASON_FLAG_CAPTURED,
+        REASON_UNBREACHABLE_FLAG,
+        REASON_INACTIVITY,
+        REASON_NO_PROGRESS,
+        REASON_NO_LEGAL_MOVE,
+    }
+)
 
 
 def test_run_batch_writes_one_record_per_game_and_tallies_outcomes(tmp_path):
@@ -23,12 +40,27 @@ def test_run_batch_writes_one_record_per_game_and_tallies_outcomes(tmp_path):
     for record_file in record_files:
         text = record_file.read_text(encoding="utf-8")
         assert '[Result "' in text
-        assert '[ResultReason "Unknown"]' in text
+        assert '[ResultReason "Unknown"]' not in text
 
     assert summary.games_played == 5
     assert summary.white_wins + summary.black_wins + summary.draws == 5
     assert summary.min_plies <= summary.mean_plies <= summary.max_plies
     assert summary.min_plies > 0
+
+
+def test_run_batch_summary_breaks_down_endings_by_reason(tmp_path):
+    summary = run_batch(8, tmp_path, rng=random.Random(3))
+
+    # Every reported reason is from the game's vocabulary, and the breakdown
+    # accounts for exactly the games played.
+    assert set(summary.reason_counts) <= _KNOWN_REASONS
+    assert sum(summary.reason_counts.values()) == summary.games_played == 8
+    # The reason line renders and names each counted ending.
+    endings_line = next(
+        line for line in summary.format().splitlines() if line.startswith("Endings:")
+    )
+    for reason in summary.reason_counts:
+        assert reason in endings_line
 
 
 def test_run_batch_zero_pads_filenames_to_batch_width(tmp_path):

@@ -6,7 +6,8 @@ Runnable as a module: `python -m capture_the_flag.batch_runner [options]`.
 
 import argparse
 import random
-from collections.abc import Sequence
+from collections import Counter
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -20,7 +21,7 @@ from .record import write_record
 
 @dataclass(frozen=True)
 class BatchSummary:
-    """Outcome tallies and game-length statistics across a batch."""
+    """Outcome tallies, ending-reason breakdown, and game-length statistics."""
 
     games_played: int
     white_wins: int
@@ -29,13 +30,24 @@ class BatchSummary:
     min_plies: int
     max_plies: int
     mean_plies: float
+    reason_counts: Mapping[str, int]
+    """How many games ended for each reason (e.g. `Flag Captured`), the
+    game-specific vocabulary from `outcome.py`. Sums to `games_played`."""
 
     def format(self) -> str:
+        # Reasons ordered by frequency, then name, for a stable, readable line.
+        reason_breakdown = ", ".join(
+            f"{reason}: {count}"
+            for reason, count in sorted(
+                self.reason_counts.items(), key=lambda item: (-item[1], item[0])
+            )
+        )
         return (
             f"Games played: {self.games_played}\n"
             f"White wins:   {self.white_wins}\n"
             f"Black wins:   {self.black_wins}\n"
             f"Draws:        {self.draws}\n"
+            f"Endings:      {reason_breakdown}\n"
             f"Plies per game — min: {self.min_plies}, "
             f"max: {self.max_plies}, mean: {self.mean_plies:.1f}"
         )
@@ -82,6 +94,7 @@ def run_batch(
     black_wins = 0
     draws = 0
     ply_counts: list[int] = []
+    reason_counts: Counter[str] = Counter()
 
     width = len(str(num_games))
     for game_number, record in enumerate(result.records, start=1):
@@ -94,6 +107,7 @@ def run_batch(
         else:
             draws += 1
         ply_counts.append(len(game_result.game_log))
+        reason_counts[game_result.result_reason] += 1
 
         text = write_record(
             game_result,
@@ -112,6 +126,7 @@ def run_batch(
         min_plies=min(ply_counts),
         max_plies=max(ply_counts),
         mean_plies=sum(ply_counts) / len(ply_counts),
+        reason_counts=dict(reason_counts),
     )
 
 

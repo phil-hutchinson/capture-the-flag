@@ -41,8 +41,10 @@ python -m capture_the_flag.batch_runner -n 100 -o games
 ```
 
 `-n`/`--games` sets the batch size and `-o`/`--output-dir` the record output
-directory; `--seed` seeds the batch for reproducible runs. Each record file
-follows the format documented in
+directory; `--seed` seeds the batch for reproducible runs. Each record names the
+result and how the game ended and renders moves in the ruleset's combat
+notation, and the run prints an outcome split, an ending-category breakdown, and
+game-length statistics. Record files follow the format documented in
 [`doc/ruleset/technical-notes.md`](doc/ruleset/technical-notes.md).
 
 ## Development

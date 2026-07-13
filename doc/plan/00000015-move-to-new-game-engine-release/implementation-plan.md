@@ -1,7 +1,7 @@
 # Implementation Plan: Move to the new game-engine-core release
 
 This plan adopts `game-engine-core` at git tag `v0.1.1` and uses its new seams to
-close the three gaps recorded in `doc/game-engine-core-requirements.md`. The
+close the three gaps recorded in `reference/game-engine-core-requirements.md`. The
 v0.1.1 protocol changes are **breaking, with no compatibility shims** (confirmed
 from the upstream stories: `GamePosition` gains a required `outcome_reason`,
 logging is split into a new `GameLogging` protocol, `StandardGame`/`Tournament`
@@ -110,7 +110,7 @@ pass.
 
 ## Step 5 — Close out the upstream-requirements record
 
-With all three gaps closed, reconcile `doc/game-engine-core-requirements.md`:
+With all three gaps closed, reconcile `reference/game-engine-core-requirements.md`:
 mark each of the three items resolved by the v0.1.1 adoption (citing the seam that
 resolved it), or remove the document if it no longer serves a purpose now that the
 work is done. Confirm no other doc still describes the retired workarounds.

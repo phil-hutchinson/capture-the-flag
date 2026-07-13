@@ -15,7 +15,7 @@ newly pinned release.
 ## Motivation
 
 Story 00000004 surfaced three things the shared engine could not express, recorded
-them in `doc/game-engine-core-requirements.md`, and shipped local workarounds for
+them in `reference/game-engine-core-requirements.md`, and shipped local workarounds for
 each: records that could only ever write `ResultReason "Unknown"`, a move log
 stuck with the bare identity notation, and a hand-written match-and-batch runner
 that reimplemented tallying the library's `Tournament` already offers but could
@@ -66,7 +66,7 @@ workarounds.
   Capture-the-Flag batch reuses the same reporting every other game on the engine
   gets.
 
-- **Close out the requirements record.** `doc/game-engine-core-requirements.md`
+- **Close out the requirements record.** `reference/game-engine-core-requirements.md`
   is updated to reflect that all three items are resolved by the v0.1.1 adoption,
   and the ruleset/technical notes that described the old workarounds are corrected
   to describe the new behaviour.
@@ -100,5 +100,5 @@ workarounds.
   win/draw/loss and game-length statistics.
 - Batch play is driven by the shared library's tournament runner via its
   game-start seam; the previously hand-rolled tallying is gone.
-- `doc/game-engine-core-requirements.md` and the affected ruleset/technical notes
+- `reference/game-engine-core-requirements.md` and the affected ruleset/technical notes
   reflect the resolved state rather than the old workarounds.

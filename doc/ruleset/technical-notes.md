@@ -94,10 +94,10 @@ writes carries the current version; the tag exists so a reader can still tell
 which rules a stored game was played under. `Result` uses PGN's values:
 `1-0` (White wins), `0-1` (Black wins), `1/2-1/2` (draw), `*`
 (ongoing/unknown). `ResultReason` is free text (e.g. `Flag Captured`,
-`Inactivity`, `No Progress`, `Unbreachable Flag`, `No Legal Move`); until the
-shared `game-engine-core` library can surface a termination reason (see the
-upstream requirements note planned for a later story) it is recorded as
-`Unknown`. `Date` uses PGN's `YYYY.MM.DD` form (`????.??.??` when unknown).
+`Inactivity`, `No Progress`, `Unbreachable Flag`, `No Legal Move`), sourced from
+the terminal position's outcome reason (`GamePosition.outcome_reason`, threaded
+through `GameResult.result_reason`). `Date` uses PGN's `YYYY.MM.DD` form
+(`????.??.??` when unknown).
 Tag *values* are escaped as in PGN — a literal `\` is written `\\` and a
 literal `"` is written `\"` — so a value containing either stays inside its
 quotes; writers also collapse any newline in a value to a space, since a tag

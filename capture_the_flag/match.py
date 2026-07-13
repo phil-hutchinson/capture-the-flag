@@ -1,10 +1,10 @@
 """The match wrapper: phase-1 placement followed by phase-2 play.
 
-Phase-1 placement has no equivalent in `game-engine-core` (a generic pre-play
-step is one of the documented upstream requirements), so this wrapper
-obtains both placements, assembles the starting `CtfPosition` via the
-placement seam, and then hands phase-2 play to the library's unmodified
-`StandardGame`.
+`play_match` is the single-game helper: it obtains both placements, assembles
+the starting `CtfPosition` via the placement seam, and hands phase-2 play to the
+library's `StandardGame`. `build_initial_position` is the same placement seam in
+the shape of `game-engine-core`'s widened tournament `position_factory`, so batch
+and tournament runs get the phase-1 step through the library's own runner.
 """
 
 from dataclasses import dataclass

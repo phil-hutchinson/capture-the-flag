@@ -58,3 +58,7 @@ class PieceType(Enum):
 ARMY_ROSTER: dict[PieceType, int] = {piece: piece.army_count for piece in PieceType}
 
 ARMY_SIZE = sum(ARMY_ROSTER.values())
+
+# The symbol -> piece inverse of `PieceType.symbol`, shared by the modules that
+# parse position blocks and placement files.
+PIECE_BY_SYMBOL: dict[str, PieceType] = {piece.symbol: piece for piece in PieceType}

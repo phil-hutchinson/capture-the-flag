@@ -28,3 +28,6 @@ Thumbs.db
 
 # Local scratchpad: design notes, plans, and other machine-local material
 .local/
+
+# Prepared phase-1 placement files for the PvP runner (personal, machine-local)
+placements/

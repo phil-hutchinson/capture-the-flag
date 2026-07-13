@@ -11,12 +11,10 @@ string reused by the game-record file and the library-facing `text_board`.
 from collections.abc import Mapping
 
 from .board import BOARD_COLUMNS, BOARD_ROWS, LAKE_SQUARES, Square
-from .pieces import PieceType
+from .pieces import PIECE_BY_SYMBOL, PieceType
 from .side import Side
 
 Board = Mapping[Square, tuple[Side, PieceType]]
-
-_PIECE_BY_SYMBOL = {piece.symbol: piece for piece in PieceType}
 
 
 def _render_cell(square: Square, board: Board) -> str:
@@ -57,7 +55,7 @@ def _parse_cell(cell: str) -> tuple[Side, PieceType] | None:
 
 def _piece_from_symbol(symbol: str) -> PieceType:
     try:
-        return _PIECE_BY_SYMBOL[symbol]
+        return PIECE_BY_SYMBOL[symbol]
     except KeyError:
         raise ValueError(f"Unknown piece symbol: {symbol!r}") from None
 

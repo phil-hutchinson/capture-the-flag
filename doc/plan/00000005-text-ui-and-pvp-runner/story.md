@@ -18,18 +18,32 @@ what lets a developer play against the engines built in later stories.
 
 - **Board display.** A clear text rendering of the full board: pieces of both
   sides distinguishable, lakes visible, and enough context to play from (whose
-  turn it is, pieces captured so far, and the state of the clocks).
-- **Move entry.** Moves typed in the written convention established in story
-  00000004, with helpful rejection of illegal or malformed input (re-prompt,
-  don't crash).
-- **Placement entry.** A way for each player to set up their army secretly
-  before play begins. This need not be elaborate — supplying a prepared
-  placement (e.g. from a file) and/or entering it interactively with the screen
-  cleared between players are both acceptable. A player should also be able to
-  request a random legal placement.
-- **Draw by agreement.** The one rule deferred from story 00000004: a player
-  may offer a draw on their turn; the opponent accepts (game ends drawn) or
-  declines (play continues).
+  turn it is, pieces captured so far, and the state of the clocks). The board
+  itself reuses the position-block rendering already used for game-record
+  files — that renderer draws any board, so only the surrounding status (turn,
+  captures, clocks) is new.
+- **Move entry.** Moves typed in the simple source–destination notation
+  established in story 00000004 (e.g. `A2A3`) — the same form that identifies
+  a ply — with helpful rejection of illegal or malformed input (re-prompt,
+  don't crash). The game log continues to use the extended combat (`-`/`x`)
+  form.
+- **Placement from file.** Rather than an interactive placement UI, each
+  player supplies their setup as a prepared placement file. Files live in a
+  dedicated, gitignored folder in the repository; at placement time the player
+  types a file name, the runner loads it from that folder, and a missing file
+  is an error (re-prompt, don't crash). A player may also request a random
+  legal placement instead of naming a file.
+
+  A placement file is 4 rows of 12 characters, each character one of the
+  one-character piece abbreviations (`1`–`9`, `A`, `T`, `F`). The file is
+  written from the owning player's seat — first line the home row nearest the
+  lakes, last line the back rank, columns left to right as that player sees
+  them — so the same file produces the same setup for either side (for Black
+  this is a 180° rotation of the board frame). A file that is
+  not in this form (wrong row count, wrong row length, unknown character) is
+  rejected with an error saying what is wrong. A file that is in proper form
+  but does not match the army roster is rejected with an explanation of which
+  piece types appear too many times and which too few.
 - **The runner.** An application wiring the above into the shared library's
   game loop for a complete human-vs-human game, announcing the outcome and how
   it was reached.
@@ -44,14 +58,23 @@ experience of playing against an engine is not this story's focus.
   as a longer-term consumer of the ruleset; this story is strictly the
   in-repository terminal experience.
 - Engine opponents themselves (story 00000006 and the AI epic).
+- **Draw by agreement** (rules.md Section 6.6), previously deferred from story
+  00000004 and now deferred again. This interface exists for game testing, not
+  end-user play, so the rule adds nothing until engine opponents can weigh a
+  draw proposal — revisit it when a consider-draw-proposal seam is added to
+  the engine.
+- Interactive placement entry. Placement is supplied by file (or random
+  request) as described above.
 
 ## Acceptance criteria
 
-- Two people can play a complete game in the terminal: secret placement,
-  alternating play, and a correctly announced ending.
+- Two people can play a complete game in the terminal: placement from files
+  (or random request), alternating play, and a correctly announced ending.
 - Every legal move can be entered; illegal and malformed input is rejected with
   a useful message and no loss of game state.
-- Draw offers work as the rulebook describes.
+- Placement-file problems are each reported usefully and re-prompted: a file
+  that doesn't exist, a file not in the 4×12 form, and a well-formed file with
+  the wrong piece distribution (naming the over- and under-supplied types).
 - The display alone gives players everything they need to play correctly,
   including clock states relevant to the inactivity and no-progress rules.
 

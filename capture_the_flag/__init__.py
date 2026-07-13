@@ -25,9 +25,10 @@ from .board import (
 )
 from .breachability import BreachabilityCache
 from .combat import CombatResult, resolve_combat
+from .game_logging import CtfGameLogging
 from .game_ui import CtfGameUI
-from .match import MatchResult, play_match
-from .outcome import compute_outcome
+from .match import MatchResult, build_initial_position, play_match
+from .outcome import compute_outcome, compute_outcome_reason
 from .pieces import ARMY_ROSTER, ARMY_SIZE, Mobility, PieceType
 from .placement import Placement, assemble_position, random_placement
 from .player import CtfPlayer, RandomCtfPlayer
@@ -50,6 +51,7 @@ __all__ = [
     "WHITE_HOME_SQUARES",
     "BreachabilityCache",
     "CombatResult",
+    "CtfGameLogging",
     "CtfGameUI",
     "CtfPlayer",
     "CtfPly",
@@ -63,8 +65,10 @@ __all__ = [
     "Square",
     "apply_ply",
     "assemble_position",
+    "build_initial_position",
     "compute_breachability",
     "compute_outcome",
+    "compute_outcome_reason",
     "orthogonal_neighbors",
     "parse_position_block",
     "parse_square",

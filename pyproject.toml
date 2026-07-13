@@ -7,17 +7,17 @@ name = "capture-the-flag"
 version = "0.1.0"
 requires-python = ">=3.12"
 # game-engine-core is consumed exactly as a third-party consumer would, pinned
-# to a specific commit on GitHub (it is not published to PyPI). Bump this pin
+# to a specific ref on GitHub (it is not published to PyPI). Bump this pin
 # deliberately to adopt a newer game-engine-core — see CONTRIBUTING.md.
 dependencies = [
-    "game-engine-core @ git+https://github.com/phil-hutchinson/game-engine-core.git@b577b3c7b4b7ccdcd567d793e61f39a636cec4bc",
+    "game-engine-core @ git+https://github.com/phil-hutchinson/game-engine-core.git@v0.1.1",
 ]
 
 [project.optional-dependencies]
 # The learning extra pulls game-engine-core's own learning extra (torch/numpy)
 # for the AI training work. Keep the pin identical to the base dependency above.
 learning = [
-    "game-engine-core[learning] @ git+https://github.com/phil-hutchinson/game-engine-core.git@b577b3c7b4b7ccdcd567d793e61f39a636cec4bc",
+    "game-engine-core[learning] @ git+https://github.com/phil-hutchinson/game-engine-core.git@v0.1.1",
 ]
 
 [tool.setuptools.packages.find]

@@ -4,6 +4,13 @@ from types import MappingProxyType
 
 from capture_the_flag.board import Square
 from capture_the_flag.breachability import BreachabilityCache
+from capture_the_flag.outcome import (
+    REASON_FLAG_CAPTURED,
+    REASON_INACTIVITY,
+    REASON_NO_LEGAL_MOVE,
+    REASON_NO_PROGRESS,
+    REASON_UNBREACHABLE_FLAG,
+)
 from capture_the_flag.pieces import PieceType as P
 from capture_the_flag.placement import assemble_position, random_placement
 from capture_the_flag.ply import CtfPly
@@ -296,3 +303,83 @@ def _mutual_sapper_trade_setup(*, black_flag_enclosed: bool) -> CtfPosition:
         progress_counter=0,
         breachability=_INERT_BREACHABILITY,
     )
+
+
+# --- outcome_reason (game-engine-core v0.1.1 GamePosition.outcome_reason) -----
+#
+# Each ending reports a label from `outcome.py`'s reason vocabulary, sharing its
+# branch logic with `outcome` so the two can never disagree. These parallel the
+# outcome tests above, one per reason label plus the ongoing case.
+
+
+def test_ongoing_position_has_no_reason():
+    white = random_placement(Side.WHITE)
+    black = random_placement(Side.BLACK)
+    position = assemble_position(white, black)
+    assert position.outcome is None
+    assert position.outcome_reason is None
+
+
+def test_flag_capture_reason():
+    board = {
+        Square(3, 2): (Side.WHITE, P.INFANTRY),
+        Square(5, 5): (Side.BLACK, P.FLAG),
+    }
+    position = _position(board, side_to_move=Side.WHITE)  # White's flag missing.
+    assert position.outcome_reason == REASON_FLAG_CAPTURED
+
+
+def test_no_legal_move_reason():
+    board = {
+        Square(0, 1): (Side.WHITE, P.FLAG),
+        Square(0, 2): (Side.WHITE, P.TOWER),
+        Square(1, 1): (Side.WHITE, P.TOWER),
+        _BLACK_FLAG_SQUARE: (Side.BLACK, P.FLAG),
+        Square(5, 5): (Side.BLACK, P.INFANTRY),
+    }
+    position = _position(board, side_to_move=Side.WHITE)
+    assert position.legal_plies == ()
+    assert position.outcome_reason == REASON_NO_LEGAL_MOVE
+
+
+def test_inactivity_reason():
+    board = {
+        _WHITE_FLAG_SQUARE: (Side.WHITE, P.FLAG),
+        _BLACK_FLAG_SQUARE: (Side.BLACK, P.FLAG),
+        Square(3, 2): (Side.WHITE, P.INFANTRY),
+        Square(5, 5): (Side.BLACK, P.INFANTRY),
+    }
+    # White to move; Black (the opponent) tripped its inactivity limit last turn.
+    position = _position(board, side_to_move=Side.WHITE, black_inactivity_counter=50)
+    assert position.outcome_reason == REASON_INACTIVITY
+
+
+def test_no_progress_reason():
+    board = {
+        _WHITE_FLAG_SQUARE: (Side.WHITE, P.FLAG),
+        _BLACK_FLAG_SQUARE: (Side.BLACK, P.FLAG),
+        Square(3, 2): (Side.WHITE, P.INFANTRY),
+        Square(5, 5): (Side.BLACK, P.INFANTRY),
+    }
+    position = _position(board, progress_counter=80)
+    assert position.outcome_reason == REASON_NO_PROGRESS
+
+
+def test_unbreachable_flag_reason():
+    cache = BreachabilityCache(
+        white_flag_enclosed=True,
+        black_flag_enclosed=False,
+        white_sappers_available=True,
+        black_sappers_available=False,
+    )
+    board = {
+        _WHITE_FLAG_SQUARE: (Side.WHITE, P.FLAG),
+        _BLACK_FLAG_SQUARE: (Side.BLACK, P.FLAG),
+        Square(3, 2): (Side.WHITE, P.INFANTRY),
+        Square(5, 5): (Side.BLACK, P.INFANTRY),
+    }
+    # Same label whether it reads as a win or a loss for the side to move.
+    white_active = _position(board, side_to_move=Side.WHITE, breachability=cache)
+    black_active = _position(board, side_to_move=Side.BLACK, breachability=cache)
+    assert white_active.outcome_reason == REASON_UNBREACHABLE_FLAG
+    assert black_active.outcome_reason == REASON_UNBREACHABLE_FLAG

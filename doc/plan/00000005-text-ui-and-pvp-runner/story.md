@@ -54,3 +54,16 @@ experience of playing against an engine is not this story's focus.
 - Draw offers work as the rulebook describes.
 - The display alone gives players everything they need to play correctly,
   including clock states relevant to the inactivity and no-progress rules.
+
+## Notes from earlier stories
+
+- **`play_match` / `MatchResult` retained for this story.** Story 00000015
+  moved batch play onto the shared `Tournament` runner, which left
+  `capture_the_flag.match.play_match` (and its `MatchResult`) unused by
+  production code — only tests exercise it. It was deliberately kept rather than
+  removed because this story's human-vs-human runner needs a single-game entry
+  point (secret placement → phase-2 play → announced outcome) that `play_match`
+  already provides. If this story's runner ends up not building on `play_match`,
+  reconsider its retention and remove it (or fold it into the new runner) rather
+  than leaving a second, untested-in-production game-construction path alongside
+  `Tournament._play_game`.

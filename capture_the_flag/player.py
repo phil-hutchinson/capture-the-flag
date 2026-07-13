@@ -20,6 +20,9 @@ from .ply import CtfPly
 from .position import CtfPosition
 from .side import Side
 
+CLEAR_SCREEN = "\033[2J\033[H"
+"""ANSI clear-screen-and-home, printed to wipe the placement dialogue."""
+
 
 class CtfPlayer(Player[CtfPly, CtfPosition], Protocol):
     """A `Player` that can also produce a phase-1 placement.
@@ -70,7 +73,9 @@ class HumanCtfPlayer:
     Placement comes from a placement file named at the prompt — any
     `PlacementFileError` (missing file, malformed file, wrong piece mix) is
     printed and re-prompted — or from typing `random` for a random legal
-    placement. Plies are delegated to the shared `CtfGameUI` prompt, and the
+    placement. Once accepted, the screen is cleared so the typed file name
+    (the only secret in the placement dialogue) is not left visible to the
+    opponent. Plies are delegated to the shared `CtfGameUI` prompt, and the
     board is rendered before every human turn.
 
     `input_fn`/`print_fn` default to the builtins; tests inject scripted
@@ -109,11 +114,15 @@ class HumanCtfPlayer:
         while True:
             text = self._input(prompt).strip()
             if text.lower() == "random":
-                return random_placement(side, self._rng)
+                placement = random_placement(side, self._rng)
+                break
             try:
-                return load_placement_file(text, side, self._placement_dir)
+                placement = load_placement_file(text, side, self._placement_dir)
+                break
             except PlacementFileError as error:
                 self._print(str(error))
+        self._print(f"{CLEAR_SCREEN}{self._name}'s placement is locked in.")
+        return placement
 
     def select_ply(self, position: CtfPosition) -> CtfPly:
         return self._game_ui.get_next_ply(position)

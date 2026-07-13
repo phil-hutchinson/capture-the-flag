@@ -57,6 +57,14 @@ def test_bad_file_names_reprompt_until_a_valid_file(tmp_path):
     assert "Alice (White)" in scripted.prompts[0]
 
 
+def test_accepted_placement_clears_the_screen(tmp_path):
+    scripted = _ScriptedPlayer(["random"], tmp_path)
+    scripted.player.get_placement(Side.WHITE)
+    # The typed dialogue is wiped so the opponent never sees the file name.
+    assert scripted.messages[-1].startswith("\033[2J\033[H")
+    assert "Alice's placement is locked in." in scripted.messages[-1]
+
+
 def test_random_request_yields_a_legal_placement(tmp_path):
     for text, side, home in [
         ("random", Side.WHITE, WHITE_HOME_SQUARES),

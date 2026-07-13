@@ -8,7 +8,7 @@ placement seam, and then hands phase-2 play to the library's unmodified
 """
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, cast
 
 from game_engine_core.game.standard_game import StandardGame
 from game_engine_core.models.game_result import GameResult
@@ -30,6 +30,26 @@ class MatchResult:
     white_placement: Placement
     black_placement: Placement
     game_result: GameResult
+
+
+def build_initial_position(
+    side_one: Player[CtfPly, CtfPosition],
+    side_other: Player[CtfPly, CtfPosition],
+) -> CtfPosition:
+    """Assemble the phase-2 starting position from both players' phase-1 placements.
+
+    This is Capture the Flag's `position_factory` for the shared `Tournament`,
+    matching game-engine-core v0.1.1's widened contract: the runner calls it once
+    per game with the participants in side order — `side_one` moves first (White),
+    `side_other` is Black — with the within-pairing alternation already applied.
+
+    Placement is the game-specific `CtfPlayer.get_placement` seam, which the base
+    `Player` protocol does not carry, so we downcast: a tournament's roster is
+    always built from `CtfPlayer`s.
+    """
+    white_placement = cast(CtfPlayer, side_one).get_placement(Side.WHITE)
+    black_placement = cast(CtfPlayer, side_other).get_placement(Side.BLACK)
+    return assemble_position(white_placement, black_placement)
 
 
 def play_match(

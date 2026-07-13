@@ -1,14 +1,16 @@
 """Game-record file writer (see `doc/ruleset/technical-notes.md`, "Record
 file format").
 
-Assembles a complete record file from a completed `MatchResult`: PGN-style
+Assembles a complete record file from a finished `GameResult`: PGN-style
 header tags, the setup position block, and the move sequence built from
-`StandardGame`'s game log.
+`StandardGame`'s game log. A `GameResult` is what both `play_match` (via
+`MatchResult.game_result`) and the shared `Tournament` (`GameRecord.result`)
+produce, so the writer serves either path.
 """
 
 from collections.abc import Sequence
 
-from .match import MatchResult
+from game_engine_core.models.game_result import GameResult
 
 _RESULT_TAGS = {1: "1-0", -1: "0-1", 0: "1/2-1/2"}
 
@@ -50,7 +52,7 @@ def _build_move_sequence(game_log: Sequence[tuple[str, str]]) -> str:
 
 
 def write_record(
-    match_result: MatchResult,
+    game_result: GameResult,
     *,
     white_name: str | None = None,
     black_name: str | None = None,
@@ -59,22 +61,22 @@ def write_record(
     date: str | None = None,
     round_number: str | None = None,
 ) -> str:
-    """Build a complete game-record file for a finished match.
+    """Build a complete game-record file for a finished game.
 
     `white_name`, `black_name`, `event`, `site`, `date`, and `round_number`
     are best-effort roster tags: each is included only if supplied, and
-    omitted entirely otherwise. `Result` is derived from the match's
-    absolute outcome; `ResultReason` is always `"Unknown"` until
-    `game-engine-core` can surface a termination reason. `Ruleset`, `Result`,
-    and `ResultReason` are always present: `Ruleset` records the ruleset the
-    game was played under (`PRIMARY:<version>`; see `RULESET_VERSION`).
+    omitted entirely otherwise. `Result` is derived from the game's
+    absolute outcome; `ResultReason` is always `"Unknown"` for now (Step 3 of
+    this story replaces it with `game_result.result_reason`). `Ruleset`,
+    `Result`, and `ResultReason` are always present: `Ruleset` records the
+    ruleset the game was played under (`PRIMARY:<version>`; see
+    `RULESET_VERSION`).
 
     Tag values are escaped for the `[Name "value"]` syntax (see
     `_escape_tag_value`): `\\` and `"` are backslash-escaped and newlines are
     collapsed to spaces, so an arbitrary player or event name always yields a
     well-formed, parseable header.
     """
-    game_result = match_result.game_result
     optional_tags = [
         ("Event", event),
         ("Site", site),

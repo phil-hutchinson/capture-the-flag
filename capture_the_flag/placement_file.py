@@ -20,14 +20,12 @@ from collections import Counter
 from pathlib import Path
 
 from .board import BLACK_HOME_ROWS, BOARD_COLUMNS, WHITE_HOME_ROWS, Square
-from .pieces import ARMY_ROSTER, PieceType
+from .pieces import ARMY_ROSTER, PIECE_BY_SYMBOL, PieceType
 from .placement import Placement
 from .side import Side
 
 DEFAULT_PLACEMENT_DIR = Path("placements")
 """Default folder placement files are read from (gitignored)."""
-
-_PIECE_BY_SYMBOL = {piece.symbol: piece for piece in PieceType}
 
 _HOME_ROW_COUNT = len(WHITE_HOME_ROWS)
 
@@ -84,11 +82,11 @@ def parse_placement_file(text: str, side: Side) -> Placement:
                 f"expected {BOARD_COLUMNS}"
             )
         for char_index, symbol in enumerate(line):
-            piece = _PIECE_BY_SYMBOL.get(symbol)
+            piece = PIECE_BY_SYMBOL.get(symbol)
             if piece is None:
                 raise PlacementFileError(
                     f"Row {line_index + 1}: unknown piece character {symbol!r} "
-                    f"(expected one of {', '.join(_PIECE_BY_SYMBOL)})"
+                    f"(expected one of {', '.join(PIECE_BY_SYMBOL)})"
                 )
             placement[_square_for(side, line_index, char_index)] = piece
 

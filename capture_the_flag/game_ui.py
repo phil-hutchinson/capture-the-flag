@@ -6,9 +6,9 @@ Interactive display and input only; game-record rendering (`text_board`,
 
 from game_engine_core.protocols.game_ui import GameUI
 
+from .game_view import render_game_view
 from .ply import CtfPly
 from .position import CtfPosition
-from .rendering import render_position_block
 
 
 class CtfGameUI(GameUI[CtfPly, CtfPosition]):
@@ -16,7 +16,7 @@ class CtfGameUI(GameUI[CtfPly, CtfPosition]):
     (`get_next_ply`) is deferred to the text-UI story (00000005)."""
 
     def render_board(self, position: CtfPosition) -> None:
-        print(render_position_block(position.board))
+        print(render_game_view(position))
 
     def get_next_ply(self, position: CtfPosition) -> CtfPly:
         raise NotImplementedError(

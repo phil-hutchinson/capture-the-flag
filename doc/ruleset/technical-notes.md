@@ -39,9 +39,9 @@ the root `CLAUDE.md`. The two are the same concept: **one move = one ply.**
 
 The move notation in `rules.md` [Section 4.4](rules.md#44-recording-a-move) and
 this file format share one coordinate frame and a common position-block
-rendering. The engine currently emits only the plain move form and the
-from-placement record shape described below; the result-marking move form and
-mid-game records are documented as reserved for later use.
+rendering. The engine emits the result-marking (extended) move form and the
+from-placement record shape described below; mid-game records remain documented
+as reserved for later use.
 
 ### Player colours
 
@@ -116,19 +116,19 @@ Each move may use **either** notation form from `rules.md` Section 4.4: the
 plain form (`L4L3`, source-then-destination, no separator) or the extended
 result-marking form (`L4-L3`, with `x` marking a piece that did not survive).
 A reader must accept both, and the two forms may even be mixed within one
-file. The current reference engine emits only the **plain** form, so a record
-it produces looks like:
-
-```
-20. L4L3 H2H1
-21. K3K2
-```
-
-The same ending written in the extended form (equivalent, and also valid):
+file. The reference engine emits the **extended** form (rendered by
+`CtfGameLogging.ply_annotation`), so a record it produces looks like:
 
 ```
 20. L4-L3 H2-H1x
 21. K3-K2
+```
+
+The same ending written in the plain form (equivalent, and also valid):
+
+```
+20. L4L3 H2H1
+21. K3K2
 ```
 
 **Mid-game records** (format-reserved, not yet implemented): a record whose

@@ -10,6 +10,36 @@ this changelog to know when and how to update.
 
 ---
 
+## Version 1.2 — Story 00000018 — 2026-07-14
+
+This represents a major change to the rules. Note that this would involve a 
+major version update with many breaking changes, but this is a pre-release
+update so it will remain at version level 1.
+
+Updates include:
+
+- **Piece restructuring.** Ranks 7-9 and the assassin were removed. Some
+  of the existing ranks were also renamed, and names moved to different ranks.
+  See [the story](../00000018-revamp-rules/story.md) for all details.
+- **Special ability removal.** Special abilities for ranked pieces have been
+  removed (no more Knight charges, Skirmisher rushes, Archer support, or Sapper
+  tower destruction).
+- **Formation ability.** The formation ability, affecting ranked pieces in
+  general, has been added. A piece with an equal-ranked ally adjacent to it
+  draws against a piece one rank higher, rather than losing.
+- **Unencumbered bonus.** The unencumbered bonus, affecting movement, has
+  been added to all movable pieces. Pieces may move two squares orthogonally
+  when unencumbered (no enemy pieces in the 8 surrounding squares).
+- **Tower placement.** Towers may no longer be placed next to each other,
+  making it impossible for them to surround the flag. Mechanics related to
+  flag breachability (including the victory method) have also been removed.
+- **Tower combat.** Any piece may now attack a tower, resulting in a draw
+  (both the tower and attacking piece are removed).
+- **Inactivity game ends.** There is now only a single game-ending condition
+  for inactivity—a draw triggered by 50 consecutive non-attacking plies. The
+  previous dual-counter system (per-player inactivity loss + shared progress
+  counter) has been consolidated into this single shared counter.
+
 ## Version 1.1 — Story 00000004 — 2026-07-09
 
 Added the coordinate system and move notation to the player-facing rules, now

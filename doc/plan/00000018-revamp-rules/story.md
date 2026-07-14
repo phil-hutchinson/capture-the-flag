@@ -87,6 +87,17 @@ All pieces follow the same movement and combat rules with no exceptions:
 - No Archer support
 - No Sapper tower destruction (towers can only be removed by any piece attacking them)
 
+### Ruleset Tagging
+
+Change the ruleset tag written into game records:
+
+- **Format:** flip the order to `{RULESET_VERSION}:{RULESET_NAME}` (was
+  `{RULESET_NAME}:{RULESET_VERSION}`).
+- **Name:** change the ruleset name to `PRE-RELEASE` (was `PRIMARY`).
+- **Version:** bump to the new version (`1.2`) as part of this revamp.
+
+The resulting tag value becomes `1.2:PRE-RELEASE`.
+
 ## Acceptance Criteria
 
 - Ruleset document updated to reflect all changes

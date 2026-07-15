@@ -1,9 +1,9 @@
 # capture-the-flag
 
 A two-phase, perfect-information battlefield board game with an AI that learns to play
-it. Phase 1 is secret simultaneous placement of 48 pieces per side; phase 2 is
+it. Phase 1 is secret simultaneous placement of 25 pieces per side; phase 2 is
 alternating, fully visible play on a 12x12 board until a flag is captured (or a
-structural "no hope" / no-progress condition resolves the game).
+player is left with no legal move, or an inactivity limit forces a draw).
 
 The game is built on [game-engine-core](https://github.com/phil-hutchinson/game-engine-core),
 which provides the game-agnostic engine, MCTS/PUCT search, and learning
@@ -59,13 +59,14 @@ python -m capture_the_flag.pvp_runner --white Alice --black Bob
 Each player supplies their phase-1 setup at a prompt: either the name of a
 placement file read from the gitignored `placements/` folder
 (`-p`/`--placements-dir` overrides the folder), or `random` for a random legal
-placement. A placement file is 4 rows of 12 one-character piece symbols
-(`1`–`9`, `A`, `T`, `F`), written from the owning player's seat — first line
-nearest the lakes, last line the back rank — so the same file produces the
+placement. A placement file is 4 rows of 12 characters — each a one-character
+piece symbol (`1`–`6`, `T`, `F`) or `-` for an empty square, since only 25 of
+the 48 home squares are filled — written from the owning player's seat (first
+line nearest the lakes, last line the back rank), so the same file produces the
 same setup for either side. Moves are typed in the simple source–destination
 notation (e.g. `A2A3`); malformed or illegal input re-prompts with an
 explanation, and each turn's display shows the coordinate-labelled board,
-captured pieces, and the inactivity and no-progress clocks.
+captured pieces, and the inactivity clock.
 
 ## Development
 

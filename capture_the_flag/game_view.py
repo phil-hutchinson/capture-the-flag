@@ -4,16 +4,16 @@ Composes the shared position block — labelled with the coordinate frame the
 move notation uses, which the record format leaves off — with the game status
 read straight from a `CtfPosition`: whose turn it is, each side's captured
 pieces so far (derived by diffing the board against the army roster, so no
-capture history is threaded through the game), and the three clocks with
-their limits, so players can apply the inactivity and no-progress rules
-(Sections 6.4-6.5).
+capture history is threaded through the game), and the shared inactivity
+counter against its limit, so players can apply the inactivity rule
+(Section 5.3).
 """
 
 from collections import Counter
 from string import ascii_uppercase
 
 from .board import BOARD_COLUMNS, BOARD_ROWS
-from .outcome import INACTIVITY_LIMIT, PROGRESS_LIMIT
+from .outcome import INACTIVITY_LIMIT
 from .pieces import ARMY_ROSTER, PieceType
 from .position import CtfPosition
 from .rendering import render_position_block
@@ -56,8 +56,5 @@ def render_game_view(position: CtfPosition) -> str:
         f"{side_name} to move\n"
         f"Captured — White: {_captured_summary(position, Side.WHITE)}\n"
         f"Captured — Black: {_captured_summary(position, Side.BLACK)}\n"
-        f"Clocks — inactivity White "
-        f"{position.white_inactivity_counter}/{INACTIVITY_LIMIT}, "
-        f"Black {position.black_inactivity_counter}/{INACTIVITY_LIMIT}; "
-        f"no-progress {position.progress_counter}/{PROGRESS_LIMIT}"
+        f"Inactivity — {position.inactivity_counter}/{INACTIVITY_LIMIT}"
     )

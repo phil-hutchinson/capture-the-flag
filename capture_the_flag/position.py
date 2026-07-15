@@ -1,10 +1,9 @@
 """Immutable game-state container for Capture the Flag.
 
 `CtfPosition` fully implements `game-engine-core`'s `GamePosition` protocol:
-board occupancy, side to move, the three clocks (Sections 6.4-6.5), and the
-cached Unbreachable Flag data (Section 6.2), plus `legal_plies`,
-`apply_ply`, `outcome`, and `outcome_reason`, which are computed from that
-state.
+board occupancy, side to move, the single inactivity counter (rules.md Section
+5.3), plus `legal_plies`, `apply_ply`, `outcome`, and `outcome_reason`, which are
+computed from that state.
 """
 
 from collections.abc import Mapping
@@ -12,7 +11,6 @@ from dataclasses import dataclass
 from typing import Literal
 
 from .board import Square
-from .breachability import BreachabilityCache
 from .moves import legal_plies as _legal_plies
 from .outcome import compute_outcome as _compute_outcome
 from .outcome import compute_outcome_reason as _compute_outcome_reason
@@ -25,21 +23,15 @@ from .side import Side
 class CtfPosition:
     """A single, immutable point-in-time game state.
 
-    `board` maps an occupied square to the `(Side, PieceType)` standing on
-    it; a square absent from `board` is empty. `breachability` is the cached
-    Unbreachable Flag data (Section 6.2): `placement.assemble_position`
-    populates it at game start and `transitions.apply_ply` maintains it,
-    recomputing only on a ply that removes a Tower or Sapper. The `None`
-    default is a convenience for tests that construct a bare position and do
-    not exercise the 6.2 ending, not a real in-game state.
+    `board` maps an occupied square to the `(Side, PieceType)` standing on it; a
+    square absent from `board` is empty. `inactivity_counter` is the single
+    shared clock (rules.md Section 5.3): it rises by 1 on every non-capturing ply
+    and resets to 0 on any attack that removes a piece.
     """
 
     board: Mapping[Square, tuple[Side, PieceType]]
     side_to_move: Side
-    white_inactivity_counter: int
-    black_inactivity_counter: int
-    progress_counter: int
-    breachability: BreachabilityCache | None = None
+    inactivity_counter: int
 
     @property
     def active_player_id(self) -> Literal[1, -1]:
@@ -53,18 +45,18 @@ class CtfPosition:
 
     def apply_ply(self, ply: CtfPly) -> "CtfPosition":
         """The successor position after applying `ply` (rules.md Sections
-        4.3, 6.4, 6.5)."""
+        4.3, 5.3)."""
         from .transitions import apply_ply as _apply_ply
 
         return _apply_ply(self, ply)
 
     @property
     def outcome(self) -> Literal[1, 0, -1] | None:
-        """Current-player-relative outcome (rules.md Section 6)."""
+        """Current-player-relative outcome (rules.md Section 5)."""
         return _compute_outcome(self)
 
     @property
     def outcome_reason(self) -> str | None:
-        """Why the game ended (rules.md Section 6): a short label once `outcome`
+        """Why the game ended (rules.md Section 5): a short label once `outcome`
         is non-`None`, else `None`. Recorded as `ResultReason` in game records."""
         return _compute_outcome_reason(self)

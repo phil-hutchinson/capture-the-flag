@@ -14,7 +14,6 @@ from types import MappingProxyType
 from .board import BLACK_HOME_SQUARES, WHITE_HOME_SQUARES, Square
 from .pieces import ARMY_ROSTER, PieceType
 from .position import CtfPosition
-from .reachability import compute_breachability
 from .side import Side
 
 Placement = Mapping[Square, PieceType]
@@ -57,7 +56,7 @@ def assemble_position(
     white_placement: Placement, black_placement: Placement
 ) -> CtfPosition:
     """Build the phase-2 starting `CtfPosition` from a White and a Black
-    placement: White to move, all clocks at 0.
+    placement: White to move, the inactivity counter at 0.
     """
     _validate_placement(Side.WHITE, white_placement)
     _validate_placement(Side.BLACK, black_placement)
@@ -71,8 +70,5 @@ def assemble_position(
     return CtfPosition(
         board=MappingProxyType(board),
         side_to_move=Side.WHITE,
-        white_inactivity_counter=0,
-        black_inactivity_counter=0,
-        progress_counter=0,
-        breachability=compute_breachability(board),
+        inactivity_counter=0,
     )

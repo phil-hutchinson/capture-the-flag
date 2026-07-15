@@ -12,9 +12,7 @@ def _position(board: dict, side_to_move: Side = Side.WHITE) -> CtfPosition:
     return CtfPosition(
         board=MappingProxyType(board),
         side_to_move=side_to_move,
-        white_inactivity_counter=0,
-        black_inactivity_counter=0,
-        progress_counter=0,
+        inactivity_counter=0,
     )
 
 

@@ -22,11 +22,12 @@ training — not in plumbing.
 
 - **Position presentation.** A faithful encoding of a game position as network
   input, always from the perspective of the player to move. Alongside the
-  board itself, this includes facts the rules already compute that would be
-  needlessly hard for a network to rediscover — which Flags are walled in,
-  which Sappers are available, and the clock states. (This is within the
-  epic's pure-discovery constraint: these are facts derived from the rules,
-  with no judgment attached about whether they are good or bad.)
+  board itself, this includes the inactivity clock — the count of consecutive
+  non-attacking plies toward the 50-ply draw. The clock is state, not
+  something derivable from the board, so the same arrangement of pieces is a
+  genuinely different position depending on how close it is to the draw.
+  (This is within the epic's pure-discovery constraint: it is a fact derived
+  from the rules, with no judgment attached about whether it is good or bad.)
 - **The network.** A model sized for this board and for training on a single
   workstation, producing both a judgment of the position and preferences over
   moves.
@@ -48,9 +49,8 @@ training — not in plumbing.
 
 - The untrained engine plays complete legal games at volume through the shared
   library, with no errors, against random and reference opponents.
-- Position encoding is covered by tests, including the rule-derived facts
-  (enclosure, Sapper availability, clocks) on positions constructed to
-  exercise them.
+- Position encoding is covered by tests, including the rule-derived clock
+  state, on positions constructed to exercise it.
 - The move-preference decoding is covered by tests: only legal moves receive
   probability, and the distribution is well-formed in every tested position.
 - The pieces fit the shared library's training machinery as-is, so story

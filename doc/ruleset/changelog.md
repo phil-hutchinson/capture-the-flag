@@ -39,6 +39,8 @@ Updates include:
   for inactivity—a draw triggered by 50 consecutive non-attacking plies. The
   previous dual-counter system (per-player inactivity loss + shared progress
   counter) has been consolidated into this single shared counter.
+- **Colour standard.** The overview now states explicitly that the two sides are
+  designated White and Black, the standard used for pieces and coordinates.
 
 ## Version 1.1 — Story 00000004 — 2026-07-09
 

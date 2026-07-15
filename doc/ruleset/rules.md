@@ -19,6 +19,14 @@ also other ways to win or end the game — see [Section 5](#5-ending-the-game).
 Throughout these rules, a **move** is a single action taken by one player on their
 turn. (One full round is two moves: one per player.)
 
+The two sides are designated **White** and **Black**, with White identifying
+the player that moves first after piece placement. These colours name the
+players throughout these rules — for example when recording moves (see
+[Section 4.4](#44-recording-a-move)) — and are the standard used for pieces and
+coordinates. The side assignment is settled before placement begins, and
+other than the first move it carries no inherent advantage
+(see [Section 3](#3-setup--phase-1-placement)).
+
 ---
 
 ## 2. Components
@@ -83,8 +91,9 @@ All pieces follow the same movement and combat rules with no special abilities.
   edges or next to lakes.)
 - There are **no restrictions on where pieces other than towers are placed**,
   subject to the rule that they must be placed in their home zone.
-- **Turn order is fixed before placement begins** (by lot or by tournament
-  schedule) and **both players know who moves first while they place.**
+- **Sides are assigned before placement begins** (by lot or by tournament
+  schedule): one player is **White**, the other **Black**. White moves first
+  once play begins, so **both players know who moves first while they place.**
 
 Once both armies are revealed, the game proceeds to Phase 2.
 
@@ -153,8 +162,9 @@ two forms that these rules refer to by name:
 - **Complete sacrifice** — the attacker is removed and the defender survives
   (for example, attacking a stronger piece). You lose your piece and remove nothing.
 - **Partial sacrifice** — the attacker is removed and so is the defender (any
-  mutual-loss result you initiate — an equal-rank attack or a tower attack). 
-  You trade your piece for the defender's.
+  mutual-loss result you initiate — an equal-rank attack, a formation-bonus draw
+  against a piece one rank higher, or a tower attack). You trade your piece for
+  the defender's.
 
 Sacrificial attacks are legal and reset the inactivity counter (see [Section 5.3](#53-draw--inactivity)).
 

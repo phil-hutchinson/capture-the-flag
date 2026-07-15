@@ -48,8 +48,11 @@ def _towers_too_close(a: Square, b: Square) -> bool:
 
 
 def random_placement(side: Side, rng: random.Random | None = None) -> Placement:
-    """A uniformly random legal placement for `side`: pieces dropped onto the
-    board (never the inverse), Towers first so their spacing is easy to honour.
+    """A near-uniformly random legal placement for `side`: pieces dropped onto
+    the board (never the inverse), Towers first so their spacing is easy to
+    honour. Non-Tower arrangements are drawn uniformly; the greedy Tower-first
+    walk keeps every layout legal but leaves the Tower configuration only
+    approximately uniform, which is sufficient for random play and test data.
 
     `rng` defaults to a fresh `random.Random()`; pass a seeded one for
     reproducible output.

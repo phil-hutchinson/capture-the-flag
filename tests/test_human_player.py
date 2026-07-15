@@ -11,9 +11,16 @@ from capture_the_flag.ply import CtfPly
 from capture_the_flag.position import CtfPosition
 from capture_the_flag.side import Side
 
-# Same 4x12 fixture shape as test_placement_file: all 48 symbols in enum order.
-_SYMBOLS = "".join(piece.symbol * piece.army_count for piece in PieceType)
-VALID_TEXT = "\n".join(_SYMBOLS[i : i + 12] for i in range(0, 48, 12))
+# Same 4x12 fixture shape as test_placement_file: a valid 25-piece setup with
+# `-` empty squares padding the grid to a full 4 rows of 12.
+VALID_TEXT = "\n".join(
+    [
+        "123456123456",
+        "123456------",
+        "T-T-T-T-T-T-",
+        "-----------F",
+    ]
+)
 
 
 class _ScriptedPlayer:
@@ -71,7 +78,8 @@ def test_random_request_yields_a_legal_placement(tmp_path):
         ("RANDOM", Side.BLACK, BLACK_HOME_SQUARES),
     ]:
         placement = _ScriptedPlayer([text], tmp_path).player.get_placement(side)
-        assert set(placement.keys()) == home
+        assert placement.keys() <= home  # 25 of the 48 home squares filled
+        assert len(placement) == 25
         counts: dict[PieceType, int] = {}
         for piece in placement.values():
             counts[piece] = counts.get(piece, 0) + 1
@@ -80,11 +88,9 @@ def test_random_request_yields_a_legal_placement(tmp_path):
 
 def test_select_ply_delegates_to_the_ui_prompt(tmp_path):
     position = CtfPosition(
-        board=MappingProxyType({Square(3, 2): (Side.WHITE, PieceType.INFANTRY)}),
+        board=MappingProxyType({Square(3, 2): (Side.WHITE, PieceType.FOOT_SOLDIER)}),
         side_to_move=Side.WHITE,
-        white_inactivity_counter=0,
-        black_inactivity_counter=0,
-        progress_counter=0,
+        inactivity_counter=0,
     )
     scripted = _ScriptedPlayer([], tmp_path, ui_inputs=["D2D3"])
     assert scripted.player.select_ply(position) == CtfPly(Square(3, 2), Square(3, 3))

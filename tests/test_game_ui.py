@@ -16,9 +16,7 @@ def _position(board: dict, side_to_move: Side = Side.WHITE) -> CtfPosition:
     return CtfPosition(
         board=MappingProxyType(board),
         side_to_move=side_to_move,
-        white_inactivity_counter=0,
-        black_inactivity_counter=0,
-        progress_counter=0,
+        inactivity_counter=0,
     )
 
 
@@ -50,7 +48,7 @@ def test_parse_ply_rejects_malformed_text():
 
 def test_legal_move_is_returned_and_prompt_names_the_side():
     scripted = _ScriptedUI(["d2d3"])  # lowercase is accepted
-    position = _position({Square(3, 2): (Side.WHITE, P.INFANTRY)})
+    position = _position({Square(3, 2): (Side.WHITE, P.FOOT_SOLDIER)})
     ply = scripted.ui.get_next_ply(position)
     assert ply == CtfPly(Square(3, 2), Square(3, 3))
     assert "White to move" in scripted.prompts[0]
@@ -59,7 +57,7 @@ def test_legal_move_is_returned_and_prompt_names_the_side():
 
 def test_malformed_input_reprompts_with_a_message():
     scripted = _ScriptedUI(["banana", "D2D3"])
-    position = _position({Square(3, 2): (Side.WHITE, P.INFANTRY)})
+    position = _position({Square(3, 2): (Side.WHITE, P.FOOT_SOLDIER)})
     ply = scripted.ui.get_next_ply(position)
     assert ply == CtfPly(Square(3, 2), Square(3, 3))
     assert len(scripted.messages) == 1
@@ -68,21 +66,22 @@ def test_malformed_input_reprompts_with_a_message():
 
 def test_illegal_moves_reprompt_naming_the_problem():
     board = {
-        Square(3, 2): (Side.WHITE, P.INFANTRY),
+        Square(3, 2): (Side.WHITE, P.FOOT_SOLDIER),
         Square(0, 12): (Side.BLACK, P.MILITIA),
     }
-    scripted = _ScriptedUI(["E5E6", "A12A11", "D2D4", "D2D3"])
+    # D2D5 is three squares — too far even for an unencumbered piece.
+    scripted = _ScriptedUI(["E5E6", "A12A11", "D2D5", "D2D3"])
     ply = scripted.ui.get_next_ply(_position(board))
     assert ply == CtfPly(Square(3, 2), Square(3, 3))
     assert scripted.messages == [
         "Illegal move: no piece on E5.",
         "Illegal move: the piece on A12 is not yours.",
-        "Illegal move: your Infantry on D2 cannot move to D4.",
+        "Illegal move: your Foot Soldier on D2 cannot move to D5.",
     ]
 
 
 def test_rejection_does_not_disturb_the_position():
-    position = _position({Square(3, 2): (Side.WHITE, P.INFANTRY)})
+    position = _position({Square(3, 2): (Side.WHITE, P.FOOT_SOLDIER)})
     before = (dict(position.board), position.side_to_move)
     scripted = _ScriptedUI(["nonsense", "E5E6", "D2D3"])
     scripted.ui.get_next_ply(position)

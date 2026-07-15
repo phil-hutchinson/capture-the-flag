@@ -24,7 +24,6 @@ from .board import (
     parse_square,
     path_between,
 )
-from .breachability import BreachabilityCache
 from .combat import CombatResult, resolve_combat
 from .game_logging import CtfGameLogging
 from .game_ui import CtfGameUI
@@ -42,7 +41,6 @@ from .placement_file import (
 from .player import CtfPlayer, HumanCtfPlayer, RandomCtfPlayer
 from .ply import CtfPly, parse_ply
 from .position import CtfPosition
-from .reachability import compute_breachability
 from .record import write_record
 from .rendering import parse_position_block, render_position_block
 from .side import Side
@@ -58,7 +56,6 @@ __all__ = [
     "LAKE_SQUARES",
     "WHITE_HOME_SQUARES",
     "DEFAULT_PLACEMENT_DIR",
-    "BreachabilityCache",
     "CombatResult",
     "CtfGameLogging",
     "CtfGameUI",
@@ -77,7 +74,6 @@ __all__ = [
     "apply_ply",
     "assemble_position",
     "build_initial_position",
-    "compute_breachability",
     "compute_outcome",
     "compute_outcome_reason",
     "load_placement_file",

@@ -1,10 +1,12 @@
 """Placement files: a prepared phase-1 setup read from a text file.
 
-A placement file is 4 rows of 12 one-character piece symbols
-(`PieceType.symbol`: `1`-`9`, `A`, `T`, `F`), written from the owning
-player's seat — the first line is the home row nearest the lakes, the last
-line the back rank, columns left to right as that player sees them. The same
-file therefore produces the same setup for either side; mapping it onto
+A placement file is 4 rows of 12 characters, written from the owning player's
+seat — the first line is the home row nearest the lakes, the last line the back
+rank, columns left to right as that player sees them. Each character is either a
+one-character piece symbol (`PieceType.symbol`: `1`-`6`, `T`, `F`) or `-` for an
+empty square. The full 4×12 grid is always written even though only 25 of the 48
+squares are filled, so every row is 12 characters, padding the rest with `-`. The
+same file therefore produces the same setup for either side; mapping it onto
 Black's home squares is a 180-degree rotation of the board frame.
 
 `parse_placement_file` turns file text into a `Placement`;
@@ -28,6 +30,7 @@ DEFAULT_PLACEMENT_DIR = Path("placements")
 """Default folder placement files are read from (gitignored)."""
 
 _HOME_ROW_COUNT = len(WHITE_HOME_ROWS)
+_EMPTY_SQUARE = "-"
 
 
 class PlacementFileError(ValueError):
@@ -42,8 +45,9 @@ def _square_for(side: Side, line_index: int, char_index: int) -> Square:
 
 def _check_roster(placement: Placement) -> None:
     counts = Counter(placement.values())
-    # A parsed file always yields 48 pieces, so any surplus in one type is
-    # matched by a shortfall in another; report both directions by name.
+    # The 25 filled squares must match the roster exactly; report every type
+    # that appears too many or too few times (either can occur independently,
+    # since the empty-square count is not fixed).
     too_many = [p for p in PieceType if counts[p] > ARMY_ROSTER[p]]
     too_few = [p for p in PieceType if counts[p] < ARMY_ROSTER[p]]
     if not too_many and not too_few:
@@ -63,8 +67,9 @@ def _check_roster(placement: Placement) -> None:
 def parse_placement_file(text: str, side: Side) -> Placement:
     """Parse placement-file `text` into a `Placement` for `side`.
 
-    Raises `PlacementFileError` if the text is not 4 rows of 12 known piece
-    symbols, or if the piece mix does not match the army roster.
+    Raises `PlacementFileError` if the text is not 4 rows of 12 characters, each
+    a known piece symbol or `-` (empty), or if the filled squares do not match
+    the army roster.
     """
     lines = text.splitlines()
     while lines and lines[-1] == "":
@@ -82,11 +87,14 @@ def parse_placement_file(text: str, side: Side) -> Placement:
                 f"expected {BOARD_COLUMNS}"
             )
         for char_index, symbol in enumerate(line):
+            if symbol == _EMPTY_SQUARE:
+                continue
             piece = PIECE_BY_SYMBOL.get(symbol)
             if piece is None:
                 raise PlacementFileError(
                     f"Row {line_index + 1}: unknown piece character {symbol!r} "
-                    f"(expected one of {', '.join(PIECE_BY_SYMBOL)})"
+                    f"(expected one of {', '.join(PIECE_BY_SYMBOL)} or "
+                    f"{_EMPTY_SQUARE!r} for empty)"
                 )
             placement[_square_for(side, line_index, char_index)] = piece
 

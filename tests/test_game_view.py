@@ -44,7 +44,7 @@ def test_start_position_status_lines():
     assert "White to move" in view
     assert "Captured — White: none" in view
     assert "Captured — Black: none" in view
-    assert "inactivity White 0/50, Black 0/50; no-progress 0/80" in view
+    assert "Inactivity — 0/50" in view
 
 
 def test_captured_pieces_are_derived_from_the_board():
@@ -52,24 +52,22 @@ def test_captured_pieces_are_derived_from_the_board():
         _start_position(),
         [
             (Side.BLACK, PieceType.KNIGHT, 2),
-            (Side.BLACK, PieceType.SAPPER, 1),
+            (Side.BLACK, PieceType.HALBERDIER, 1),
             (Side.WHITE, PieceType.MILITIA, 1),
         ],
     )
     view = render_game_view(position)
     # Multiples get a count, singles just the name, in piece-rank order.
-    assert "Captured — Black: Knight x2, Sapper" in view
+    assert "Captured — Black: Knight x2, Halberdier" in view
     assert "Captured — White: Militia" in view
 
 
-def test_turn_and_clock_lines_report_the_position_fields():
+def test_turn_and_clock_line_reports_the_position_fields():
     position = replace(
         _start_position(),
         side_to_move=Side.BLACK,
-        white_inactivity_counter=3,
-        black_inactivity_counter=7,
-        progress_counter=12,
+        inactivity_counter=7,
     )
     view = render_game_view(position)
     assert "Black to move" in view
-    assert "inactivity White 3/50, Black 7/50; no-progress 12/80" in view
+    assert "Inactivity — 7/50" in view

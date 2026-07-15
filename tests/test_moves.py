@@ -4,7 +4,6 @@ from types import MappingProxyType
 
 from capture_the_flag.board import Square
 from capture_the_flag.pieces import PieceType as P
-from capture_the_flag.placement import assemble_position, random_placement
 from capture_the_flag.position import CtfPosition
 from capture_the_flag.side import Side
 
@@ -13,9 +12,7 @@ def _position(board: dict, side_to_move: Side = Side.WHITE) -> CtfPosition:
     return CtfPosition(
         board=MappingProxyType(board),
         side_to_move=side_to_move,
-        white_inactivity_counter=0,
-        black_inactivity_counter=0,
-        progress_counter=0,
+        inactivity_counter=0,
     )
 
 
@@ -23,30 +20,78 @@ def _ply_strings(position: CtfPosition) -> set[str]:
     return {str(ply) for ply in position.legal_plies}
 
 
-def test_baseline_piece_moves_to_all_open_orthogonal_neighbors():
-    # D2 is deep in White's home zone (rows 1-4): no lakes anywhere near it.
-    position = _position({Square(3, 2): (Side.WHITE, P.INFANTRY)})
-    assert _ply_strings(position) == {"D2D3", "D2D1", "D2E2", "D2C2"}
+def _own_plies(position: CtfPosition, prefix: str) -> set[str]:
+    return {s for s in _ply_strings(position) if s.startswith(prefix)}
 
 
-def test_baseline_piece_blocked_by_friendly_and_can_attack_enemy():
+def test_unencumbered_piece_moves_one_or_two_squares_orthogonally():
+    # D2 is deep in White's home zone (rows 1-4) with no enemy nearby, so it is
+    # unencumbered and may step one or two squares in every clear direction.
+    position = _position({Square(3, 2): (Side.WHITE, P.FOOT_SOLDIER)})
+    assert _ply_strings(position) == {
+        "D2D3",
+        "D2D4",  # two squares north
+        "D2D1",  # one square south (row 0 is off-board)
+        "D2E2",
+        "D2F2",  # two squares east
+        "D2C2",
+        "D2B2",  # two squares west
+    }
+
+
+def test_two_square_move_needs_a_clear_intermediate_square():
+    # A friendly piece at D3 blocks the north direction entirely (it never
+    # causes encumbrance -- only enemies do -- so D2 stays unencumbered).
     board = {
-        Square(3, 2): (Side.WHITE, P.INFANTRY),
-        Square(3, 3): (Side.WHITE, P.MILITIA),  # friendly: blocks north
-        Square(3, 1): (Side.BLACK, P.MILITIA),  # enemy: attackable south
+        Square(3, 2): (Side.WHITE, P.FOOT_SOLDIER),
+        Square(3, 3): (Side.WHITE, P.MILITIA),
     }
     position = _position(board)
-    # The friendly Militia at D3 is also White's to move and contributes its
-    # own plies, so restrict the check to the Infantry's own moves (D2...).
-    infantry_plies = {s for s in _ply_strings(position) if s.startswith("D2")}
-    assert infantry_plies == {"D2D1", "D2E2", "D2C2"}
+    north = {s for s in _own_plies(position, "D2") if s in {"D2D3", "D2D4"}}
+    assert north == set()  # neither the blocked step nor the hop past it
+    assert {"D2E2", "D2F2"} <= _own_plies(position, "D2")  # other directions open
+
+
+def test_encumbered_piece_is_limited_to_one_square():
+    # A diagonally-adjacent enemy at E3 encumbers D2 without blocking any
+    # orthogonal step, so every legal move is a single square.
+    board = {
+        Square(3, 2): (Side.WHITE, P.FOOT_SOLDIER),
+        Square(4, 3): (Side.BLACK, P.MILITIA),
+    }
+    position = _position(board)
+    assert _own_plies(position, "D2") == {"D2D3", "D2D1", "D2E2", "D2C2"}
+
+
+def test_encumbered_piece_can_still_attack_an_adjacent_enemy():
+    # An orthogonally-adjacent enemy both encumbers the piece and is attackable.
+    board = {
+        Square(3, 2): (Side.WHITE, P.FOOT_SOLDIER),
+        Square(3, 3): (Side.BLACK, P.MILITIA),
+    }
+    position = _position(board)
+    assert _own_plies(position, "D2") == {"D2D3", "D2D1", "D2E2", "D2C2"}
+
+
+def test_unencumbered_two_square_attack_at_distance_two():
+    # An enemy two squares north (E-W/N-S distance 2, so outside the eight
+    # surrounding squares) leaves D2 unencumbered; the empty D3 in between lets
+    # it attack at distance two.
+    board = {
+        Square(3, 2): (Side.WHITE, P.FOOT_SOLDIER),
+        Square(3, 4): (Side.BLACK, P.MILITIA),
+    }
+    position = _position(board)
+    strings = _own_plies(position, "D2")
+    assert "D2D3" in strings  # step onto the empty intermediate square
+    assert "D2D4" in strings  # attack the enemy at distance two
 
 
 def test_sacrificial_attack_is_legal_regardless_of_rank():
-    # A lowly Infantry may attack the Lord Marshal even though it will lose.
+    # A lowly Militia may attack the Master-of-Arms even though it will lose.
     board = {
-        Square(3, 2): (Side.WHITE, P.INFANTRY),
-        Square(3, 3): (Side.BLACK, P.LORD_MARSHAL),
+        Square(3, 2): (Side.WHITE, P.MILITIA),
+        Square(3, 3): (Side.BLACK, P.MASTER_OF_ARMS),
     }
     position = _position(board)
     assert "D2D3" in _ply_strings(position)
@@ -61,114 +106,31 @@ def test_immobile_pieces_have_no_plies():
     assert position.legal_plies == ()
 
 
-def test_knight_baseline_step_and_charge():
-    # Column D (index 3) is open in both lake rows, so a vertical charge has
-    # a clear line all the way from row 5 to row 8.
-    board = {
-        Square(3, 5): (Side.WHITE, P.KNIGHT),
-        Square(3, 8): (Side.BLACK, P.MILITIA),  # 3 squares north, clear line
-    }
-    position = _position(board)
-    strings = _ply_strings(position)
-    # Only the Knight is White's to move, so the exact set is expected.
-    assert strings == {
-        "D5D6",  # 1-square step north (not a charge)
-        "D5D8",  # 3-square charge landing on the enemy
-        "D5D4",  # 1-square step south
-        "D5E5",  # 1-square step east
-        "D5C5",  # 1-square step west
-    }
-    # D5D7 (a 2-square hop onto the empty square in between) must be absent:
-    # a Knight's multi-square move is only legal when it ends in an attack.
-    assert "D5D7" not in strings
-
-
-def test_knight_non_attacking_move_limited_to_one_square():
-    # Nothing at distance 2/3 north, so those squares must NOT appear as
-    # non-attack "moves" -- a Knight's multi-square move is attack-only.
-    board = {Square(3, 5): (Side.WHITE, P.KNIGHT)}
-    position = _position(board)
-    strings = _ply_strings(position)
-    assert "D5D6" in strings
-    assert "D5D7" not in strings
-    assert "D5D8" not in strings
-
-
-def test_knight_charge_forbidden_against_halberdier_but_adjacent_attack_allowed():
-    board = {
-        Square(3, 5): (Side.WHITE, P.KNIGHT),
-        Square(3, 7): (Side.BLACK, P.HALBERDIER),  # 2-square charge target
-        Square(3, 4): (Side.BLACK, P.HALBERDIER),  # adjacent attack target
-    }
-    position = _position(board)
-    strings = _ply_strings(position)
-    assert "D5D7" not in strings  # charge vs. Halberdier: forbidden
-    assert "D5D4" in strings  # adjacent attack vs. Halberdier: allowed
-
-
-def test_knight_charge_blocked_by_intervening_piece():
-    board = {
-        Square(3, 5): (Side.WHITE, P.KNIGHT),
-        Square(3, 6): (Side.WHITE, P.MILITIA),  # friendly blocks the line
-        Square(3, 7): (Side.BLACK, P.MILITIA),
-    }
-    position = _position(board)
-    strings = _ply_strings(position)
-    assert "D5D6" not in strings  # friendly-occupied: no move onto it
-    assert "D5D7" not in strings  # and the charge cannot pass through it
-
-
-def test_knight_charge_blocked_by_lake():
-    # Column F (index 5) is a lake column in both lake rows (6, 7), so
-    # anything north of F5 is unreachable; south (F4) is unaffected.
-    board = {Square(5, 5): (Side.WHITE, P.KNIGHT)}
-    position = _position(board)
-    strings = _ply_strings(position)
+def test_movement_blocked_and_bounded_by_a_lake():
+    # Column F (index 5) is a lake column in both lake rows (6, 7): F5 cannot
+    # move north at all, but south and sideways remain open.
+    position = _position({Square(5, 5): (Side.WHITE, P.FOOT_SOLDIER)})
+    strings = _own_plies(position, "F5")
     assert "F5F6" not in strings
     assert "F5F7" not in strings
-    assert "F5F8" not in strings
-    assert "F5F4" in strings
-
-
-def test_skirmisher_rush_up_to_three_squares_move_or_attack():
-    board = {
-        Square(0, 5): (Side.WHITE, P.SKIRMISHER),
-        Square(3, 5): (Side.BLACK, P.MILITIA),
-    }
-    position = _position(board)
-    strings = _ply_strings(position)
-    assert {"A5B5", "A5C5", "A5D5"} <= strings
-
-
-def test_skirmisher_rush_stops_at_first_occupied_square():
-    board = {
-        Square(0, 5): (Side.WHITE, P.SKIRMISHER),
-        Square(2, 5): (Side.BLACK, P.MILITIA),  # 2 squares away, attackable
-    }
-    position = _position(board)
-    strings = _ply_strings(position)
-    assert "A5B5" in strings  # move to the empty square before the enemy
-    assert "A5C5" in strings  # attack the enemy at distance 2
-    assert "A5D5" not in strings  # cannot rush past the enemy
-
-
-def test_skirmisher_blocked_entirely_by_lake_in_one_direction():
-    # Column F (index 5) is a lake column; row 5 -> row 6 is blocked outright,
-    # but south (F4) and the other directions remain open.
-    board = {Square(5, 5): (Side.WHITE, P.SKIRMISHER)}
-    position = _position(board)
-    strings = _ply_strings(position)
-    assert "F5F6" not in strings
-    assert "F5F7" not in strings
-    assert "F5F8" not in strings
-    assert "F5F4" in strings
+    assert "F5F4" in strings  # one square south
+    assert "F5F3" in strings  # two squares south (unencumbered)
     assert "F5G5" in strings
 
 
-def test_all_ply_strings_distinct_in_a_full_random_position():
-    white = random_placement(Side.WHITE)
-    black = random_placement(Side.BLACK)
-    position = assemble_position(white, black)
+def test_all_ply_strings_distinct_in_a_dense_position():
+    # A spread of White pieces with a couple of enemies mixed in: every ply
+    # string must be unique (no piece generates a duplicate destination).
+    board = {
+        Square(1, 2): (Side.WHITE, P.MASTER_OF_ARMS),
+        Square(4, 3): (Side.WHITE, P.CHAMPION),
+        Square(7, 2): (Side.WHITE, P.KNIGHT),
+        Square(9, 4): (Side.WHITE, P.HALBERDIER),
+        Square(2, 4): (Side.WHITE, P.FOOT_SOLDIER),
+        Square(6, 5): (Side.BLACK, P.MILITIA),
+        Square(10, 5): (Side.BLACK, P.KNIGHT),
+    }
+    position = _position(board)
     strings = [str(ply) for ply in position.legal_plies]
     assert len(strings) == len(set(strings))
     assert len(strings) > 0

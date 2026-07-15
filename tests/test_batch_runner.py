@@ -9,16 +9,12 @@ from capture_the_flag.outcome import (
     REASON_FLAG_CAPTURED,
     REASON_INACTIVITY,
     REASON_NO_LEGAL_MOVE,
-    REASON_NO_PROGRESS,
-    REASON_UNBREACHABLE_FLAG,
 )
 
 _KNOWN_REASONS = frozenset(
     {
         REASON_FLAG_CAPTURED,
-        REASON_UNBREACHABLE_FLAG,
         REASON_INACTIVITY,
-        REASON_NO_PROGRESS,
         REASON_NO_LEGAL_MOVE,
     }
 )

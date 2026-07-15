@@ -40,8 +40,8 @@ class CtfGameLogging(GameLogging[CtfPly, CtfPosition]):
         - `A4x-A5x` — mutual loss (a trade)
 
         Survival is read straight off the resulting board, so every combat
-        nuance (Archer support, Knight charge, Sapper-vs-Tower, …) is reflected
-        without re-deriving the combat result here.
+        nuance (equal-rank trades, the formation bonus, tower destruction, …) is
+        reflected without re-deriving the combat result here.
         """
         source, destination = ply.source, ply.destination
         mover_side = from_position.side_to_move

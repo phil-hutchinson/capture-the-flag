@@ -59,8 +59,8 @@ row 1 at the bottom, column A at the left. Every square is a fixed-width,
 piece's side cannot be inferred from which half of the board it stands on, so
 side is encoded explicitly per cell:
 
-- **White piece:** `[R]` — e.g. `[1]`, `[9]`, `[A]`, `[T]`, `[F]`
-- **Black piece:** `*R*` — e.g. `*3*`, `*9*`, `*A*`, `*T*`, `*F*`
+- **White piece:** `[R]` — e.g. `[1]`, `[4]`, `[6]`, `[T]`, `[F]`
+- **Black piece:** `*R*` — e.g. `*3*`, `*5*`, `*6*`, `*T*`, `*F*`
 - **Empty square:** `---`
 - **Lake square:** `XXX`
 
@@ -86,18 +86,18 @@ reuses PGN's Seven Tag Roster plus `ResultReason` and `Ruleset` tags: `Event`,
 (`Event`…`Black`) are optional/best-effort.
 
 `Ruleset` records **which ruleset the game was played under**, in the form
-`NAME:VERSION` — e.g. `PRIMARY:1.1`. `NAME` identifies the ruleset variant;
-`PRIMARY` is the main ruleset and, at present, the only one. `VERSION` is the
-`rules.md` version from the changelog. Because this repository supports only the
-latest version (see *Versioning and source of truth* above), every record it
-writes carries the current version; the tag exists so a reader can still tell
-which rules a stored game was played under. `Result` uses PGN's values:
-`1-0` (White wins), `0-1` (Black wins), `1/2-1/2` (draw), `*`
+`VERSION:NAME` — e.g. `1.2:PRE-RELEASE`. `VERSION` is the `rules.md` version from
+the changelog; `NAME` identifies the ruleset, currently `PRE-RELEASE` (the game
+is pre-release and the rules are still being shaped). Because this repository
+supports only the latest version (see *Versioning and source of truth* above),
+every record it writes carries the current version; the tag exists so a reader
+can still tell which rules a stored game was played under. `Result` uses PGN's
+values: `1-0` (White wins), `0-1` (Black wins), `1/2-1/2` (draw), `*`
 (ongoing/unknown). `ResultReason` is free text (e.g. `Flag Captured`,
-`Inactivity`, `No Progress`, `Unbreachable Flag`, `No Legal Move`), sourced from
-the terminal position's outcome reason (`GamePosition.outcome_reason`, threaded
-through `GameResult.result_reason`). `Date` uses PGN's `YYYY.MM.DD` form
-(`????.??.??` when unknown).
+`Inactivity`, `No Legal Move`), sourced from the terminal position's outcome
+reason (`GamePosition.outcome_reason`, threaded through
+`GameResult.result_reason`). `Date` uses PGN's `YYYY.MM.DD` form (`????.??.??`
+when unknown).
 Tag *values* are escaped as in PGN — a literal `\` is written `\\` and a
 literal `"` is written `\"` — so a value containing either stays inside its
 quotes; writers also collapse any newline in a value to a space, since a tag

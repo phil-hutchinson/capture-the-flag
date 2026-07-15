@@ -15,14 +15,15 @@ from game_engine_core.models.game_result import GameResult
 _RESULT_TAGS = {1: "1-0", -1: "0-1", 0: "1/2-1/2"}
 
 # The ruleset a record is written under, emitted as the mandatory `Ruleset` tag
-# in the form `NAME:VERSION`. `PRIMARY` is the main (currently only) ruleset
-# variant; the version tracks `doc/ruleset/`'s current version and MUST be
-# bumped alongside a rules change (see `changelog.md`/`technical-notes.md`).
-# This engine writes -- and supports -- only the latest version; there is no
-# backward-compatibility path for records written under earlier versions.
-RULESET_NAME = "PRIMARY"
-RULESET_VERSION = "1.1"
-_RULESET_TAG_VALUE = f"{RULESET_NAME}:{RULESET_VERSION}"
+# in the form `VERSION:NAME`. `PRE-RELEASE` is the current ruleset name (the game
+# is pre-release and the rules are still being shaped); the version tracks
+# `doc/ruleset/`'s current version and MUST be bumped alongside a rules change
+# (see `changelog.md`/`technical-notes.md`). This engine writes -- and supports
+# -- only the latest version; there is no backward-compatibility path for records
+# written under earlier versions.
+RULESET_NAME = "PRE-RELEASE"
+RULESET_VERSION = "1.2"
+_RULESET_TAG_VALUE = f"{RULESET_VERSION}:{RULESET_NAME}"
 
 
 def _escape_tag_value(value: str) -> str:
@@ -69,7 +70,7 @@ def write_record(
     outcome and `ResultReason` from `game_result.result_reason` (the terminal
     position's `outcome_reason`, e.g. `Flag Captured`). `Ruleset`, `Result`,
     and `ResultReason` are always present: `Ruleset` records the ruleset the
-    game was played under (`PRIMARY:<version>`; see `RULESET_VERSION`).
+    game was played under (`<version>:PRE-RELEASE`; see `RULESET_VERSION`).
 
     Tag values are escaped for the `[Name "value"]` syntax (see
     `_escape_tag_value`): `\\` and `"` are backslash-escaped and newlines are

@@ -8,7 +8,7 @@ from capture_the_flag.player import RandomCtfPlayer
 from capture_the_flag.record import RULESET_NAME, RULESET_VERSION, write_record
 
 _RESULT_TAGS = {1: "1-0", -1: "0-1", 0: "1/2-1/2"}
-_RULESET_TAG = f'[Ruleset "{RULESET_NAME}:{RULESET_VERSION}"]'
+_RULESET_TAG = f'[Ruleset "{RULESET_VERSION}:{RULESET_NAME}"]'
 
 
 def _play(seed: int):
@@ -87,7 +87,7 @@ def test_write_record_always_includes_ruleset_tag():
     match_result = _play(5)
     record = write_record(match_result.game_result)
     assert _RULESET_TAG in record
-    assert _RULESET_TAG == '[Ruleset "PRIMARY:1.1"]'  # current variant:version
+    assert _RULESET_TAG == '[Ruleset "1.2:PRE-RELEASE"]'  # current version:name
 
 
 def test_write_record_result_reflects_absolute_outcome():

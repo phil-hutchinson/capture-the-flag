@@ -1,8 +1,9 @@
 """Golden test for the position-block text rendering and parsing.
 
-The expected output is the illustrative example from
-`.local/game-notation-suggestion.md` (both sides given the same formation),
-including the documented lake columns (B, C, F, G, J, K).
+A representative revamped-ruleset setup (both sides given the same formation):
+three of each numbered rank, six spaced Towers and a Flag on the back rank, and
+empty home squares rendered as `---`, plus the documented lake columns
+(B, C, F, G, J, K).
 """
 
 from capture_the_flag.board import Square
@@ -10,40 +11,41 @@ from capture_the_flag.pieces import PieceType as P
 from capture_the_flag.rendering import parse_position_block, render_position_block
 from capture_the_flag.side import Side
 
-# One army's row-by-row formation (front to back), reused for both sides so
-# the same 12-piece rows appear in the expected output for White and Black.
-_BACK_RANK = [P.FLAG, *([P.TOWER] * 6), *([P.SAPPER] * 5)]
-_ROW_2 = [P.SAPPER, P.SAPPER, P.ASSASSIN, *([P.ARCHER] * 3), *([P.SKIRMISHER] * 6)]
-_ROW_3 = [*([P.MILITIA] * 6), *([P.HALBERDIER] * 6)]
+# One army's row-by-row formation, back rank first, reused for both sides. `None`
+# marks an empty home square. Towers on the back rank are spaced so no two are
+# adjacent (rules.md Section 3).
+_BACK_RANK = [P.FLAG, P.TOWER, None, P.TOWER, None, P.TOWER, None, P.TOWER, None, P.TOWER, None, P.TOWER]
+_ROW_2 = [None] * 12
+_ROW_3 = [P.MASTER_OF_ARMS, P.CHAMPION, P.KNIGHT, P.HALBERDIER, P.FOOT_SOLDIER, P.MILITIA, *([None] * 6)]
 _FRONT_RANK = [
-    P.SAPPER,
-    P.LORD_MARSHAL,
-    P.CHAMPION,
-    P.CHAMPION,
-    *([P.KNIGHT] * 4),
-    *([P.INFANTRY] * 4),
+    P.MASTER_OF_ARMS, P.CHAMPION, P.KNIGHT, P.HALBERDIER, P.FOOT_SOLDIER, P.MILITIA,
+    P.MASTER_OF_ARMS, P.CHAMPION, P.KNIGHT, P.HALBERDIER, P.FOOT_SOLDIER, P.MILITIA,
 ]
 
 EXPECTED_BLOCK = "\n".join(
     [
-        "*F* *T* *T* *T* *T* *T* *T* *9* *9* *9* *9* *9*",
-        "*9* *9* *A* *8* *8* *8* *7* *7* *7* *7* *7* *7*",
-        "*6* *6* *6* *6* *6* *6* *5* *5* *5* *5* *5* *5*",
-        "*9* *1* *2* *2* *3* *3* *3* *3* *4* *4* *4* *4*",
+        "*F* *T* --- *T* --- *T* --- *T* --- *T* --- *T*",
+        "--- --- --- --- --- --- --- --- --- --- --- ---",
+        "*1* *2* *3* *4* *5* *6* --- --- --- --- --- ---",
+        "*1* *2* *3* *4* *5* *6* *1* *2* *3* *4* *5* *6*",
         "--- --- --- --- --- --- --- --- --- --- --- ---",
         "--- XXX XXX --- --- XXX XXX --- --- XXX XXX ---",
         "--- XXX XXX --- --- XXX XXX --- --- XXX XXX ---",
         "--- --- --- --- --- --- --- --- --- --- --- ---",
-        "[9] [1] [2] [2] [3] [3] [3] [3] [4] [4] [4] [4]",
-        "[6] [6] [6] [6] [6] [6] [5] [5] [5] [5] [5] [5]",
-        "[9] [9] [A] [8] [8] [8] [7] [7] [7] [7] [7] [7]",
-        "[F] [T] [T] [T] [T] [T] [T] [9] [9] [9] [9] [9]",
+        "[1] [2] [3] [4] [5] [6] [1] [2] [3] [4] [5] [6]",
+        "[1] [2] [3] [4] [5] [6] --- --- --- --- --- ---",
+        "--- --- --- --- --- --- --- --- --- --- --- ---",
+        "[F] [T] --- [T] --- [T] --- [T] --- [T] --- [T]",
     ]
 )
 
 
-def _row_board(side: Side, row: int, pieces: list[P]) -> dict[Square, tuple[Side, P]]:
-    return {Square(col, row): (side, piece) for col, piece in enumerate(pieces)}
+def _row_board(side: Side, row: int, pieces) -> dict[Square, tuple[Side, P]]:
+    return {
+        Square(col, row): (side, piece)
+        for col, piece in enumerate(pieces)
+        if piece is not None
+    }
 
 
 def _build_board() -> dict[Square, tuple[Side, P]]:

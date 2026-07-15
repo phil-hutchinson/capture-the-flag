@@ -14,8 +14,8 @@ from capture_the_flag.side import Side
 
 _WHITE_FLAG = Square(0, 1)  # A1 -- both flags present so no position is terminal.
 _BLACK_FLAG = Square(11, 12)  # L12
-_F5 = Square(5, 5)
-_F6 = Square(5, 6)  # one square ahead of F5: a legal orthogonal attack square.
+_D5 = Square(3, 5)
+_D6 = Square(3, 6)  # one square ahead of D5: a legal orthogonal step (D is open).
 
 _annotate = CtfGameLogging().ply_annotation
 
@@ -29,10 +29,7 @@ def _position(extra: dict) -> CtfPosition:
     return CtfPosition(
         board=MappingProxyType(board),
         side_to_move=Side.WHITE,
-        white_inactivity_counter=0,
-        black_inactivity_counter=0,
-        progress_counter=0,
-        breachability=None,
+        inactivity_counter=0,
     )
 
 
@@ -42,40 +39,50 @@ def _annotate_move(from_position: CtfPosition, ply: CtfPly) -> str:
 
 
 def test_no_attack_uses_plain_dash_form():
-    position = _position({_F5: (Side.WHITE, P.INFANTRY)})  # F6 empty.
-    assert _annotate_move(position, CtfPly(_F5, _F6)) == "F5-F6"
+    position = _position({_D5: (Side.WHITE, P.FOOT_SOLDIER)})  # D6 empty.
+    assert _annotate_move(position, CtfPly(_D5, _D6)) == "D5-D6"
 
 
 def test_attacker_wins_marks_the_defender():
-    # Assassin wins on offense regardless of rank; the defender is removed.
+    # A Champion (rank 2) beats a Militia (rank 6): the defender is removed.
     position = _position(
-        {_F5: (Side.WHITE, P.ASSASSIN), _F6: (Side.BLACK, P.INFANTRY)}
+        {_D5: (Side.WHITE, P.CHAMPION), _D6: (Side.BLACK, P.MILITIA)}
     )
-    assert _annotate_move(position, CtfPly(_F5, _F6)) == "F5-F6x"
+    assert _annotate_move(position, CtfPly(_D5, _D6)) == "D5-D6x"
 
 
 def test_attacker_loses_marks_the_attacker():
-    # A non-Sapper attacking a Tower is a complete sacrifice: attacker removed,
-    # Tower stays.
-    position = _position({_F5: (Side.WHITE, P.INFANTRY), _F6: (Side.BLACK, P.TOWER)})
-    assert _annotate_move(position, CtfPly(_F5, _F6)) == "F5x-F6"
+    # A Militia (rank 6) attacking a Master-of-Arms (rank 1) is a complete
+    # sacrifice: attacker removed, defender stays.
+    position = _position(
+        {_D5: (Side.WHITE, P.MILITIA), _D6: (Side.BLACK, P.MASTER_OF_ARMS)}
+    )
+    assert _annotate_move(position, CtfPly(_D5, _D6)) == "D5x-D6"
 
 
 def test_mutual_loss_marks_both():
     # Equal-rank attack trades both pieces.
     position = _position(
-        {_F5: (Side.WHITE, P.INFANTRY), _F6: (Side.BLACK, P.INFANTRY)}
+        {_D5: (Side.WHITE, P.FOOT_SOLDIER), _D6: (Side.BLACK, P.FOOT_SOLDIER)}
     )
-    assert _annotate_move(position, CtfPly(_F5, _F6)) == "F5x-F6x"
+    assert _annotate_move(position, CtfPly(_D5, _D6)) == "D5x-D6x"
+
+
+def test_tower_attack_marks_both():
+    # Any attack on a Tower is a mutual loss (rules.md Section 4.3).
+    position = _position(
+        {_D5: (Side.WHITE, P.MILITIA), _D6: (Side.BLACK, P.TOWER)}
+    )
+    assert _annotate_move(position, CtfPly(_D5, _D6)) == "D5x-D6x"
 
 
 def test_annotation_is_not_the_identity_string():
     # The logged form differs from str(ply); the identity key stays plain.
     position = _position(
-        {_F5: (Side.WHITE, P.INFANTRY), _F6: (Side.BLACK, P.INFANTRY)}
+        {_D5: (Side.WHITE, P.FOOT_SOLDIER), _D6: (Side.BLACK, P.FOOT_SOLDIER)}
     )
-    ply = CtfPly(_F5, _F6)
-    assert str(ply) == "F5F6"
+    ply = CtfPly(_D5, _D6)
+    assert str(ply) == "D5D6"
     assert _annotate_move(position, ply) != str(ply)
 
 

@@ -110,6 +110,12 @@ ownership-swapped board — i.e. the two perspectives are exact mirrors of each
 other; (c) assert the transform is an involution (applying it twice is the
 identity). Run `pytest` on the new encoding test module.
 
+> **As implemented:** the perspective transform lives as a closure inside
+> `encode_position`, so test (c) — the direct involution test — is deferred to
+> Step 3, which needs the transform lifted out anyway (see the note there).
+> The involution property is covered indirectly by test (b): the hand-built
+> mirror-pair positions in the test module encode identically.
+
 ### Step 2 — Clock feature
 
 Extend the encoding with the inactivity clock: the shared
@@ -138,6 +144,16 @@ covering exactly the legal plies.
 
 Depends on: Step 1 (shares the orientation transform). Later steps depend on
 the action-space size constant (Step 4) and the decoder (Step 5).
+
+> **Deferred from Step 1:** the 180-degree `Square`-to-`Square` rotation is
+> currently a closure inside `encode_position` (`_get_tensor_position`, which
+> also does the 0-based index conversion). This step needs the rotation to map
+> plies between frames, so lift it to a shared module-level helper here, have
+> the encoder and the test fixtures use it, and add the direct involution test
+> (`rotate(rotate(sq)) == sq` over all 144 squares, plus a couple of known
+> mappings such as A1 -> L12) that Step 1 deferred. Keep the hand-written
+> expected literals in the Step 1 tests as an independent witness — they must
+> not be rebuilt through the shared helper.
 
 Verification (automated): unit tests that, for several positions (including
 one with the longest-range moves available), assert the decoded distribution

@@ -66,6 +66,14 @@ class RandomCtfPlayer:
     def select_ply(self, position: CtfPosition) -> CtfPly:
         return self._engine.select_ply(position)
 
+    def observe_ply(
+        self, position: CtfPosition, ply: CtfPly, new_position: CtfPosition
+    ) -> None:
+        pass
+
+    def reset(self) -> None:
+        pass
+
 
 class HumanCtfPlayer:
     """A `CtfPlayer` seat driven by a person at the terminal.
@@ -126,3 +134,11 @@ class HumanCtfPlayer:
 
     def select_ply(self, position: CtfPosition) -> CtfPly:
         return self._game_ui.get_next_ply(position)
+
+    def observe_ply(
+        self, position: CtfPosition, ply: CtfPly, new_position: CtfPosition
+    ) -> None:
+        pass
+
+    def reset(self) -> None:
+        pass

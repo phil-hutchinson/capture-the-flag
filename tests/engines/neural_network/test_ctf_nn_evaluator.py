@@ -7,6 +7,7 @@ from torch import Tensor
 
 from capture_the_flag.board import Square
 from capture_the_flag.engines.neural_network.ctf_nn_evaluator import CtfNNEvaluator
+from capture_the_flag.outcome import INACTIVITY_LIMIT
 from capture_the_flag.pieces import PieceType as P
 from capture_the_flag.position import CtfPosition
 from capture_the_flag.side import Side
@@ -93,12 +94,49 @@ def test_encode_processes_matching_boards_correctly(position):
     _check_tensor_piece_fill(encoded, expected_piece_placements)
     _check_tensor_lake_fill(encoded)
 
-def test_matching_positions_equivalent():
-    white_position = _matching_white_position()
-    black_position = _matching_black_position()
+@pytest.mark.parametrize(
+    "inactivity_counter", 
+    [0, 10, 49]
+)
+def test_matching_positions_equivalent(inactivity_counter):
+    white_position = _matching_white_position(inactivity_counter)
+    black_position = _matching_black_position(inactivity_counter)
 
     evaluator = CtfNNEvaluator(_dummy_model())
     white_encoded = evaluator.encode_position(white_position)
     black_encoded = evaluator.encode_position(black_position)
 
     assert torch.equal(white_encoded, black_encoded)
+
+@pytest.mark.parametrize(
+    "inactivity_counter", 
+    [0, 10, 49]
+)
+def test_inactivity_counter_consistent(inactivity_counter):
+    position = _matching_white_position(inactivity_counter)
+
+    evaluator = CtfNNEvaluator(_dummy_model())
+    encoded = evaluator.encode_position(position)
+
+    ref_value = encoded[CtfNNEvaluator._FP_INACTIVITY_COUNT, 0, 0]
+    # TODO use constants here
+    for row in range(12):
+        for column in range(12):
+            # we should be able to test for exact equality even with floats (should be exactly the same float)
+            assert encoded[CtfNNEvaluator._FP_INACTIVITY_COUNT, row, column] == ref_value
+
+@pytest.mark.parametrize(
+    "inactivity_counter", 
+    [0, 10, 49]
+)
+def test_inactivity_counter_populated(inactivity_counter):
+    position = _matching_white_position(inactivity_counter)
+
+    evaluator = CtfNNEvaluator(_dummy_model())
+    encoded = evaluator.encode_position(position)
+
+    expected_value = inactivity_counter / INACTIVITY_LIMIT
+    # TODO use constants here
+    for row in range(12):
+        for column in range(12):
+            assert encoded[CtfNNEvaluator._FP_INACTIVITY_COUNT, row, column] == pytest.approx(expected_value)

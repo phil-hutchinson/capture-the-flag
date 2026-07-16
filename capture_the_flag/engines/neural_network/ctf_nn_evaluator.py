@@ -20,6 +20,7 @@ from game_engine_learning.neural_network_evaluator import NeuralNetworkEvaluator
 from torch import Tensor
 
 from ...board import BOARD_COLUMNS, BOARD_ROWS, LAKE_SQUARES, Square
+from ...outcome import INACTIVITY_LIMIT
 from ...pieces import PieceType
 from ...ply import CtfPly
 from ...position import CtfPosition
@@ -44,6 +45,7 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPly, CtfPosition]):
     _FP_THEIR_RANK_5 = 14
     _FP_THEIR_RANK_6 = 15
     _FP_LAKE = 16
+    _FP_INACTIVITY_COUNT = 17
 
     _OUR_FP = {
         PieceType.FLAG: _FP_OUR_FLAG,
@@ -83,16 +85,21 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPly, CtfPosition]):
             else:
                 return 12 - square.row, 11 - square.column
         
-        encoded = torch.zeros((17, BOARD_ROWS, BOARD_COLUMNS), dtype=torch.float32)
+        encoded = torch.zeros((18, BOARD_ROWS, BOARD_COLUMNS), dtype=torch.float32)
 
-        for lake_square in LAKE_SQUARES:
-            tensor_row, tensor_column = _get_tensor_position(lake_square, position.active_player_id)
-            encoded[CtfNNEvaluator._FP_LAKE, tensor_row, tensor_column] = 1
+        # current pieces on board
         for square, (side, piece_type) in position.board.items():
             tensor_row, tensor_column  = _get_tensor_position(square, position.active_player_id)
             ours = (side.value * position.active_player_id) == 1
             fp = CtfNNEvaluator._OUR_FP[piece_type] if ours else CtfNNEvaluator._THEIR_FP[piece_type]
             encoded[fp, tensor_row, tensor_column] = 1
+        # lake squares
+        for lake_square in LAKE_SQUARES:
+            tensor_row, tensor_column = _get_tensor_position(lake_square, position.active_player_id)
+            encoded[CtfNNEvaluator._FP_LAKE, tensor_row, tensor_column] = 1
+        # Draw-by-inactivity counter
+        move_limit_ratio = position.inactivity_counter / INACTIVITY_LIMIT
+        encoded[CtfNNEvaluator._FP_INACTIVITY_COUNT, :, :].fill_(move_limit_ratio)
 
         return encoded
     

@@ -5,10 +5,11 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
-from capture_the_flag.board import Square
+from capture_the_flag.board import BOARD_COLUMNS, BOARD_ROWS, Square
 from capture_the_flag.engines.neural_network.ctf_nn_evaluator import CtfNNEvaluator
 from capture_the_flag.outcome import INACTIVITY_LIMIT
 from capture_the_flag.pieces import PieceType as P
+from capture_the_flag.ply import CtfPly
 from capture_the_flag.position import CtfPosition
 from capture_the_flag.side import Side
 
@@ -75,6 +76,39 @@ def _check_tensor_lake_fill(encoded: Tensor) -> None:
             expected_value = 1 if (column, row) in expected_lake_placements else 0
             assert encoded[CtfNNEvaluator._FP_LAKE, row, column] == expected_value
 
+_A2A4_L11L9:int = 1*96 + 0 + 4
+_D4D5_I9I8:int = 3*96 + 3*8 + 0
+_H9G9_E4F4 :int = 8*96 + 7*8 + 3
+
+def _setup_policy_logits(seed = 987) -> Tensor:
+    torch.manual_seed(seed)
+
+    policy_logits = torch.empty(CtfNNEvaluator.ACTION_SPACE_SIZE)
+    policy_logits.uniform_(-10, 10)
+    policy_logits[_A2A4_L11L9] = 3.0
+    policy_logits[_D4D5_I9I8] = 10.0
+    policy_logits[_H9G9_E4F4] = 25.0
+    return policy_logits
+
+def _setup_position_legal_plies(side: Side, monkeypatch) -> CtfPosition:
+    board = {}
+    position = CtfPosition(board, side, 0)
+    square_1_from = Square(0, 2) if side == Side.WHITE else Square(11, 11)
+    square_1_to = Square(0, 4) if side == Side.WHITE else Square(11, 9)
+    square_2_from = Square(3, 4) if side == Side.WHITE else Square(8, 9)
+    square_2_to = Square(3, 5) if side == Side.WHITE else Square(8, 8)
+    square_3_from = Square(7, 9) if side == Side.WHITE else Square(4, 4)
+    square_3_to = Square(6, 9) if side == Side.WHITE else Square(5, 4)
+
+    legal_plies = (
+        CtfPly(square_1_from, square_1_to),
+        CtfPly(square_2_from, square_2_to),
+        CtfPly(square_3_from, square_3_to),
+    )
+    monkeypatch.setattr(CtfPosition, "legal_plies", property(lambda self: legal_plies))
+
+    return position
+
 
 @pytest.mark.parametrize(
     "position", 
@@ -140,3 +174,102 @@ def test_inactivity_counter_populated(inactivity_counter):
     for row in range(12):
         for column in range(12):
             assert encoded[CtfNNEvaluator._FP_INACTIVITY_COUNT, row, column] == pytest.approx(expected_value)
+
+def test_rotate_square_involution():
+    evaluator = CtfNNEvaluator(_dummy_model())
+    for column in range(BOARD_COLUMNS):
+        for row in range(1, BOARD_ROWS + 1):
+            original_square = Square(column, row)
+            rotated_once = evaluator._rotate_square(original_square)
+            rotated_twice = evaluator._rotate_square(rotated_once)
+            assert original_square.column == rotated_twice.column
+            assert original_square.row == rotated_twice.row
+
+@pytest.mark.parametrize(
+    "rotation",
+    [
+        (0, 1, 11, 12), # A1 => L12
+        (11, 1, 0, 12), # L1 => A12
+        (3, 6, 8, 7) # D6 => I7
+    ]
+)
+def test_rotate_square_rotates_180_degrees(rotation):
+    column_original, row_original, column_expected, row_expected = rotation
+    evaluator = CtfNNEvaluator(_dummy_model())
+
+    original_square = Square(column_original, row_original)
+    rotated_square = evaluator._rotate_square(original_square)
+
+    assert rotated_square.column == column_expected
+    assert rotated_square.row == row_expected
+
+@pytest.mark.parametrize(
+    "active_player_id", 
+    [1, -1],
+    ids=["White", "Black"],
+)
+def test_get_policy_logit_location_for_ply_is_bijective(active_player_id):
+    # note: this does include illegal moves (from/to lakes, to off the board locations) that exist in the policy_logit
+    filled: set[int] = set()
+    evaluator = CtfNNEvaluator(_dummy_model())
+    for column in range(BOARD_COLUMNS):
+        for row in range(1, BOARD_ROWS + 1):
+            for row_delta, column_delta in CtfNNEvaluator._MOVEMENT_OFFSET.keys():
+                from_square = Square(column, row)
+                to_square = Square(column + column_delta, row + row_delta)
+                ply = CtfPly(from_square, to_square)
+                location = evaluator._get_policy_logit_location_for_ply(ply, active_player_id)
+                assert location >= 0 and location < CtfNNEvaluator.ACTION_SPACE_SIZE
+                assert location not in filled
+                filled.add(location)
+
+@pytest.mark.parametrize(
+    "side_values", 
+    [(Side.WHITE, "A2A4", "D4D5", "H9G9"), (Side.BLACK, "L11L9", "I9I8", "E4F4")],
+    ids=["White", "Black"],
+)
+def test_decode_policy_returns_valid_policy_dict(side_values, monkeypatch):
+    side, pos1, pos2, pos3, = side_values
+
+    evaluator = CtfNNEvaluator(_dummy_model())
+
+    policy_logits = _setup_policy_logits()
+    position = _setup_position_legal_plies(side, monkeypatch)
+    
+    policy_dict = evaluator.decode_policy(policy_logits, position)
+
+    assert len(policy_dict) == 3
+
+    assert pos1 in policy_dict
+    assert pos2 in policy_dict
+    assert pos3 in policy_dict
+
+    assert policy_dict[pos3] > policy_dict[pos2] > policy_dict[pos1]
+
+    assert sum(policy_dict.values()) == pytest.approx(1.0)
+
+@pytest.mark.parametrize(
+    "side_values", 
+    [(Side.WHITE, "A2A4", "D4D5", "H9G9"), (Side.BLACK, "L11L9", "I9I8", "E4F4")],
+    ids=["White", "Black"],
+)
+def test_decode_policy_ignores_masked_indices(side_values, monkeypatch):
+    side, pos1, pos2, pos3, = side_values
+
+    evaluator = CtfNNEvaluator(_dummy_model())
+
+    policy_logits_a = _setup_policy_logits(1234)
+    policy_logits_b = _setup_policy_logits(2345)
+    position = _setup_position_legal_plies(side, monkeypatch)
+    
+    policy_dict_a = evaluator.decode_policy(policy_logits_a, position)
+    policy_dict_b = evaluator.decode_policy(policy_logits_b, position)
+
+    assert len(policy_dict_a) == len(policy_dict_b)
+
+    for ply, value in policy_dict_a.items():
+        assert ply in policy_dict_b
+        assert value == pytest.approx(policy_dict_b[ply])
+
+
+    

@@ -38,6 +38,18 @@ that is all zeros except a single 1 marking which category applies. Preferred
 over numeric codes (Knight=3, Tower=7) because a network would otherwise have
 to learn to undo the arbitrary arithmetic relationships the codes imply.
 
+**Logit** — a network's raw, unbounded output score before any normalization:
+any real number, often negative. Logits express *relative* preference only and
+only become probabilities after softmax. A policy head emits one logit per
+action-space entry — including entries no legal move maps to.
+
+**Softmax** — the standard operation turning a vector of logits into a
+probability distribution: exponentiate each entry, then divide by the sum.
+Exponentiation makes everything positive (so negative logits are fine) while
+preserving order — bigger logit, bigger probability. Restricting to a subset
+(e.g. legal moves) by gathering-then-softmaxing or masking to −∞ gives the
+same result.
+
 **Cumulative (thermometer) encoding** — an ordinal alternative to one-hot:
 entry *k* means "value is *k* or beyond," so a rank-2 piece lights planes 2
 through 6 rather than plane 2 alone. Makes order comparisons ("outranks")
@@ -47,6 +59,18 @@ all rank levels.
 ## Game theory
 
 ## Search / PUCT
+
+**Policy prior** — the network's decoded move distribution as consumed by
+search: not a rule for picking the move, but a hint about which branches
+deserve exploration budget (the P term in PUCT). The move actually played
+comes from the visit counts the search accumulates, which can override the
+prior when lookahead disagrees with the network's gut feeling.
+
+**Temperature** — a knob controlling randomness when sampling from a
+distribution (e.g. selecting a ply from visit counts). Temperature 1 samples
+proportionally; lowering it sharpens toward always picking the top choice
+(→ 0 is fully greedy); raising it flattens toward uniform. Mnemonic: heat is
+randomness — freeze it and all randomness stops.
 
 ## Mathematics
 

@@ -36,6 +36,20 @@ rest of the epic.
   acceptable wall-clock time. Finding these is part of the story; documenting
   what was tried belongs in the story's records.
 
+## Noted ideas (optional, not acceptance criteria)
+
+- **Flag-relative-location input planes.** Four extra input planes giving
+  every square its signed offset (as a fraction of board size, in (−1, 1))
+  to the own and enemy flags, horizontally and vertically. The flags never
+  move after placement, and under the receptive-field math a distant square
+  needs many conv layers before it can "see" a flag — baking the offsets in
+  hands every square that knowledge at layer zero, potentially lowering the
+  depth the network needs. Cheap to try once baseline training works, and
+  measurable as a checkpoint-strength comparison. Must be computed in the
+  side-to-move perspective frame like every other input plane, and changes
+  the encoder's `INPUT_SHAPE`. (Idea from the story-00000008 step 4
+  architecture discussion.)
+
 ## Out of scope
 
 - Placement learning (stories 00000010–00000012) — placements here are random.

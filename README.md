@@ -12,9 +12,11 @@ position/ply types, evaluators, and the phase 1 / phase 2 training on top of it.
 
 > **Status:** the rules engine is fully implemented and playable — board and
 > piece geometry, legal move generation, combat resolution, and every ending
-> condition — with a headless random-vs-random batch runner and a terminal
-> text UI for complete human-vs-human games. AI beyond random play
-> (evaluators, search, training) lands in subsequent stories.
+> condition. On top of it sits an *untrained* learned play engine — position
+> encoding, a value/policy network, an evaluator, and an MCTS-backed player —
+> that plays complete legal games (weakly, until trained). Random, human, and
+> learned players are selectable in both the headless batch runner and the
+> terminal single-game runner. Training the network lands in subsequent stories.
 
 ## Requirements
 

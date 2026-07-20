@@ -88,3 +88,21 @@ def test_run_batch_is_reproducible_with_a_seeded_rng(tmp_path):
 def test_run_batch_rejects_non_positive_game_counts(tmp_path):
     with pytest.raises(ValueError):
         run_batch(0, tmp_path)
+
+
+def test_run_batch_rejects_interactive_player_kinds(tmp_path):
+    # A headless batch has no UI, so a human seat is refused up front.
+    with pytest.raises(ValueError, match="machine kind"):
+        run_batch(1, tmp_path, white_kind="human")
+
+
+def test_run_batch_seats_a_neural_player(tmp_path):
+    # A tiny neural-vs-random batch: proves the factory reaches the learned
+    # engine through the tournament path. A low iteration count keeps it quick.
+    summary = run_batch(
+        1, tmp_path, rng=random.Random(5), white_kind="neural", iterations=5
+    )
+
+    assert summary.games_played == 1
+    assert set(summary.reason_counts) <= _KNOWN_REASONS
+    assert len(sorted(tmp_path.glob("*.ctfgame"))) == 1

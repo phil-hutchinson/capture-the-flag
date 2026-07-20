@@ -1,9 +1,9 @@
 from types import MappingProxyType
-from typing import Literal
 
 import pytest
 import torch
 import torch.nn as nn
+from game_engine_core.engines.mcts_engine import MCTSEngine
 from torch import Tensor
 
 from capture_the_flag.board import BOARD_COLUMNS, BOARD_ROWS, Square
@@ -37,7 +37,6 @@ from capture_the_flag.pieces import PieceType as P
 from capture_the_flag.ply import CtfPly
 from capture_the_flag.position import CtfPosition
 from capture_the_flag.side import Side
-from game_engine_core.engines.mcts_engine import MCTSEngine
 
 
 def _dummy_model():

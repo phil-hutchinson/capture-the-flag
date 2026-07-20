@@ -1,8 +1,10 @@
-"""The `CtfPlayer` seam (phase-1 placement + phase-2 play) and the random
-and human player implementations."""
+"""The `CtfPlayer` seam (phase-1 placement + phase-2 play), the random and human
+player implementations, and the `make_player` factory the runners seat players
+through."""
 
 import random
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
@@ -142,3 +144,69 @@ class HumanCtfPlayer:
 
     def reset(self) -> None:
         pass
+
+
+PLAYER_KINDS = ("human", "random", "neural")
+"""Every selectable player kind, in the order the runners advertise them."""
+
+MACHINE_PLAYER_KINDS = ("random", "neural")
+"""The non-interactive kinds — the only ones valid in a headless batch or
+tournament, where there is no UI to drive a human seat."""
+
+
+@dataclass
+class PlayerContext:
+    """Shared resources a player kind may need at construction. Only the pieces a
+    given kind uses are read: `human` needs the `game_ui` and `placements_dir`,
+    every kind takes the `rng` that seeds its placement (and random play)."""
+
+    game_ui: CtfGameUI | None = None
+    placements_dir: Path = DEFAULT_PLACEMENT_DIR
+    rng: random.Random | None = None
+
+
+def make_player(
+    kind: str,
+    name: str,
+    *,
+    context: PlayerContext,
+    render_before_ply: bool = False,
+    iterations: int | None = None,
+    temperature: float | None = None,
+) -> CtfPlayer:
+    """Construct a `CtfPlayer` of the named `kind` (see `PLAYER_KINDS`).
+
+    `render_before_ply` is honoured by the machine kinds (a human seat always
+    renders); `iterations`/`temperature` tune the `neural` kind only and fall
+    back to its defaults when `None`. The `neural` branch is imported lazily so
+    the network stack (and its `torch` construction cost) is only pulled in when
+    a neural player is actually seated.
+    """
+    if kind == "human":
+        if context.game_ui is None:
+            raise ValueError("the 'human' player kind requires an interactive game UI")
+        return HumanCtfPlayer(
+            name,
+            context.game_ui,
+            placement_dir=context.placements_dir,
+            rng=context.rng,
+        )
+    if kind == "random":
+        return RandomCtfPlayer(
+            name, rng=context.rng, render_before_ply=render_before_ply
+        )
+    if kind == "neural":
+        from .engines.neural_network.ai_ctf_player import (
+            DEFAULT_ITERATIONS,
+            DEFAULT_TEMPERATURE,
+            build_ai_player,
+        )
+
+        return build_ai_player(
+            name,
+            iterations=DEFAULT_ITERATIONS if iterations is None else iterations,
+            temperature=DEFAULT_TEMPERATURE if temperature is None else temperature,
+            rng=context.rng,
+            render_before_ply=render_before_ply,
+        )
+    raise ValueError(f"unknown player kind: {kind!r} (expected one of {PLAYER_KINDS})")

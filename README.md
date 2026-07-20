@@ -31,17 +31,19 @@ placement seam that assembles a starting position from two per-side
 placements, and a `CtfPlayer` seam so `game-engine-core`'s players and
 `StandardGame` drive phase-2 play unchanged.
 
-## Running a batch of random games
+## Running a batch of games
 
-A headless runner plays batches of random-vs-random games and writes a
-record file per game:
+A headless runner plays batches of machine-vs-machine games (random or the
+learned engine, in either seat) and writes a record file per game:
 
 ```bash
 python -m capture_the_flag.batch_runner -n 100 -o games
 ```
 
 `-n`/`--games` sets the batch size and `-o`/`--output-dir` the record output
-directory; `--seed` seeds the batch for reproducible runs. Each record names the
+directory; `--seed` seeds the batch for reproducible runs. `--white`/`--black`
+choose each seat's kind — `random` or `neural` (the learned engine); a neural
+seat's search is tuned with `--iterations`/`--temperature`. Each record names the
 result and how the game ended and renders moves in the ruleset's combat
 notation, and the run prints an outcome split, an ending-category breakdown, and
 game-length statistics. Record files follow the format documented in
@@ -49,14 +51,20 @@ game-length statistics. Record files follow the format documented in
 
 ## Playing a game in the terminal
 
-A human-vs-human runner plays one complete game — placement, alternating play,
-and an announced result:
+The single-game runner plays one complete game — placement, alternating play, and
+an announced result — between any two player kinds. `--white`/`--black` choose
+each seat: `human`, `random`, or `neural` (both default to `human`, so with no
+options it is a human-vs-human game); `--white-name`/`--black-name` set display
+names, and `--iterations`/`--temperature` tune a neural seat's search.
 
 ```bash
-python -m capture_the_flag.pvp_runner --white Alice --black Bob
+python -m capture_the_flag.game_runner --white human --black neural \
+    --white-name Alice
 ```
 
-Each player supplies their phase-1 setup at a prompt: either the name of a
+The board is rendered before a human's turn (and throughout a machine-vs-machine
+game, so it can be watched). Each human player supplies their phase-1 setup at a
+prompt: either the name of a
 placement file read from the gitignored `placements/` folder
 (`-p`/`--placements-dir` overrides the folder), or `random` for a random legal
 placement. A placement file is 4 rows of 12 characters — each a one-character

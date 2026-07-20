@@ -219,23 +219,36 @@ finishes with a legal result and no errors.
 
 ### Step 7 — Runner wiring and end-to-end volume play
 
-Make the AI player selectable wherever players are seated today: the batch
-runner (and its `Tournament` roster) and the human-play runner, so batch
-runs, tournaments, and human-vs-AI games all reach it through the existing
-seams. The selection mechanism (CLI options naming a player kind, etc.) is a
-small design choice for the developer; existing default behaviour must be
-preserved.
+Make every player kind selectable on the command line, rather than seating
+specific kinds in specific runners. Following the shared library's example, a
+single `make_player(kind, ...)` factory (kinds: `human`, `random`, `neural`)
+becomes the seam both runners share, and the single-game runner is generalised
+from human-vs-human (`pvp_runner`) into an any-vs-any `game_runner` whose
+`--white`/`--black` name each seat's kind — so human-vs-human, human-vs-machine,
+and machine-vs-machine all reach the same code. The batch runner gains the same
+selection, restricted to the non-interactive machine kinds. Existing default
+behaviour is preserved: `game_runner` defaults both seats to `human`, and the
+batch defaults both to `random`. Rendering follows the seats — a human always
+sees the board before their ply, a machine-vs-machine single game is rendered so
+it can be watched, and the headless batch/tournament renders nothing.
+
+> **Deviation from the original single-step framing:** the plan first assumed
+> keeping the specialised runners and merely adding an AI seat. The developer
+> chose the broader restructure above (collapse `pvp_runner` into `game_runner`,
+> a shared factory), which is why `test_pvp_runner.py` becomes
+> `test_game_runner.py` and a `test_player.py` covers the factory.
 
 Depends on: Step 6 (the player to seat). Nothing depends on this step.
 
-Verification (manual): run the batch runner at volume with the AI seated
-against a random opponent, in both colours (e.g. a run where the AI holds
-White and one where it holds Black, for a meaningful number of games).
-A passing result: every game completes with a legal result and no errors or
-exceptions — satisfying the acceptance criterion that the untrained engine
-plays complete legal games at volume through the shared library. (Games will
-be weak; that is expected and not part of the pass condition.) Also play a
-few moves against it through the human-play runner to confirm that path.
+Verification (manual): run the batch runner at volume with the neural engine
+seated against a random opponent, in both colours (a run where it holds White
+and one where it holds Black, for a meaningful number of games). A passing
+result: every game completes with a legal result and no errors or exceptions —
+satisfying the acceptance criterion that the untrained engine plays complete
+legal games at volume through the shared library. (Games will be weak; that is
+expected and not part of the pass condition.) Also play a game through
+`game_runner` — a machine-vs-machine game to confirm the rendered single-game
+path, and a human seat against a machine to confirm that path.
 
 ### Step 8 — README check
 

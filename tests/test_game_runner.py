@@ -1,9 +1,10 @@
-"""Tests for the PvP runner's result announcement."""
+"""Tests for the single-game runner: result announcement and end-to-end wiring."""
 
 import pytest
 from game_engine_core.models.game_result import GameResult
 
-from capture_the_flag.pvp_runner import announce_result
+from capture_the_flag import game_runner
+from capture_the_flag.game_runner import announce_result
 
 _LOG_ENTRY = ("A4-A5", "<board>")
 
@@ -26,3 +27,11 @@ def test_announce_result_names_winner_reason_and_length(
         game_log=[_LOG_ENTRY] * log_length,
     )
     assert announce_result(result, "Alice", "Bob") == expected
+
+
+def test_main_plays_machine_vs_machine_and_announces(capsys):
+    # Random-vs-random needs no input, so main() runs to completion headlessly
+    # (aside from the rendered board it prints). The seed keeps it reproducible.
+    game_runner.main(["--white", "random", "--black", "random", "--seed", "7"])
+    out = capsys.readouterr().out
+    assert (" wins — " in out) or ("Draw — " in out)

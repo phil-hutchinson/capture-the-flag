@@ -1,7 +1,9 @@
-"""Headless batch runner: play many random-vs-random matches, write one
+"""Headless batch runner: play many machine-vs-machine matches, write one
 game-record file per match, and report a batch summary.
 
-Runnable as a module: `python -m capture_the_flag.batch_runner [options]`.
+Runnable as a module: `python -m capture_the_flag.batch_runner [options]`. Each
+seat's kind is chosen on the command line, restricted to the non-interactive
+machine kinds (`random`, `neural`) — there is no UI in a headless batch.
 """
 
 import argparse
@@ -15,7 +17,7 @@ from game_engine_core.tournament.tournament import Tournament
 
 from .game_logging import CtfGameLogging
 from .match import build_initial_position
-from .player import RandomCtfPlayer
+from .player import MACHINE_PLAYER_KINDS, PlayerContext, make_player
 from .record import write_record
 
 
@@ -57,33 +59,60 @@ def run_batch(
     num_games: int,
     output_dir: Path,
     rng: random.Random | None = None,
+    white_kind: str = "random",
+    black_kind: str = "random",
+    iterations: int | None = None,
+    temperature: float | None = None,
 ) -> BatchSummary:
-    """Play `num_games` random-vs-random matches, writing one game-record
-    file per match into `output_dir` (created if needed), and return the
-    batch summary.
+    """Play `num_games` matches between the two chosen machine kinds, writing one
+    game-record file per match into `output_dir` (created if needed), and return
+    the batch summary.
 
-    The batch is a two-player round robin over the shared `Tournament`: two
-    `RandomCtfPlayer`s meet `num_games` times, and `Tournament` alternates which
-    of them moves first (holds White) from game to game, so `white_wins` /
-    `black_wins` below count first-mover / second-mover wins rather than a fixed
-    player. Phase-1 placement is supplied through the widened position factory
+    The batch is a two-player round robin over the shared `Tournament`: the two
+    players meet `num_games` times, and `Tournament` alternates which of them
+    moves first (holds White) from game to game, so `white_wins` / `black_wins`
+    below count first-mover / second-mover wins rather than a fixed player.
+    Phase-1 placement is supplied through the widened position factory
     (`build_initial_position`); scheduling, side alternation, and the game loop
     all come from `Tournament`.
 
-    `rng` seeds phase-1 placement only. `RandomCtfPlayer.select_ply` is
-    backed by `game-engine-core`'s `RandomEngine`, which draws from the
-    process-global `random` module rather than an injectable generator;
-    callers wanting a fully reproducible batch (placement *and* play) should
-    also call `random.seed(...)` before invoking this function.
+    `white_kind`/`black_kind` must be machine kinds (`MACHINE_PLAYER_KINDS`);
+    `iterations`/`temperature` tune neural players only. `rng` seeds phase-1
+    placement; `RandomCtfPlayer.select_ply` is backed by `game-engine-core`'s
+    `RandomEngine`, which draws from the process-global `random` module rather
+    than an injectable generator, so callers wanting a fully reproducible batch
+    (placement *and* play) should also call `random.seed(...)` — and
+    `torch.manual_seed(...)` for a neural seat — before invoking this function.
     """
     if num_games < 1:
         raise ValueError("num_games must be at least 1")
+    for kind in (white_kind, black_kind):
+        if kind not in MACHINE_PLAYER_KINDS:
+            raise ValueError(
+                f"batch play requires a machine kind {MACHINE_PLAYER_KINDS}, got {kind!r}"
+            )
 
     rng = rng if rng is not None else random.Random()
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Tournament rejects duplicate player names, so disambiguate matching kinds
+    # with an A/B suffix (a neural-vs-random batch reads as "Neural"/"Random").
+    if white_kind == black_kind:
+        white_name, black_name = f"{white_kind.title()} A", f"{black_kind.title()} B"
+    else:
+        white_name, black_name = white_kind.title(), black_kind.title()
+
+    context = PlayerContext(rng=rng)
+    white_player = make_player(
+        white_kind, white_name, context=context,
+        iterations=iterations, temperature=temperature,
+    )
+    black_player = make_player(
+        black_kind, black_name, context=context,
+        iterations=iterations, temperature=temperature,
+    )
     tournament = Tournament(
-        players=[RandomCtfPlayer("Random A", rng), RandomCtfPlayer("Random B", rng)],
+        players=[white_player, black_player],
         position_factory=build_initial_position,
         game_logging=CtfGameLogging(),
         games_per_pairing=num_games,
@@ -132,7 +161,7 @@ def run_batch(
 
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Play a batch of random-vs-random Capture the Flag games.",
+        description="Play a batch of machine-vs-machine Capture the Flag games.",
     )
     parser.add_argument(
         "-n",
@@ -149,10 +178,34 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="directory to write game-record files to (default: ./games)",
     )
     parser.add_argument(
+        "--white",
+        choices=MACHINE_PLAYER_KINDS,
+        default="random",
+        help="kind of the first-moving player (default: random)",
+    )
+    parser.add_argument(
+        "--black",
+        choices=MACHINE_PLAYER_KINDS,
+        default="random",
+        help="kind of the second-moving player (default: random)",
+    )
+    parser.add_argument(
         "--seed",
         type=int,
         default=None,
         help="seed the batch's random number generator for reproducibility",
+    )
+    parser.add_argument(
+        "--iterations",
+        type=int,
+        default=None,
+        help="MCTS iterations per ply for neural players (default: engine default)",
+    )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=None,
+        help="ply-selection temperature for neural players (default: engine default)",
     )
     return parser.parse_args(argv)
 
@@ -165,7 +218,19 @@ def main(argv: Sequence[str] | None = None) -> None:
         # `RandomEngine` draws from it rather than an injectable generator.
         random.seed(args.seed)
         rng = random.Random(args.seed)
-    summary = run_batch(args.games, args.output_dir, rng=rng)
+        if "neural" in (args.white, args.black):
+            import torch
+
+            torch.manual_seed(args.seed)
+    summary = run_batch(
+        args.games,
+        args.output_dir,
+        rng=rng,
+        white_kind=args.white,
+        black_kind=args.black,
+        iterations=args.iterations,
+        temperature=args.temperature,
+    )
     print(summary.format())
 
 

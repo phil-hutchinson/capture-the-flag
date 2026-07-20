@@ -1,4 +1,5 @@
 from types import MappingProxyType
+from typing import Literal
 
 import pytest
 import torch
@@ -6,6 +7,7 @@ import torch.nn as nn
 from torch import Tensor
 
 from capture_the_flag.board import BOARD_COLUMNS, BOARD_ROWS, Square
+from capture_the_flag.engines.neural_network.ctf_crn import CtfCrn
 from capture_the_flag.engines.neural_network.ctf_nn_evaluator import CtfNNEvaluator
 from capture_the_flag.engines.neural_network.tensor_layout import (
     ACTION_SPACE_SHAPE,
@@ -35,6 +37,7 @@ from capture_the_flag.pieces import PieceType as P
 from capture_the_flag.ply import CtfPly
 from capture_the_flag.position import CtfPosition
 from capture_the_flag.side import Side
+from game_engine_core.engines.mcts_engine import MCTSEngine
 
 
 def _dummy_model():
@@ -69,6 +72,30 @@ def _matching_black_position(inactivity_counter: int = 0) -> CtfPosition:
     }
 
     return _position(board,side_to_move=Side.BLACK,inactivity_counter=inactivity_counter)
+
+def _base_position(side_to_move: Side, inactivity_counter: int = 0) -> CtfPosition:
+    board = {
+        Square(4, 1): (Side.WHITE, P.FLAG),
+        Square(11, 3): (Side.WHITE, P.TOWER),
+        Square(4, 2): (Side.WHITE, P.MASTER_OF_ARMS),
+        Square(3, 1): (Side.WHITE, P.MASTER_OF_ARMS),
+        Square(4, 12): (Side.BLACK, P.FLAG),
+        Square(0, 9): (Side.BLACK, P.TOWER),
+        Square(2, 9): (Side.BLACK, P.TOWER),
+        Square(4, 9): (Side.BLACK, P.TOWER),
+        Square(6, 9): (Side.BLACK, P.TOWER),
+        Square(8, 9): (Side.BLACK, P.TOWER),
+        Square(10, 9): (Side.BLACK, P.TOWER),
+        Square(1, 9): (Side.BLACK, P.CHAMPION),
+        Square(3, 9): (Side.BLACK, P.CHAMPION),
+        Square(5, 9): (Side.BLACK, P.CHAMPION),
+        Square(7, 9): (Side.BLACK, P.CHAMPION),
+        Square(9, 9): (Side.BLACK, P.CHAMPION),
+        Square(11, 9): (Side.BLACK, P.CHAMPION),
+    }
+
+    return _position(board,side_to_move=side_to_move,inactivity_counter=inactivity_counter)
+
 
 def _check_tensor_piece_fill(encoded: Tensor, expected_piece_placements: set[tuple[int, int, int]]) -> None:
     # Expected tuples are (plane, column, row) — board-natural order, 0-based —
@@ -296,5 +323,43 @@ def test_decode_policy_ignores_masked_indices(side_values, monkeypatch):
         assert ply in policy_dict_b
         assert value == pytest.approx(policy_dict_b[ply])
 
-
+@pytest.mark.parametrize(
+    "side_to_move", 
+    [Side.WHITE, Side.BLACK,],
+)
+def test_evaluator_with_actual_nn_returns_valid_evaluation(side_to_move):
     
+    nn = CtfCrn()
+    evaluator = CtfNNEvaluator(nn)
+
+    position = _base_position(side_to_move, 0)
+    evaluation = evaluator.evaluate_position(position)
+
+    assert -1 <= evaluation.value <= 1
+    assert evaluation.policy is not None
+    assert set(evaluation.policy.keys()) == {str(ply) for ply in position.legal_plies}
+    assert all(value >= 0 for value in evaluation.policy.values())
+    assert sum(evaluation.policy.values()) == pytest.approx(1.0)
+
+@pytest.mark.parametrize(
+    "side_to_move", 
+    [Side.WHITE, Side.BLACK,],
+)
+def test_evaluator_in_engine_with_actual_nn_returns_valid_ply(side_to_move):
+    
+    nn = CtfCrn()
+    engine: MCTSEngine[CtfPly, CtfPosition, CtfNNEvaluator] = MCTSEngine(
+        evaluator = CtfNNEvaluator(nn),
+        iterations = 100,
+        temperature = 0.0
+    )
+
+    position = _base_position(side_to_move, 0)
+    selected_ply = engine.select_ply(position)
+
+    assert selected_ply.source in position.board.keys()
+    selected_side, _ = position.board[selected_ply.source]
+    assert selected_side == side_to_move
+
+    # no pieces are in range to attack each other, so assert that it lands on a blank square
+    assert selected_ply.destination not in position.board.keys() 

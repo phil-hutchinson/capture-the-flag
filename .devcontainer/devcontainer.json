@@ -33,12 +33,12 @@
     "initializeCommand": "cd .devcontainer && (touch devcontainer.env || type NUL >> devcontainer.env)",
     // 1) Repair ownership on volumes created before the image pre-created the
     //    directory (Docker makes bare mount points root-owned).
-    // 2) Install the project editable with the learning extra into the
-    //    container's Python — no .venv; the container is the isolation
-    //    boundary. This also pulls the pinned game-engine-core dependency from
-    //    GitHub (torch/numpy are already baked into the image), so it links the
-    //    workspace source and clones one git dependency — fast on rebuild.
-    "postCreateCommand": "sudo chown -R vscode:vscode /home/vscode/.claude && pip install --editable '.[learning]'",
+    // 2) Install the project editable into the container's Python — no .venv;
+    //    the container is the isolation boundary. This pulls the pinned
+    //    game-engine-core dependency (with its learning extra, torch/numpy —
+    //    already baked into the image) from GitHub, so it links the workspace
+    //    source and clones one git dependency — fast on rebuild.
+    "postCreateCommand": "sudo chown -R vscode:vscode /home/vscode/.claude && pip install --editable '.'",
     "customizations": {
         "vscode": {
             "extensions": [

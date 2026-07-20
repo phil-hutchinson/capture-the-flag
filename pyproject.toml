@@ -6,17 +6,14 @@ build-backend = "setuptools.build_meta"
 name = "capture-the-flag"
 version = "0.1.0"
 requires-python = ">=3.12"
-# game-engine-core is consumed exactly as a third-party consumer would, pinned
-# to a specific ref on GitHub (it is not published to PyPI). Bump this pin
-# deliberately to adopt a newer game-engine-core — see CONTRIBUTING.md.
 dependencies = [
-    "game-engine-core @ git+https://github.com/phil-hutchinson/game-engine-core.git@v0.1.3",
-]
-
-[project.optional-dependencies]
-# The learning extra pulls game-engine-core's own learning extra (torch/numpy)
-# for the AI training work. Keep the pin identical to the base dependency above.
-learning = [
+    # game-engine-core is consumed exactly as a third-party consumer would, pinned
+    # to a specific ref on GitHub (it is not published to PyPI). Bump this pin
+    # deliberately to adopt a newer game-engine-core — see CONTRIBUTING.md.
+    #
+    # The [learning] extra (torch/numpy, via game-engine-core's own learning extra)
+    # is a hard dependency: this project always ships the learned play engine, so
+    # there is no torch-free install to preserve.
     "game-engine-core[learning] @ git+https://github.com/phil-hutchinson/game-engine-core.git@v0.1.3",
 ]
 

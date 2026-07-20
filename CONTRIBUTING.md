@@ -6,9 +6,9 @@ The repository ships a [VS Code Dev Container](.devcontainer/) as the supported
 development environment. With Docker and the VS Code **Dev Containers** extension
 installed, open the repository and choose **Reopen in Container**. The container
 provisions everything on first build: Python 3.12, the project installed editable
-with its `learning` extra, the pinned `game-engine-core` dependency, and the
-type-checking/linting/testing toolchain — no manual setup and no virtual
-environment (the container is the isolation boundary).
+with the pinned `game-engine-core` dependency (which pulls in torch/numpy via its
+learning extra), and the type-checking/linting/testing toolchain — no manual setup
+and no virtual environment (the container is the isolation boundary).
 
 Personal environment variables (e.g. `TZ=America/Vancouver`) can be set
 container-wide in `.devcontainer/devcontainer.env` — one `KEY=VALUE` per line. To
@@ -48,15 +48,17 @@ accordingly.
 This project depends on [game-engine-core](https://github.com/phil-hutchinson/game-engine-core),
 consumed exactly as an external third-party consumer would: it is **not** vendored
 or path-mounted, but pinned to a specific commit on GitHub in `pyproject.toml`
-(`game-engine-core @ git+https://…@<commit>`), with the `learning` extra pinned
-identically. This keeps builds reproducible and forces us to exercise the same
-install path a real consumer uses.
+(`game-engine-core[learning] @ git+https://…@<commit>`). The `learning` extra
+(torch/numpy) is a hard dependency — this project always ships the learned play
+engine — so there is no separate torch-free install to keep in sync. This keeps
+builds reproducible and forces us to exercise the same install path a real
+consumer uses.
 
 A pull request **may** bump this pin to a newer `game-engine-core` commit (or a
 release tag, once the library publishes them) when it needs a newer feature or
-fix. When it does: bump the pin in **both** the base dependency and the `learning`
-extra so they stay identical, keep the bump in a commit of its own with a note on
-why, and rebuild the container so the new version is actually installed and tested.
+fix. When it does: bump the single pinned dependency, keep the bump in a commit of
+its own with a note on why, and rebuild the container so the new version is
+actually installed and tested.
 
 ## Code conventions
 

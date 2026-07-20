@@ -7,9 +7,9 @@ as a pinned dependency.
 This package now exposes a fully playable, `game-engine-core`-compatible
 `CtfPosition` (board geometry and piece data, legal move generation, combat
 resolution, ply application, and endings), the placement seam (random,
-file-based, or programmatic), a `CtfGameUI` with human move entry, random and
-human players, and a match wrapper that plays a complete game. Evaluators
-and training code land in later stories.
+file-based, or programmatic), a `CtfGameUI` with human move entry, random, human,
+and learned (neural) players reachable through a `make_player` factory, and a
+match wrapper that plays a complete game. Training code lands in later stories.
 """
 
 from .board import (
@@ -38,7 +38,13 @@ from .placement_file import (
     load_placement_file,
     parse_placement_file,
 )
-from .player import CtfPlayer, HumanCtfPlayer, RandomCtfPlayer
+from .player import (
+    CtfPlayer,
+    HumanCtfPlayer,
+    PlayerContext,
+    RandomCtfPlayer,
+    make_player,
+)
 from .ply import CtfPly, parse_ply
 from .position import CtfPosition
 from .record import write_record
@@ -68,6 +74,7 @@ __all__ = [
     "Placement",
     "PieceType",
     "PlacementFileError",
+    "PlayerContext",
     "RandomCtfPlayer",
     "Side",
     "Square",
@@ -77,6 +84,7 @@ __all__ = [
     "compute_outcome",
     "compute_outcome_reason",
     "load_placement_file",
+    "make_player",
     "orthogonal_neighbors",
     "parse_placement_file",
     "parse_ply",

@@ -141,6 +141,15 @@ through 6 rather than plane 2 alone. Makes order comparisons ("outranks")
 directly readable as differences, letting one learned pattern apply across
 all rank levels.
 
+**Model interchange format** — a single exported file bundling a network's
+architecture (as a computation graph of standard operations) and its trained
+parameters, runnable by a lightweight runtime with no training framework and
+no knowledge of the network's internals. It makes the tensor input/output
+shapes the *entire* integration contract: internals can change freely between
+exports without the consumer noticing. What it deliberately excludes is the
+semantics of those tensors — what the planes mean, how outputs map to moves —
+which must live in a separate written spec.
+
 ## Game theory
 
 **Markov property / Markov-complete state** — a state representation is
@@ -164,6 +173,13 @@ distribution (e.g. selecting a ply from visit counts). Temperature 1 samples
 proportionally; lowering it sharpens toward always picking the top choice
 (→ 0 is fully greedy); raising it flattens toward uniform. Mnemonic: heat is
 randomness — freeze it and all randomness stops.
+
+## Python
+
+**Module vs. package** — a module is a single `.py` file; a package is a
+directory of modules with an `__init__.py` (which makes the directory itself
+importable, so a package is also a module). "Put it in a shared module" just
+means "make another `.py` file in a sensible place and import from it."
 
 ## Mathematics
 

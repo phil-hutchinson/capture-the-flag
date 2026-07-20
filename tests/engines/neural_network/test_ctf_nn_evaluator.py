@@ -7,6 +7,29 @@ from torch import Tensor
 
 from capture_the_flag.board import BOARD_COLUMNS, BOARD_ROWS, Square
 from capture_the_flag.engines.neural_network.ctf_nn_evaluator import CtfNNEvaluator
+from capture_the_flag.engines.neural_network.tensor_layout import (
+    ACTION_SPACE_SHAPE,
+    FP_INACTIVITY_COUNT,
+    FP_OUR_FLAG,
+    FP_OUR_RANK_1,
+    # FP_OUR_RANK_2,
+    # FP_OUR_RANK_3,
+    # FP_OUR_RANK_4,
+    # FP_OUR_RANK_5,
+    # FP_OUR_RANK_6,
+    FP_OUR_TOWER,
+    FP_PASSABLE,
+    FP_THEIR_FLAG,
+    # FP_THEIR_RANK_1,
+    FP_THEIR_RANK_2,
+    # FP_THEIR_RANK_3,
+    # FP_THEIR_RANK_4,
+    # FP_THEIR_RANK_5,
+    # FP_THEIR_RANK_6,
+    # FP_THEIR_TOWER,
+    # INPUT_SHAPE,
+    MOVEMENT_INDEX,
+)
 from capture_the_flag.outcome import INACTIVITY_LIMIT
 from capture_the_flag.pieces import PieceType as P
 from capture_the_flag.ply import CtfPly
@@ -73,17 +96,17 @@ def _check_tensor_lake_fill(encoded: Tensor) -> None:
     }
     for column in range(12):
         for row in range(12):
-            expected_value = 1 if (column, row) in expected_lake_placements else 0
-            assert encoded[CtfNNEvaluator._FP_LAKE, row, column] == expected_value
+            expected_value = 0 if (column, row) in expected_lake_placements else 1
+            assert encoded[FP_PASSABLE, row, column] == expected_value
 
-_A2A4_L11L9:int = 1*96 + 0 + 4
-_D4D5_I9I8:int = 3*96 + 3*8 + 0
-_H9G9_E4F4 :int = 8*96 + 7*8 + 3
+_A2A4_L11L9:tuple[int,int,int] = MOVEMENT_INDEX[(2, 0)], 1, 0
+_D4D5_I9I8:tuple[int,int,int] = MOVEMENT_INDEX[(1, 0)], 3, 3
+_H9G9_E4F4:tuple[int,int,int] = MOVEMENT_INDEX[(0, -1)], 8, 7
 
 def _setup_policy_logits(seed = 987) -> Tensor:
     torch.manual_seed(seed)
 
-    policy_logits = torch.empty(CtfNNEvaluator.ACTION_SPACE_SIZE)
+    policy_logits = torch.empty(ACTION_SPACE_SHAPE)
     policy_logits.uniform_(-10, 10)
     policy_logits[_A2A4_L11L9] = 3.0
     policy_logits[_D4D5_I9I8] = 10.0
@@ -119,11 +142,11 @@ def test_encode_processes_matching_boards_correctly(position):
     evaluator = CtfNNEvaluator(_dummy_model())
     encoded = evaluator.encode_position(position)
     expected_piece_placements = {
-        (CtfNNEvaluator._FP_OUR_FLAG, 0, 0),
-        (CtfNNEvaluator._FP_OUR_RANK_1, 3, 3),
-        (CtfNNEvaluator._FP_OUR_TOWER, 4, 2),
-        (CtfNNEvaluator._FP_THEIR_RANK_2, 4, 10),
-        (CtfNNEvaluator._FP_THEIR_FLAG, 4, 11),
+        (FP_OUR_FLAG, 0, 0),
+        (FP_OUR_RANK_1, 3, 3),
+        (FP_OUR_TOWER, 4, 2),
+        (FP_THEIR_RANK_2, 4, 10),
+        (FP_THEIR_FLAG, 4, 11),
     }
     _check_tensor_piece_fill(encoded, expected_piece_placements)
     _check_tensor_lake_fill(encoded)
@@ -152,12 +175,12 @@ def test_inactivity_counter_consistent(inactivity_counter):
     evaluator = CtfNNEvaluator(_dummy_model())
     encoded = evaluator.encode_position(position)
 
-    ref_value = encoded[CtfNNEvaluator._FP_INACTIVITY_COUNT, 0, 0]
+    ref_value = encoded[FP_INACTIVITY_COUNT, 0, 0]
     # TODO use constants here
     for row in range(12):
         for column in range(12):
             # we should be able to test for exact equality even with floats (should be exactly the same float)
-            assert encoded[CtfNNEvaluator._FP_INACTIVITY_COUNT, row, column] == ref_value
+            assert encoded[FP_INACTIVITY_COUNT, row, column] == ref_value
 
 @pytest.mark.parametrize(
     "inactivity_counter", 
@@ -173,7 +196,7 @@ def test_inactivity_counter_populated(inactivity_counter):
     # TODO use constants here
     for row in range(12):
         for column in range(12):
-            assert encoded[CtfNNEvaluator._FP_INACTIVITY_COUNT, row, column] == pytest.approx(expected_value)
+            assert encoded[FP_INACTIVITY_COUNT, row, column] == pytest.approx(expected_value)
 
 def test_rotate_square_involution():
     evaluator = CtfNNEvaluator(_dummy_model())
@@ -210,16 +233,18 @@ def test_rotate_square_rotates_180_degrees(rotation):
 )
 def test_get_policy_logit_location_for_ply_is_bijective(active_player_id):
     # note: this does include illegal moves (from/to lakes, to off the board locations) that exist in the policy_logit
-    filled: set[int] = set()
+    filled: set[tuple[int,int,int]] = set()
     evaluator = CtfNNEvaluator(_dummy_model())
     for column in range(BOARD_COLUMNS):
         for row in range(1, BOARD_ROWS + 1):
-            for row_delta, column_delta in CtfNNEvaluator._MOVEMENT_OFFSET.keys():
+            for row_delta, column_delta in MOVEMENT_INDEX.keys():
                 from_square = Square(column, row)
                 to_square = Square(column + column_delta, row + row_delta)
                 ply = CtfPly(from_square, to_square)
                 location = evaluator._get_policy_logit_location_for_ply(ply, active_player_id)
-                assert location >= 0 and location < CtfNNEvaluator.ACTION_SPACE_SIZE
+                assert 0 <= location[0] < ACTION_SPACE_SHAPE[0]
+                assert 0 <= location[1] < ACTION_SPACE_SHAPE[1]
+                assert 0 <= location[2] < ACTION_SPACE_SHAPE[2]
                 assert location not in filled
                 filled.add(location)
 

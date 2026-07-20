@@ -43,10 +43,16 @@ current `capture_the_flag` source), load-bearing for the whole plan:
   shared `inactivity_counter` (rules.md 5.3). It is the only non-board state
   the encoding needs; `CtfPosition.outcome` is already current-player-relative,
   which lines up with the evaluator's value convention.
-- **`torch` lives in the `learning` extra only**, not the base dependency.
-  The existing players and runners must keep working on a base install, so
-  every module that imports `torch` must be imported lazily, only on the code
-  path that actually uses the AI player — never at runner-module import time.
+- **`torch` is a hard dependency.** `game-engine-core[learning]` (which pulls
+  in torch/numpy) is now the single pinned base dependency — this project always
+  ships the learned play engine, so there is no torch-free install to preserve.
+  The lazy-import constraint that earlier drafts carried over from
+  game-engine-core (where the base engine must run without torch) therefore does
+  **not** apply here: modules may import `torch` at module load. In practice the
+  current design keeps `player.py` torch-free anyway — `AICtfPlayer` receives an
+  already-constructed engine, so torch only enters at the construction site in
+  the runner wiring (Step 7) — but that is a consequence of the design, not a
+  requirement to engineer around.
 - **Training machinery fits as-is.** Story 00000009 will train against
   `MCTSEngine.select_ply_with_policy` (the visit-distribution policy target),
   which already exists. Nothing in this story needs a dependency-pin bump;
@@ -168,8 +174,7 @@ distinct in-range index and back to itself. This locks in the `MCTSEngine`
 
 Implement the `torch` module per the open architecture decision: input shape
 from Steps 1–2, one policy logit per Step 3 action index, a bounded value
-output, seedable initialisation. Keep the `torch` import confined to this
-module (and Step 5's), per the lazy-import constraint.
+output, seedable initialisation.
 
 Depends on: Steps 1–2 (input shape) and Step 3 (policy width). Later steps
 depend on it: Step 5 runs it.
@@ -203,17 +208,14 @@ the engine's coverage contract). Run `pytest`.
 Implement the `CtfPlayer` for the learned engine: `select_ply` delegated to
 an `MCTSEngine` wrapping the Step 5 evaluator (with the chosen untrained-play
 search settings), and `get_placement` using a random or reference placement
-(placement intelligence is out of scope — stories 00000010–00000012). All
-`torch`-touching imports happen lazily on this player's construction path.
+(placement intelligence is out of scope — stories 00000010–00000012).
 
 Depends on: Step 5 (the evaluator to wrap). Step 7 depends on it (the player
 the runners will name).
 
 Verification (automated): a test that plays one complete match through
 `play_match` with the AI player against a random player and asserts it
-finishes with a legal result and no errors; plus a check that importing the
-runner modules on a base (no-`torch`) path still works — i.e. nothing pulls
-`torch` in at import time.
+finishes with a legal result and no errors.
 
 ### Step 7 — Runner wiring and end-to-end volume play
 

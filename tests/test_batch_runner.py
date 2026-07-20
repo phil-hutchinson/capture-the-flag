@@ -1,7 +1,5 @@
 """Tests for the headless batch runner."""
 
-import random
-
 import pytest
 
 from capture_the_flag.batch_runner import run_batch
@@ -21,7 +19,7 @@ _KNOWN_REASONS = frozenset(
 
 
 def test_run_batch_writes_one_record_per_game_and_tallies_outcomes(tmp_path):
-    summary = run_batch(5, tmp_path, rng=random.Random(1))
+    summary = run_batch(5, tmp_path, seed=1)
 
     record_files = sorted(tmp_path.glob("*.ctfgame"))
     assert len(record_files) == 5
@@ -45,7 +43,7 @@ def test_run_batch_writes_one_record_per_game_and_tallies_outcomes(tmp_path):
 
 
 def test_run_batch_summary_breaks_down_endings_by_reason(tmp_path):
-    summary = run_batch(8, tmp_path, rng=random.Random(3))
+    summary = run_batch(8, tmp_path, seed=3)
 
     # Every reported reason is from the game's vocabulary, and the breakdown
     # accounts for exactly the games played.
@@ -60,21 +58,19 @@ def test_run_batch_summary_breaks_down_endings_by_reason(tmp_path):
 
 
 def test_run_batch_zero_pads_filenames_to_batch_width(tmp_path):
-    run_batch(12, tmp_path, rng=random.Random(2))
+    run_batch(12, tmp_path, seed=2)
 
     record_files = sorted(tmp_path.glob("*.ctfgame"))
     assert [f.name for f in record_files][:2] == ["game_01.ctfgame", "game_02.ctfgame"]
     assert record_files[-1].name == "game_12.ctfgame"
 
 
-def test_run_batch_is_reproducible_with_a_seeded_rng(tmp_path):
-    # select_ply's RandomEngine draws from the process-global `random`
-    # module, so full reproducibility needs both it and the injected rng
-    # (which seeds placement only) seeded identically before each run.
-    random.seed(42)
-    summary_a = run_batch(4, tmp_path / "a", rng=random.Random(42))
-    random.seed(42)
-    summary_b = run_batch(4, tmp_path / "b", rng=random.Random(42))
+def test_run_batch_is_reproducible_with_a_seed(tmp_path):
+    # A single `seed` covers every randomness source the batch pulls from
+    # (placement, the process-global `random` behind RandomEngine, and torch),
+    # so two seeded runs produce identical summaries and record files.
+    summary_a = run_batch(4, tmp_path / "a", seed=42)
+    summary_b = run_batch(4, tmp_path / "b", seed=42)
 
     assert summary_a == summary_b
     for file_a, file_b in zip(
@@ -100,7 +96,7 @@ def test_run_batch_seats_a_neural_player(tmp_path):
     # A tiny neural-vs-random batch: proves the factory reaches the learned
     # engine through the tournament path. A low iteration count keeps it quick.
     summary = run_batch(
-        1, tmp_path, rng=random.Random(5), white_kind="neural", iterations=5
+        1, tmp_path, seed=5, white_kind="neural", iterations=5
     )
 
     assert summary.games_played == 1

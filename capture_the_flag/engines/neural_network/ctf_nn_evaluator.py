@@ -49,6 +49,38 @@ from .tensor_layout import (
 )
 
 
+def rotate_square(square: Square) -> Square:
+    """The 180-degree board rotation: the shared side-to-move orientation
+    transform. It is its own inverse, so encoder (orienting the input) and
+    decoder (mapping preferences back to global-frame plies) stay consistent by
+    applying the same function."""
+    return Square(11 - square.column, 13 - square.row)
+
+
+def tensor_position(square: Square, active_player_id: Literal[1, -1]) -> tuple[int, int]:
+    """`square` as 0-based tensor indices, in `(row, column)` order.
+
+    Identity re-basing when White is to move; the 180-degree rotation when Black
+    is to move, so the mover's back rank is always row 0.
+    """
+    if active_player_id == -1:
+        square = rotate_square(square)
+    return square.row - 1, square.column
+
+
+def policy_logit_location_for_ply(
+    ply: CtfPly, active_player_id: Literal[1, -1]
+) -> tuple[int, int, int]:
+    """The `(movement index, row, column)` slot in the action space a ply maps
+    to, in the side-to-move frame."""
+    tensor_from_row, tensor_from_column = tensor_position(ply.source, active_player_id)
+    tensor_to_row, tensor_to_column = tensor_position(ply.destination, active_player_id)
+    row_delta = tensor_to_row - tensor_from_row
+    column_delta = tensor_to_column - tensor_from_column
+    movement_index = MOVEMENT_INDEX[(row_delta, column_delta)]
+    return movement_index, tensor_from_row, tensor_from_column
+
+
 class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
 
     _OUR_FP = {
@@ -81,14 +113,14 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
 
         # Current pieces on board
         for square, (side, piece_type) in position.board.items():
-            tensor_row, tensor_column  = self._get_tensor_position(square, position.active_player_id)
+            tensor_row, tensor_column = tensor_position(square, position.active_player_id)
             ours = (side.value * position.active_player_id) == 1
             fp = CtfNNEvaluator._OUR_FP[piece_type] if ours else CtfNNEvaluator._THEIR_FP[piece_type]
             encoded[fp, tensor_row, tensor_column] = 1
         # Passable squares / Lake squares
         encoded[FP_PASSABLE, :, :].fill_(1)
         for lake_square in LAKE_SQUARES:
-            tensor_row, tensor_column = self._get_tensor_position(lake_square, position.active_player_id)
+            tensor_row, tensor_column = tensor_position(lake_square, position.active_player_id)
             encoded[FP_PASSABLE, tensor_row, tensor_column] = 0
         # Draw-by-inactivity counter
         move_limit_ratio = position.inactivity_counter / INACTIVITY_LIMIT
@@ -100,7 +132,7 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
         # identify location in policy_logits tensor for all legal plies
         legal_ply_mapping: dict[tuple[int, int, int], CtfPly] = {}
         for ply in position.legal_plies:
-            logit_location = self._get_policy_logit_location_for_ply(ply, position.active_player_id)
+            logit_location = policy_logit_location_for_ply(ply, position.active_player_id)
             legal_ply_mapping[logit_location] = ply
 
         # create filter, starting with all positions masked, and unmasking legal plies
@@ -114,30 +146,5 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
         probabilities = F.softmax(masked.flatten(), dim = -1).reshape(ACTION_SPACE_SHAPE)
         
         # map the probabilities back to valid plies
-        return {str(ply): probabilities[policy_logit_location].item() for (policy_logit_location, ply) in legal_ply_mapping.items()}        
-
-    def _rotate_square(self, square: Square) -> Square:
-        rotated_row = 13 - square.row
-        rotated_column = 11 - square.column
-        return Square(rotated_column, rotated_row)
-
-    def _get_tensor_position(self, square: Square, active_player_id: Literal[1, -1]) -> tuple[int, int]:
-        """`square` as 0-based tensor indices, in `(row, column)` order.
-
-        Identity re-basing when White is to move; the 180-degree rotation
-        when Black is to move, so the mover's back rank is always row 0.
-        """
-        if active_player_id == -1:
-            square = self._rotate_square(square)
-
-        return square.row - 1, square.column
-
-    def _get_policy_logit_location_for_ply(self, ply: CtfPly, active_player_id: Literal[1, -1]) -> tuple[int, int, int]:
-        # returns (movemement index, row, column)
-        tensor_from_row, tensor_from_column = self._get_tensor_position(ply.source, active_player_id)
-        tensor_to_row, tensor_to_column = self._get_tensor_position(ply.destination, active_player_id)
-        row_delta = tensor_to_row - tensor_from_row
-        column_delta = tensor_to_column - tensor_from_column
-        movement_index = MOVEMENT_INDEX[(row_delta, column_delta)]
-        return movement_index, tensor_from_row, tensor_from_column
+        return {str(ply): probabilities[policy_logit_location].item() for (policy_logit_location, ply) in legal_ply_mapping.items()}
 

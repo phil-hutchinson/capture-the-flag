@@ -8,7 +8,11 @@ from torch import Tensor
 
 from capture_the_flag.board import BOARD_COLUMNS, BOARD_ROWS, Square
 from capture_the_flag.engines.neural_network.ctf_crn import CtfCrn
-from capture_the_flag.engines.neural_network.ctf_nn_evaluator import CtfNNEvaluator
+from capture_the_flag.engines.neural_network.ctf_nn_evaluator import (
+    CtfNNEvaluator,
+    policy_logit_location_for_ply,
+    rotate_square,
+)
 from capture_the_flag.engines.neural_network.tensor_layout import (
     ACTION_SPACE_SHAPE,
     FP_INACTIVITY_COUNT,
@@ -225,12 +229,11 @@ def test_inactivity_counter_populated(inactivity_counter):
             assert encoded[FP_INACTIVITY_COUNT, row, column] == pytest.approx(expected_value)
 
 def test_rotate_square_involution():
-    evaluator = CtfNNEvaluator(_dummy_model())
     for column in range(BOARD_COLUMNS):
         for row in range(1, BOARD_ROWS + 1):
             original_square = Square(column, row)
-            rotated_once = evaluator._rotate_square(original_square)
-            rotated_twice = evaluator._rotate_square(rotated_once)
+            rotated_once = rotate_square(original_square)
+            rotated_twice = rotate_square(rotated_once)
             assert original_square.column == rotated_twice.column
             assert original_square.row == rotated_twice.row
 
@@ -244,30 +247,28 @@ def test_rotate_square_involution():
 )
 def test_rotate_square_rotates_180_degrees(rotation):
     column_original, row_original, column_expected, row_expected = rotation
-    evaluator = CtfNNEvaluator(_dummy_model())
 
     original_square = Square(column_original, row_original)
-    rotated_square = evaluator._rotate_square(original_square)
+    rotated_square = rotate_square(original_square)
 
     assert rotated_square.column == column_expected
     assert rotated_square.row == row_expected
 
 @pytest.mark.parametrize(
-    "active_player_id", 
+    "active_player_id",
     [1, -1],
     ids=["White", "Black"],
 )
-def test_get_policy_logit_location_for_ply_is_bijective(active_player_id):
+def test_policy_logit_location_for_ply_is_bijective(active_player_id):
     # note: this does include illegal moves (from/to lakes, to off the board locations) that exist in the policy_logit
     filled: set[tuple[int,int,int]] = set()
-    evaluator = CtfNNEvaluator(_dummy_model())
     for column in range(BOARD_COLUMNS):
         for row in range(1, BOARD_ROWS + 1):
             for row_delta, column_delta in MOVEMENT_INDEX.keys():
                 from_square = Square(column, row)
                 to_square = Square(column + column_delta, row + row_delta)
                 ply = CtfPly(from_square, to_square)
-                location = evaluator._get_policy_logit_location_for_ply(ply, active_player_id)
+                location = policy_logit_location_for_ply(ply, active_player_id)
                 assert 0 <= location[0] < ACTION_SPACE_SHAPE[0]
                 assert 0 <= location[1] < ACTION_SPACE_SHAPE[1]
                 assert 0 <= location[2] < ACTION_SPACE_SHAPE[2]

@@ -58,7 +58,7 @@ class BatchSummary:
 def run_batch(
     num_games: int,
     output_dir: Path,
-    rng: random.Random | None = None,
+    seed: int | None = None,
     white_kind: str = "random",
     black_kind: str = "random",
     iterations: int | None = None,
@@ -77,12 +77,11 @@ def run_batch(
     all come from `Tournament`.
 
     `white_kind`/`black_kind` must be machine kinds (`MACHINE_PLAYER_KINDS`);
-    `iterations`/`temperature` tune neural players only. `rng` seeds phase-1
-    placement; `RandomCtfPlayer.select_ply` is backed by `game-engine-core`'s
-    `RandomEngine`, which draws from the process-global `random` module rather
-    than an injectable generator, so callers wanting a fully reproducible batch
-    (placement *and* play) should also call `random.seed(...)` — and
-    `torch.manual_seed(...)` for a neural seat — before invoking this function.
+    `iterations`/`temperature` tune neural players only. Passing `seed` makes the
+    whole batch reproducible: it seeds phase-1 placement, the process-global
+    `random` module that `RandomCtfPlayer.select_ply`'s `RandomEngine` draws
+    from, and (for a neural seat) `torch` for the network's initial weights — the
+    three independent randomness sources a batch pulls from.
     """
     if num_games < 1:
         raise ValueError("num_games must be at least 1")
@@ -92,7 +91,15 @@ def run_batch(
                 f"batch play requires a machine kind {MACHINE_PLAYER_KINDS}, got {kind!r}"
             )
 
-    rng = rng if rng is not None else random.Random()
+    if seed is not None:
+        random.seed(seed)
+        rng = random.Random(seed)
+        if "neural" in (white_kind, black_kind):
+            import torch
+
+            torch.manual_seed(seed)
+    else:
+        rng = random.Random()
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Tournament rejects duplicate player names, so disambiguate matching kinds
@@ -212,20 +219,10 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 def main(argv: Sequence[str] | None = None) -> None:
     args = _parse_args(argv)
-    rng = None
-    if args.seed is not None:
-        # Seed the process-global `random` module too, since select_ply's
-        # `RandomEngine` draws from it rather than an injectable generator.
-        random.seed(args.seed)
-        rng = random.Random(args.seed)
-        if "neural" in (args.white, args.black):
-            import torch
-
-            torch.manual_seed(args.seed)
     summary = run_batch(
         args.games,
         args.output_dir,
-        rng=rng,
+        seed=args.seed,
         white_kind=args.white,
         black_kind=args.black,
         iterations=args.iterations,

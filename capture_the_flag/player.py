@@ -196,13 +196,13 @@ def make_player(
             name, rng=context.rng, render_before_ply=render_before_ply
         )
     if kind == "neural":
-        from .engines.neural_network.ai_ctf_player import (
+        from .engines.neural_network.neural_ctf_player import (
             DEFAULT_ITERATIONS,
             DEFAULT_TEMPERATURE,
-            build_ai_player,
+            build_neural_player,
         )
 
-        return build_ai_player(
+        return build_neural_player(
             name,
             iterations=DEFAULT_ITERATIONS if iterations is None else iterations,
             temperature=DEFAULT_TEMPERATURE if temperature is None else temperature,

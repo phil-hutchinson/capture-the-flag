@@ -32,12 +32,14 @@ def test_make_human_player_needs_a_game_ui():
 
 def test_make_neural_player():
     # Imported lazily so this only pulls in torch when the neural kind is asked for.
-    from capture_the_flag.engines.neural_network.ai_ctf_player import AICtfPlayer
+    from capture_the_flag.engines.neural_network.neural_ctf_player import (
+        NeuralCtfPlayer,
+    )
 
     player = make_player(
         "neural", "N", context=PlayerContext(rng=random.Random(1)), iterations=5
     )
-    assert isinstance(player, AICtfPlayer)
+    assert isinstance(player, NeuralCtfPlayer)
     assert len(player.get_placement(Side.BLACK)) == 25
 
 

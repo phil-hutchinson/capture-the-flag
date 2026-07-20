@@ -1,10 +1,14 @@
 """The learned-engine player and its untrained-play search settings.
 
-`AICtfPlayer` is a thin `CtfPlayer`: phase-2 play is delegated to an injected
+`NeuralCtfPlayer` is a thin `CtfPlayer`: phase-2 play is delegated to an injected
 `MCTSEngine` (over the learned evaluator), and `get_placement` returns a random
 placement for now — placement intelligence is out of scope until stories
-00000010-00000012. `build_ai_player` is the construction seam the runners use;
-it is the only place `torch` (via the network and evaluator) is pulled in.
+00000010-00000012. `build_neural_player` is the construction seam the runners
+use; it is the only place `torch` (via the network and evaluator) is pulled in.
+
+The class still inherits the shared library's `AIPlayer` (its generic engine
+seat), but everything game-specific here is named "neural" to match the player
+kind the runners expose.
 """
 
 import random
@@ -29,7 +33,7 @@ DEFAULT_TEMPERATURE = 0.0
 """Greedy ply selection — take the most-visited child, no exploration noise."""
 
 
-class AICtfPlayer(AIPlayer[CtfPly, CtfPosition], CtfPlayer):
+class NeuralCtfPlayer(AIPlayer[CtfPly, CtfPosition], CtfPlayer):
     """A `CtfPlayer` whose phase-2 play comes from the injected engine and whose
     phase-1 placement is (for now) drawn at random from `rng`."""
 
@@ -44,24 +48,24 @@ class AICtfPlayer(AIPlayer[CtfPly, CtfPosition], CtfPlayer):
         self._rng = rng if rng is not None else random.Random()
 
     def get_placement(self, side: Side) -> Placement:
-        """A random legal placement. AI placement is out of scope for this story
-        (stories 00000010-00000012)."""
+        """A random legal placement. Placement intelligence is out of scope for
+        this story (stories 00000010-00000012)."""
         return random_placement(side, self._rng)
 
 
-def build_ai_player(
+def build_neural_player(
     name: str,
     *,
     iterations: int = DEFAULT_ITERATIONS,
     temperature: float = DEFAULT_TEMPERATURE,
     rng: random.Random | None = None,
     render_before_ply: bool = False,
-) -> AICtfPlayer:
+) -> NeuralCtfPlayer:
     """Construct an untrained learned-engine player: a fresh network wrapped in
-    the evaluator and an `MCTSEngine`, seated behind an `AICtfPlayer`."""
+    the evaluator and an `MCTSEngine`, seated behind a `NeuralCtfPlayer`."""
     engine: MCTSEngine[CtfPly, CtfPosition, CtfNNEvaluator] = MCTSEngine(
         evaluator=CtfNNEvaluator(CtfCrn()),
         iterations=iterations,
         temperature=temperature,
     )
-    return AICtfPlayer(engine, name, rng=rng, render_before_ply=render_before_ply)
+    return NeuralCtfPlayer(engine, name, rng=rng, render_before_ply=render_before_ply)

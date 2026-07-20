@@ -67,6 +67,15 @@ current `capture_the_flag` source), load-bearing for the whole plan:
   movers (optionally seated with reference placement files from
   `placements/`); placement intelligence itself is out of scope.
 
+  > **As shipped:** volume verification was run against random-*placement*
+  > opponents only. The machine seats in the runners (`random`, `neural`) always
+  > draw a random placement; no runner path seats a *reference* placement file
+  > for a machine player (only the human seat can load one). Seating machine
+  > players from `placements/` is therefore deferred to the placement stories
+  > (00000010–00000012), which is where the acceptance criterion's "reference
+  > opponents" half is properly satisfied. This is a known, accepted gap, not an
+  > oversight.
+
 ## Decisions deliberately left open (the learning content)
 
 The plan requires *that* these exist, not *what* they are:

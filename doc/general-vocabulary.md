@@ -42,6 +42,67 @@ backpropagation, is one value per parameter saying how much the loss would
 fall if that parameter nudged up. Each training step: forward pass → scalar
 loss → gradient → small parameter update against the gradient.
 
+**Backpropagation** — the algorithm that turns the one scalar loss into a
+gradient over every parameter, by applying the chain rule backward through the
+network layer by layer. The forward pass records what each operation did; the
+backward pass walks it in reverse, accumulating each parameter's share of the
+loss. This is why collapsing a batch to a single number (via `.sum()` /
+`.mean()`) loses nothing: differentiation re-expands that scalar into a full
+per-parameter — and, one step earlier, per-logit — signed correction.
+
+**Softmax cross-entropy gradient** — the reason the policy loss can train from a
+scalar. For a softmax followed by cross-entropy against a target distribution,
+the gradient on each logit collapses to `predicted_i − target_i`: a signed,
+per-column error. A column the network favoured more than the search visited
+gets a positive gradient (descent lowers it); one it favoured less gets a
+negative gradient (descent raises it); an exact match gets zero. So the "this
+was too high, this too low, by how much" signal lives in the gradient, not the
+scalar loss — the scalar is only a summary to watch trend down. A corollary:
+since the target is zero on illegal columns, any illegal move the network likes
+gets gradient `predicted − 0 > 0` and is pushed down, so an unmasked loss still
+teaches legality.
+
+**Cross-entropy** — the standard loss for scoring a predicted probability
+distribution against a target one: it sums, over the possible outcomes, the
+target probability times the negative log of the predicted probability, so it
+rewards putting mass where the target has mass and punishes confident wrong
+guesses hardest. In this project it scores the policy head (a softmax over the
+legal plies) against the search's visit distribution; the target is itself a
+full distribution, not a single "correct" move. At a perfect match it does
+*not* reach zero — it bottoms out at the *entropy* of the target distribution
+(see below) — reaching zero only when the target puts all its mass on one
+option. Its gradient drives the prediction toward the target either way.
+
+**Entropy** — how spread-out a distribution is: its probability-weighted
+average surprisal, −Σ p·log p (in bits when the log is base 2). Largest for a
+uniform distribution, zero for a certain (one-hot) one. It is the *floor* of
+cross-entropy — scoring a distribution against itself yields its entropy, not
+zero — so a perfectly-matched policy prediction still shows a positive loss
+equal to that entropy.
+
+**Surprisal** — the surprise of a single outcome under a prediction, −log p:
+near zero for something you called almost certain, growing without bound as the
+predicted probability approaches zero. Cross-entropy is the target-weighted
+average of the prediction's surprisals; entropy is the special case where a
+distribution weights its own surprisals.
+
+**Mode-covering (cross-entropy asymmetry)** — because surprisal −log q is
+unbounded as q→0 but bounded (→0) as q→1, cross-entropy punishes
+*under*-prediction of an important option far more than *over*-prediction of an
+unimportant one. Assigning near-zero probability to a ply the target weights
+heavily costs enormously; keeping a little leftover probability on plies that
+turn out unimportant costs almost nothing. So the loss drives a prediction to
+*cover* every option the target cares about (never zero one out) rather than to
+commit to a single peak — exactly the right pressure for a policy target: the
+network is penalized hardest for ignoring a move the search rated well.
+
+**KL divergence (relative entropy)** — how far a prediction q sits from a
+target p: Σ p·log(p/q), equivalently cross-entropy minus the target's entropy.
+Zero exactly when the two match, positive otherwise. Because a training
+target's entropy is a fixed constant, minimizing cross-entropy and minimizing
+KL divergence give identical gradients — so the simpler cross-entropy is used
+as the loss even though KL is the "distance" that reads zero at a match.
+
 **Replay buffer** — the pool of stored training examples that self-play
 writes into and training samples minibatches out of. Decouples the two
 loops: game generation appends (position, search visit-distribution,
@@ -173,6 +234,34 @@ distribution (e.g. selecting a ply from visit counts). Temperature 1 samples
 proportionally; lowering it sharpens toward always picking the top choice
 (→ 0 is fully greedy); raising it flattens toward uniform. Mnemonic: heat is
 randomness — freeze it and all randomness stops.
+
+## Hardware / performance
+
+**Batch-1 GPU latency (launch overhead & occupancy)** — for a *single* small
+input, a GPU is often no faster than a CPU, for two reasons unrelated to the
+arithmetic (which is genuinely microseconds). First, a forward pass issues one
+scheduled operation ("kernel") per layer — dozens of them, each carrying a
+fixed host-side launch/dispatch cost and chained by data dependency, so the
+overheads serialize and dwarf the compute. Second, a tiny per-position result
+can only occupy a sliver of the GPU's thousands of cores (low *occupancy*).
+Both overheads are per *call*, not per position, so the fix is batching many
+positions into one forward pass: it amortizes the launch cost and fills the
+cores, which is the only regime where a GPU's throughput advantage appears.
+A CPU "wins" at batch-1 not by faster math but by paying none of these
+overheads. In serial MCTS every leaf evaluation is a batch-1 call, which is
+why plain self-play does not benefit from a GPU until the search is
+parallelized enough to batch its evaluations.
+
+**Eager vs. graph/compiled execution** — in *eager* mode each network
+operation runs the moment Python reaches it (simple and debuggable, but paying
+per-op launch/dispatch overhead every call); *graph* or *compiled* mode captures
+the whole forward pass once into a static graph and replays it, fusing
+operations, folding inference-time constants (e.g. batch-norm into the
+preceding convolution), and collapsing many kernel launches into one. Compiling
+attacks launch overhead (helping even at batch-1) but not occupancy — the
+kernels are still small — so it complements batching rather than replacing it.
+The cost is flexibility: graph capture wants static input shapes and has a
+warm-up cost, so the usual pattern is develop eager, compile for the long run.
 
 ## Python
 

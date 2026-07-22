@@ -11,6 +11,7 @@ from capture_the_flag.engines.neural_network.ctf_crn import CtfCrn
 from capture_the_flag.engines.neural_network.ctf_nn_evaluator import (
     CtfNNEvaluator,
     policy_logit_location_for_ply,
+    rotate_ply,
     rotate_square,
 )
 from capture_the_flag.engines.neural_network.tensor_layout import (
@@ -253,6 +254,12 @@ def test_rotate_square_rotates_180_degrees(rotation):
 
     assert rotated_square.column == column_expected
     assert rotated_square.row == row_expected
+
+def test_rotate_ply_rotates_180_degrees():
+    original = CtfPly(Square(2, 3), Square(2, 4))
+    rotated = rotate_ply(original)
+
+    assert str(rotated) == "J10J9"
 
 @pytest.mark.parametrize(
     "active_player_id",

@@ -14,7 +14,7 @@ dependencies = [
     # The [learning] extra (torch/numpy, via game-engine-core's own learning extra)
     # is a hard dependency: this project always ships the learned play engine, so
     # there is no torch-free install to preserve.
-    "game-engine-core[learning] @ git+https://github.com/phil-hutchinson/game-engine-core.git@v0.1.3",
+    "game-engine-core[learning] @ git+https://github.com/phil-hutchinson/game-engine-core.git@v0.1.4",
 ]
 
 [tool.setuptools.packages.find]

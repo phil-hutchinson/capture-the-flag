@@ -119,6 +119,13 @@ Knight here"). Planes stack along the *channel* axis to form the full input
 meaning; channels have no adjacency or ordering significance, so their order
 just needs to be fixed and consistent.
 
+**Broadcast plane (global scalar as constant plane)** — the standard way to
+feed a whole-board scalar (e.g. a per-rank material count, side-to-move flag)
+to a convolutional trunk: fill an entire 12×12 plane with that one value so it
+rides alongside the spatial planes. It hands the network a global fact
+directly, sparing it from reconstructing it via board-spanning receptive field
+and a summation path the conv tower lacks until its head.
+
 **One-hot encoding** — representing a category as a vector (or plane stack)
 that is all zeros except a single 1 marking which category applies. Preferred
 over numeric codes (Knight=3, Tower=7) because a network would otherwise have
@@ -211,6 +218,55 @@ exports without the consumer noticing. What it deliberately excludes is the
 semantics of those tensors — what the planes mean, how outputs map to moves —
 which must live in a separate written spec.
 
+## Reinforcement learning / training dynamics
+
+**Sparse reward / cold start** — the situation where the only learning signal
+(here, the game outcome) appears rarely, because a near-random early policy
+almost never reaches a decisive terminal. Until *something* produces a
+non-neutral result the value targets are almost all the same value (draws → 0),
+giving the network nothing to distinguish positions by, so it collapses to
+predicting that constant. The flywheel that turns weak play into strong play
+cannot start until decisive terminals appear often enough to bite.
+
+**Credit assignment** — the problem of deciding *which* earlier decisions
+deserve the blame or credit for a final outcome. When the collector labels
+every ply of a game with the same terminal ±outcome (no discounting) and the
+policy was near-random over a long horizon, most of those labels are
+unattributable: the win wasn't *caused* by the aimless midgame positions it's
+stamped onto, so the same-looking position ends up labeled "win" once and
+"draw" ninety-nine times. Sparse *and* noisy-labeled is worse than sparse
+alone — the signal has to be local (outcome tight in time and reliably caused
+by the position) to be learnable.
+
+**Bootstrapping (value)** — improving the value estimate of a position from the
+(searched) value estimates of positions just after it, rather than only from
+final outcomes. It's how a tight, learnable signal near a terminal — e.g. "a
+piece adjacent to the enemy flag ≈ win" — leaks backward one ply per
+generation into earlier positions, gradually extending the network's sense of
+"good position" away from the terminal. This is the mechanism that lets the
+cold-start flywheel turn once *any* attributable signal exists.
+
+**Curriculum learning** — training on a sequence of progressively harder
+versions of the task instead of the full task from the start, so the early,
+easy stages produce a learnable signal that bootstraps the harder ones. Here:
+begin self-play with a tiny army (low branching, frequent decisive terminals),
+then grow the army toward the real game. Works when each stage's lesson is
+directionally right but incomplete; breaks when an early stage teaches
+something the later stages must actively un-learn.
+
+**Catastrophic forgetting** — a network overwriting earlier-learned competence
+when the training distribution shifts to something new, because the same
+weights get repurposed for the new data. The failure mode of a hard-switched
+curriculum (or any non-stationary training): mitigated by *ramping* stages —
+keeping some earlier-stage examples in the replay buffer during the transition
+— rather than switching cleanly between them.
+
+**Non-stationarity (training distribution)** — when the distribution of
+training examples changes over the course of training rather than being drawn
+from one fixed source, so the network chases a moving target. Inherent to
+self-play (the opponent is the improving network itself) and amplified by a
+curriculum that deliberately shifts the position distribution across stages.
+
 ## Game theory
 
 **Markov property / Markov-complete state** — a state representation is
@@ -264,6 +320,47 @@ The cost is flexibility: graph capture wants static input shapes and has a
 warm-up cost, so the usual pattern is develop eager, compile for the long run.
 
 ## Python
+
+**`Callable[[args], Return]` (function type)** — the type annotation for "a
+function/callable." Two slots: the inner list is the *parameter types*, the
+second is the *return type*. Empty inner brackets `Callable[[], T]` mean **takes
+no arguments** (a populated-with-nothing parameter list, not "unspecified") and
+returns `T`; `Callable[[int, str], bool]` takes those two and returns a bool.
+Distinct from `Callable[..., T]`, where the literal `...` means "any arguments,
+don't care." A zero-arg factory like the self-play `position_factory` is
+`Callable[[], TPosition]`: call it with nothing, get a position.
+
+**Type variable / generic (`TPosition`, `TPly`)** — a placeholder type that a
+generic class or function is defined over, pinned to a concrete type when
+instantiated. `SelfPlayCollector[TPosition]` is written against an abstract
+"position" and "ply" type; for this repo they resolve to the Capture the Flag
+position and ply. Conventionally named with a leading `T`.
+
+**Closure** — a function that captures ("closes over") variables from the scope
+it was defined in, so those values ride along when it's called later. A factory
+function returning an inner function is the usual way to bake settings into a
+zero-arg callable: the inner function reads the enclosing parameters even after
+the outer one has returned.
+
+**Partial application (`functools.partial`)** — pre-binding some of a function's
+arguments to produce a new callable that needs only the rest (here, none). The
+Python analogue of currying: `partial(build, army_size=2)` returns something you
+call with the remaining args. Freezes settings into a function without writing a
+closure by hand.
+
+**Callable object (`__call__`)** — an instance of a class that defines
+`__call__` can be invoked like a function (`obj()` runs `obj.__call__()`).
+Preferred over a closure/partial when there is real configuration to hold: the
+class is named, importable, and testable, configured in `__init__` and invoked
+with no further args — so an instance *is* a `Callable[[], T]`. Keep per-call
+behaviour (e.g. fresh randomness) inside `__call__`, not `__init__`.
+
+**Structural typing (duck typing)** — a value satisfies a type by having the
+right shape/behaviour, not by declaring it inherits from a named type. Python's
+`Callable[[], T]` is structural: a plain function, a closure, a `partial`, and a
+class instance with `__call__` are all interchangeable at that seam because each
+is callable-with-no-args — which is what lets one factory be swapped for another
+without the consumer knowing.
 
 **Module vs. package** — a module is a single `.py` file; a package is a
 directory of modules with an `__init__.py` (which makes the directory itself

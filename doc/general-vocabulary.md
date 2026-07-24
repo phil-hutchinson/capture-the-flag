@@ -75,6 +75,24 @@ optimizer is built per generation, its state never crosses a generation boundary
 anyway, so saving weights only and re-initialising on resume is exactly
 consistent with normal operation.
 
+**Learning rate (step size)** — how big a parameter update each gradient step
+takes. It is a stability-vs-speed dial, not an over/under-fitting one: too high
+and training oscillates or diverges (it overshoots minima and the loss bounces or
+blows up); too low and training is stable but crawls, making negligible progress
+per step. Adaptive optimizers (e.g. Adam) adjust a per-parameter step size from
+recent gradient history, so a single nominal rate like 1e-3 works across a wide
+range — which is why it is the usual default for a "does this learn at all"
+check. Couples with batch size (a larger, less-noisy batch can support a higher
+rate) and trades off against epochs (low-rate-more-epochs ≈ high-rate-fewer).
+
+**Batch size (gradient noise vs. stability)** — how many samples are averaged
+into each gradient step. Larger batches give a less noisy estimate of the true
+gradient and smoother steps but, for a fixed dataset, fewer update steps per
+epoch; smaller batches give noisier gradients that act as a mild regularizer.
+Bigger is therefore not simply better. The batch mixes samples across games
+(shuffled), so a step reflects a mean over *positions*, not whole games. At small
+self-play scale it is a low-impact knob — a conventional value is fine.
+
 **Backpropagation** — the algorithm that turns the one scalar loss into a
 gradient over every parameter, by applying the chain rule backward through the
 network layer by layer. The forward pass records what each operation did; the
@@ -333,6 +351,31 @@ distribution (e.g. selecting a ply from visit counts). Temperature 1 samples
 proportionally; lowering it sharpens toward always picking the top choice
 (→ 0 is fully greedy); raising it flattens toward uniform. Mnemonic: heat is
 randomness — freeze it and all randomness stops.
+
+**Policy-improvement operator (search as a teacher)** — running search on top of
+the network's raw policy produces a *better* move distribution than the raw
+prior: the visit counts are the prior sharpened by lookahead. Training the policy
+head toward those visit counts is what makes self-play improve — each generation
+the network chases a searched version of itself that is stronger than itself,
+then search improves on the new network, and so on. The strength of this teacher
+is bounded by the quality of the prior and the leaf value estimates it searches
+over, so over a near-random network few simulations add little signal; more
+iterations per ply pay off as the network gets good enough for search to extract
+more. A second, indirect training benefit: better play reaches decisive terminals
+more often, and decisive outcomes are the scarce value signal at cold start.
+
+**Self-play temperature (diversity vs. trajectory quality)** — in self-play
+collection, temperature sets how the *played* move is sampled from the visit
+counts, shaping the game trajectory and thus which positions and outcomes enter
+the dataset; it does not change the per-position policy target (the raw visit
+distribution) and costs essentially no compute. Too low and every game plays the
+same line, so N games collapse to one game's worth of correlated positions; too
+high and moves go random regardless of search, giving aimless games that rarely
+reach decisive terminals and positions unrepresentative of real play. The usual
+within-game fix — explore early, sharpen toward the endgame — needs a temperature
+schedule this engine lacks, so a single fixed value is one whole-game compromise.
+Random starting placements already supply large trajectory diversity, so this
+project needs less temperature-driven exploration than a fixed-start game.
 
 ## Hardware / performance
 

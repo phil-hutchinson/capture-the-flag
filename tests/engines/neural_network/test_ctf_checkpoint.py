@@ -9,6 +9,7 @@ files in iteration order. These are the two things the training loop and the
 
 from pathlib import Path
 
+import pytest
 import torch
 from game_engine_learning.checkpoints import checkpoint_path, discover_checkpoints
 
@@ -23,6 +24,7 @@ from capture_the_flag.engines.neural_network.ctf_position_factory import (
     CtfPositionFactory,
 )
 from capture_the_flag.engines.neural_network.neural_ctf_player import NeuralCtfPlayer
+from capture_the_flag.engines.neural_network.tensor_layout import ENGINE_SPEC_NAME
 
 
 def test_saved_network_round_trips_to_identical_evaluation(tmp_path: Path):
@@ -68,3 +70,31 @@ def test_checkpoint_loads_into_a_playable_seat(tmp_path: Path):
     player = load_neural_player(path, name="loaded")
 
     assert isinstance(player, NeuralCtfPlayer)
+
+
+def test_saved_checkpoint_is_stamped_with_the_current_engine_spec(tmp_path: Path):
+    path = checkpoint_path(tmp_path, 0)
+    save_checkpoint(CtfCrn(), path)
+
+    raw = torch.load(path, map_location="cpu", weights_only=True)
+
+    assert raw["spec"] == ENGINE_SPEC_NAME
+
+
+def test_load_network_rejects_a_checkpoint_stamped_for_a_different_spec(tmp_path: Path):
+    # Simulates a checkpoint saved under a later, incompatible spec revision.
+    path = checkpoint_path(tmp_path, 0)
+    torch.save({"spec": "ENG_NN_99", "state_dict": CtfCrn().state_dict()}, path)
+
+    with pytest.raises(ValueError, match="ENG_NN_99"):
+        load_network(path)
+
+
+def test_load_network_rejects_a_checkpoint_from_before_spec_stamping(tmp_path: Path):
+    # The pre-story checkpoint format: a bare state_dict, no wrapping/stamp at
+    # all (what every ENG_NN_1 checkpoint on disk looks like).
+    path = checkpoint_path(tmp_path, 0)
+    torch.save(CtfCrn().state_dict(), path)
+
+    with pytest.raises(ValueError, match="engine-spec stamp"):
+        load_network(path)

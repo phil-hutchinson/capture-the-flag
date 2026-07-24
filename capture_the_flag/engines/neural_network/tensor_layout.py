@@ -1,5 +1,11 @@
 from ...board import BOARD_COLUMNS, BOARD_ROWS
 
+# The engine I/O spec (doc/neuralnetwork/eng-nn-2.md) this tensor layout
+# implements. Checkpoints stamp this name so a checkpoint saved against a
+# superseded spec is rejected at load time instead of silently mismapping onto
+# the current, differently-shaped input (see ctf_checkpoint.py).
+ENGINE_SPEC_NAME = "ENG_NN_2"
+
 # Feature Planes:
 FP_OUR_FLAG = 0
 FP_OUR_TOWER = 1

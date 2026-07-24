@@ -21,22 +21,34 @@ from capture_the_flag.engines.neural_network.tensor_layout import (
     FP_OUR_FLAG_RELATIVE_COLUMN,
     FP_OUR_FLAG_RELATIVE_ROW,
     FP_OUR_RANK_1,
+    FP_OUR_RANK_1_QUANTITY,
     # FP_OUR_RANK_2,
+    FP_OUR_RANK_2_QUANTITY,
     # FP_OUR_RANK_3,
+    FP_OUR_RANK_3_QUANTITY,
     # FP_OUR_RANK_4,
+    FP_OUR_RANK_4_QUANTITY,
     # FP_OUR_RANK_5,
+    FP_OUR_RANK_5_QUANTITY,
     # FP_OUR_RANK_6,
+    FP_OUR_RANK_6_QUANTITY,
     FP_OUR_TOWER,
     FP_PASSABLE,
     FP_THEIR_FLAG,
     FP_THEIR_FLAG_RELATIVE_COLUMN,
     FP_THEIR_FLAG_RELATIVE_ROW,
     # FP_THEIR_RANK_1,
+    FP_THEIR_RANK_1_QUANTITY,
     FP_THEIR_RANK_2,
+    FP_THEIR_RANK_2_QUANTITY,
     # FP_THEIR_RANK_3,
+    FP_THEIR_RANK_3_QUANTITY,
     # FP_THEIR_RANK_4,
+    FP_THEIR_RANK_4_QUANTITY,
     # FP_THEIR_RANK_5,
+    FP_THEIR_RANK_5_QUANTITY,
     # FP_THEIR_RANK_6,
+    FP_THEIR_RANK_6_QUANTITY,
     # FP_THEIR_TOWER,
     # INPUT_SHAPE,
     MOVEMENT_INDEX,
@@ -104,6 +116,93 @@ def _base_position(side_to_move: Side, inactivity_counter: int = 0) -> CtfPositi
 
     return _position(board,side_to_move=side_to_move,inactivity_counter=inactivity_counter)
 
+
+_MOBILE_RANKS: tuple[P, ...] = (
+    P.MASTER_OF_ARMS,
+    P.CHAMPION,
+    P.KNIGHT,
+    P.HALBERDIER,
+    P.FOOT_SOLDIER,
+    P.MILITIA,
+)
+
+_OUR_RANK_QUANTITY_FP: tuple[int, ...] = (
+    FP_OUR_RANK_1_QUANTITY,
+    FP_OUR_RANK_2_QUANTITY,
+    FP_OUR_RANK_3_QUANTITY,
+    FP_OUR_RANK_4_QUANTITY,
+    FP_OUR_RANK_5_QUANTITY,
+    FP_OUR_RANK_6_QUANTITY,
+)
+
+_THEIR_RANK_QUANTITY_FP: tuple[int, ...] = (
+    FP_THEIR_RANK_1_QUANTITY,
+    FP_THEIR_RANK_2_QUANTITY,
+    FP_THEIR_RANK_3_QUANTITY,
+    FP_THEIR_RANK_4_QUANTITY,
+    FP_THEIR_RANK_5_QUANTITY,
+    FP_THEIR_RANK_6_QUANTITY,
+)
+
+# Deliberately asymmetric and distinct per side, so a bug that swaps "our" and
+# "their" (e.g. under rotation) produces a detectably wrong ratio rather than
+# an accidental match.
+_ATTRITION_COUNTS: dict[Side, dict[P, int]] = {
+    Side.WHITE: {
+        P.MASTER_OF_ARMS: 3,
+        P.CHAMPION: 2,
+        P.KNIGHT: 1,
+        P.HALBERDIER: 0,
+        P.FOOT_SOLDIER: 3,
+        P.MILITIA: 3,
+    },
+    Side.BLACK: {
+        P.MASTER_OF_ARMS: 0,
+        P.CHAMPION: 1,
+        P.KNIGHT: 2,
+        P.HALBERDIER: 3,
+        P.FOOT_SOLDIER: 0,
+        P.MILITIA: 1,
+    },
+}
+
+def _ranked_pieces(side: Side, counts: dict[P, int], start_row: int) -> dict[Square, tuple[Side, P]]:
+    # Up to 18 pieces (6 ranks x roster of 3) can't fit in one 12-column row,
+    # so spread across two consecutive rows.
+    squares = (
+        Square(column, row)
+        for row in (start_row, start_row + 1)
+        for column in range(BOARD_COLUMNS)
+    )
+    board: dict[Square, tuple[Side, P]] = {}
+    for rank in _MOBILE_RANKS:
+        for _ in range(counts[rank]):
+            board[next(squares)] = (side, rank)
+    return board
+
+def _full_army_position(side_to_move: Side = Side.WHITE) -> CtfPosition:
+    full_counts = {rank: 3 for rank in _MOBILE_RANKS}
+    board: dict[Square, tuple[Side, P]] = {
+        Square(0, 1): (Side.WHITE, P.FLAG),
+        Square(11, 12): (Side.BLACK, P.FLAG),
+    }
+    board.update(_ranked_pieces(Side.WHITE, full_counts, start_row=5))
+    board.update(_ranked_pieces(Side.BLACK, full_counts, start_row=8))
+    return _position(board, side_to_move=side_to_move)
+
+def _attrition_position(side_to_move: Side = Side.WHITE) -> CtfPosition:
+    board: dict[Square, tuple[Side, P]] = {
+        Square(0, 1): (Side.WHITE, P.FLAG),
+        Square(11, 12): (Side.BLACK, P.FLAG),
+    }
+    board.update(_ranked_pieces(Side.WHITE, _ATTRITION_COUNTS[Side.WHITE], start_row=5))
+    board.update(_ranked_pieces(Side.BLACK, _ATTRITION_COUNTS[Side.BLACK], start_row=8))
+    return _position(board, side_to_move=side_to_move)
+
+def _check_uniform_plane_value(encoded: Tensor, feature_plane: int, expected_value: float) -> None:
+    for row in range(BOARD_ROWS):
+        for column in range(BOARD_COLUMNS):
+            assert encoded[feature_plane, row, column] == pytest.approx(expected_value)
 
 def _check_tensor_piece_fill(encoded: Tensor, expected_piece_placements: set[tuple[int, int, int]]) -> None:
     # Expected tuples are (plane, column, row) — board-natural order, 0-based —
@@ -292,6 +391,47 @@ def test_flag_relative_planes_equivalent_under_rotation(inactivity_counter):
         FP_THEIR_FLAG_RELATIVE_ROW,
         FP_THEIR_FLAG_RELATIVE_COLUMN,
     ):
+        assert torch.equal(white_encoded[fp], black_encoded[fp])
+
+def test_army_strength_planes_full_army_is_one():
+    position = _full_army_position(Side.WHITE)
+
+    evaluator = CtfNNEvaluator(_dummy_model())
+    encoded = evaluator.encode_position(position)
+
+    for fp in _OUR_RANK_QUANTITY_FP + _THEIR_RANK_QUANTITY_FP:
+        _check_uniform_plane_value(encoded, fp, 1.0)
+
+@pytest.mark.parametrize(
+    "side_to_move",
+    [Side.WHITE, Side.BLACK],
+    ids=["White", "Black"],
+)
+def test_army_strength_planes_reflect_attrition(side_to_move):
+    position = _attrition_position(side_to_move)
+    our_counts = _ATTRITION_COUNTS[side_to_move]
+    their_counts = _ATTRITION_COUNTS[side_to_move.opponent]
+
+    evaluator = CtfNNEvaluator(_dummy_model())
+    encoded = evaluator.encode_position(position)
+
+    for rank, our_fp, their_fp in zip(_MOBILE_RANKS, _OUR_RANK_QUANTITY_FP, _THEIR_RANK_QUANTITY_FP):
+        _check_uniform_plane_value(encoded, our_fp, our_counts[rank] / 3)
+        _check_uniform_plane_value(encoded, their_fp, their_counts[rank] / 3)
+
+@pytest.mark.parametrize(
+    "inactivity_counter",
+    [0, 10, 49]
+)
+def test_army_strength_planes_equivalent_under_rotation(inactivity_counter):
+    white_position = _matching_white_position(inactivity_counter)
+    black_position = _matching_black_position(inactivity_counter)
+
+    evaluator = CtfNNEvaluator(_dummy_model())
+    white_encoded = evaluator.encode_position(white_position)
+    black_encoded = evaluator.encode_position(black_position)
+
+    for fp in _OUR_RANK_QUANTITY_FP + _THEIR_RANK_QUANTITY_FP:
         assert torch.equal(white_encoded[fp], black_encoded[fp])
 
 def test_rotate_square_involution():

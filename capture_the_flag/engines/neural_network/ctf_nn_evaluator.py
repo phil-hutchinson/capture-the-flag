@@ -24,7 +24,6 @@ from ...outcome import INACTIVITY_LIMIT
 from ...pieces import PieceType
 from ...ply import CtfPly
 from ...position import CtfPosition
-from ...side import Side
 from .tensor_layout import (
     ACTION_SPACE_SHAPE,
     FP_INACTIVITY_COUNT,
@@ -32,22 +31,34 @@ from .tensor_layout import (
     FP_OUR_FLAG_RELATIVE_COLUMN,
     FP_OUR_FLAG_RELATIVE_ROW,
     FP_OUR_RANK_1,
+    FP_OUR_RANK_1_QUANTITY,
     FP_OUR_RANK_2,
+    FP_OUR_RANK_2_QUANTITY,
     FP_OUR_RANK_3,
+    FP_OUR_RANK_3_QUANTITY,
     FP_OUR_RANK_4,
+    FP_OUR_RANK_4_QUANTITY,
     FP_OUR_RANK_5,
+    FP_OUR_RANK_5_QUANTITY,
     FP_OUR_RANK_6,
+    FP_OUR_RANK_6_QUANTITY,
     FP_OUR_TOWER,
     FP_PASSABLE,
     FP_THEIR_FLAG,
     FP_THEIR_FLAG_RELATIVE_COLUMN,
     FP_THEIR_FLAG_RELATIVE_ROW,
     FP_THEIR_RANK_1,
+    FP_THEIR_RANK_1_QUANTITY,
     FP_THEIR_RANK_2,
+    FP_THEIR_RANK_2_QUANTITY,
     FP_THEIR_RANK_3,
+    FP_THEIR_RANK_3_QUANTITY,
     FP_THEIR_RANK_4,
+    FP_THEIR_RANK_4_QUANTITY,
     FP_THEIR_RANK_5,
+    FP_THEIR_RANK_5_QUANTITY,
     FP_THEIR_RANK_6,
+    FP_THEIR_RANK_6_QUANTITY,
     FP_THEIR_TOWER,
     INPUT_SHAPE,
     MOVEMENT_INDEX,
@@ -115,6 +126,37 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
         PieceType.MILITIA: FP_THEIR_RANK_6,
     }
 
+    _FP_PIECE_QUANTITY = {
+        #key: our piece, rank
+        (True, PieceType.MASTER_OF_ARMS): FP_OUR_RANK_1_QUANTITY,
+        (True, PieceType.CHAMPION): FP_OUR_RANK_2_QUANTITY,
+        (True, PieceType.KNIGHT): FP_OUR_RANK_3_QUANTITY,
+        (True, PieceType.HALBERDIER): FP_OUR_RANK_4_QUANTITY,
+        (True, PieceType.FOOT_SOLDIER): FP_OUR_RANK_5_QUANTITY,
+        (True, PieceType.MILITIA): FP_OUR_RANK_6_QUANTITY,
+        (False, PieceType.MASTER_OF_ARMS): FP_THEIR_RANK_1_QUANTITY,
+        (False, PieceType.CHAMPION): FP_THEIR_RANK_2_QUANTITY,
+        (False, PieceType.KNIGHT): FP_THEIR_RANK_3_QUANTITY,
+        (False, PieceType.HALBERDIER): FP_THEIR_RANK_4_QUANTITY,
+        (False, PieceType.FOOT_SOLDIER): FP_THEIR_RANK_5_QUANTITY,
+        (False, PieceType.MILITIA): FP_THEIR_RANK_6_QUANTITY,
+    }
+
+    _FP_PIECE_TOTAL_QUANTITY = {
+        FP_OUR_RANK_1_QUANTITY: PieceType.MASTER_OF_ARMS.army_count,
+        FP_OUR_RANK_2_QUANTITY: PieceType.CHAMPION.army_count,
+        FP_OUR_RANK_3_QUANTITY: PieceType.KNIGHT.army_count,
+        FP_OUR_RANK_4_QUANTITY: PieceType.HALBERDIER.army_count,
+        FP_OUR_RANK_5_QUANTITY: PieceType.FOOT_SOLDIER.army_count,
+        FP_OUR_RANK_6_QUANTITY: PieceType.MILITIA.army_count,
+        FP_THEIR_RANK_1_QUANTITY: PieceType.MASTER_OF_ARMS.army_count,
+        FP_THEIR_RANK_2_QUANTITY: PieceType.CHAMPION.army_count,
+        FP_THEIR_RANK_3_QUANTITY: PieceType.KNIGHT.army_count,
+        FP_THEIR_RANK_4_QUANTITY: PieceType.HALBERDIER.army_count,
+        FP_THEIR_RANK_5_QUANTITY: PieceType.FOOT_SOLDIER.army_count,
+        FP_THEIR_RANK_6_QUANTITY: PieceType.MILITIA.army_count,
+    }
+
     def encode_position(self, position: CtfPosition) -> Tensor:
         # tensor expected to be (batch, channels, height, width)
         # batch will be handled later - we just need to do the last three here
@@ -149,6 +191,17 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
             encoded[FP_THEIR_FLAG_RELATIVE_ROW, row, :].fill_((their_flag_row - row)/BOARD_ROWS)
         for column in range(BOARD_COLUMNS):
             encoded[FP_THEIR_FLAG_RELATIVE_COLUMN, :, column].fill_((their_flag_column - column)/BOARD_COLUMNS)
+        # Army strength
+        piece_strength: dict[int, int] = {}
+        for fp_entry in CtfNNEvaluator._FP_PIECE_QUANTITY.values():
+            piece_strength[fp_entry] = 0
+        for _, (piece_side, piece_type) in position.board.items():
+            ours = (piece_side == position.side_to_move)
+            if (ours, piece_type) in CtfNNEvaluator._FP_PIECE_QUANTITY:
+                fp_to_increment = CtfNNEvaluator._FP_PIECE_QUANTITY[(ours, piece_type)]
+                piece_strength[fp_to_increment] += 1
+        for feature_plane, quantity in piece_strength.items():
+            encoded[feature_plane, :, :].fill_(quantity / CtfNNEvaluator._FP_PIECE_TOTAL_QUANTITY[feature_plane])
 
         return encoded
     

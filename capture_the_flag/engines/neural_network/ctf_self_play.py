@@ -20,7 +20,7 @@ from ...position import CtfPosition
 from .ctf_engine_factory import CtfEngineFactory
 from .ctf_nn_evaluator import CtfNNEvaluator
 from .ctf_position_factory import CtfPositionFactory
-from .train import transform_policy_to_white_perspective
+from .ctf_policy_target import transform_policy_to_white_perspective
 
 
 def build_self_play_collector(

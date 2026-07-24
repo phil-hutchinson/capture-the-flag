@@ -42,6 +42,26 @@ backpropagation, is one value per parameter saying how much the loss would
 fall if that parameter nudged up. Each training step: forward pass → scalar
 loss → gradient → small parameter update against the gradient.
 
+**Epoch / minibatch / epoch loss** — an *epoch* is one full pass over the whole
+training dataset; within it the data is split into *minibatches* and one
+gradient update is taken per minibatch, so an epoch is many updates, not one.
+"Train for N epochs" means show the network the same dataset N times over. The
+*epoch loss* is the average loss across one such pass — a single summary number
+(here the combined value + policy loss, each minibatch weighted by its sample
+count) whose downward trend across epochs is the signal that learning is
+happening. Training repeatedly on one fixed batch (the overfit-a-batch sanity
+check) lets the loss fall by memorization, which tests the plumbing without
+proving general strength.
+
+**Optimizer** — the component that turns each computed gradient into an actual
+weight change; backprop produces the gradient, the optimizer decides the step.
+You select and configure one from the framework (e.g. Adam, SGD) over the
+network's parameters rather than implementing it, and the training loop calls its
+step after each minibatch. Plain SGD applies one global learning rate; Adam
+adapts a per-parameter step size from recent gradient history, so it mostly "just
+works" without careful learning-rate tuning — which is why it's the usual default
+for a "does this learn at all" check.
+
 **Backpropagation** — the algorithm that turns the one scalar loss into a
 gradient over every parameter, by applying the chain rule backward through the
 network layer by layer. The forward pass records what each operation did; the
@@ -149,6 +169,16 @@ network's gut sense of how good the current position is (a single number in
 [-1, 1]); the policy head is its gut sense of which moves look promising (one
 logit per action-space entry). Keeping the heads thin forces most learning
 into the shared trunk, so one board representation serves both judgments.
+
+**Weight initialization / symmetry breaking** — networks start from *small
+random* weights, never all zeros. Zero (or any identical) init makes every unit
+in a layer compute the same output and receive the same gradient, so they update
+in lockstep and never differentiate — the layer collapses to acting like a single
+unit. Random init breaks that symmetry; the "small" keeps early activations and
+gradients in a sane range. A consequence at cold start: a tanh value head from
+literal zero weights would output exactly 0, but real (random) init emits small
+nonzero noise, so an all-draw batch still shows a tiny value loss that training
+drives toward the constant 0 target.
 
 **Residual block / skip connection** — a network building block whose output
 is its input *plus* a learned correction (the input is added back in via a

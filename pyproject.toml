@@ -30,6 +30,10 @@ pythonVersion = "3.12"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# `slow` tests exercise real self-play/training (MCTS + gradient descent) and are
+# excluded from the default run. Opt in with `pytest -m slow`.
+markers = ["slow: exercises real self-play/training; run explicitly with -m slow"]
+addopts = "-m 'not slow'"
 
 [tool.ruff.lint]
 # Ruff's defaults (pyflakes, pycodestyle errors) plus: UP and TID for the

@@ -8,7 +8,7 @@ from capture_the_flag.engines.neural_network.neural_ctf_player import NeuralCtfP
 from capture_the_flag.engines.neural_network.tensor_layout import (
     ACTION_SPACE_SHAPE,
 )
-from capture_the_flag.engines.neural_network.train import ctf_policy_loss, transform_policy_to_white_perspective
+from capture_the_flag.engines.neural_network.ctf_policy_target import ctf_policy_loss, transform_policy_to_white_perspective
 from capture_the_flag.position import CtfPosition
 from capture_the_flag.side import Side
 

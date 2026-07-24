@@ -10,7 +10,6 @@ from .ctf_nn_evaluator import rotate_ply, policy_logit_location_for_ply
 from .tensor_layout import ACTION_SPACE_SHAPE
 
 
-# TBD: what file this should live in
 def transform_policy_to_white_perspective(position: CtfPosition, policy: dict[str, float]) -> dict[str, float]:
     if position.active_player_id == 1:
         return policy

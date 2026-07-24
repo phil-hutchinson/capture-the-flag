@@ -19,7 +19,7 @@ from capture_the_flag.engines.neural_network.ctf_self_play import (
     build_self_play_collector,
 )
 from capture_the_flag.engines.neural_network.tensor_layout import INPUT_SHAPE
-from capture_the_flag.engines.neural_network.train import (
+from capture_the_flag.engines.neural_network.ctf_policy_target import (
     transform_policy_to_white_perspective,
 )
 

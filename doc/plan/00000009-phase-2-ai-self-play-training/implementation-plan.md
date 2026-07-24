@@ -305,4 +305,5 @@ them:
   strength-bearing run is not yet practical; rules-engine performance work may
   need to come first.
 - **Flag-relative-location input planes** (original Step 10): the four flag-offset
-  input planes change the encoder's `INPUT_SHAPE` and are their own story.
+  input planes change the encoder's `INPUT_SHAPE` and are their own story —
+  delivered as story 00000026 (also adding army-strength planes).

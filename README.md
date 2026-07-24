@@ -93,10 +93,13 @@ Each run lands in its own timestamped directory under `./training-runs/`
 (gitignored), holding the checkpoint series and a `run-config.json`
 reproducibility record. The self-play and training shape is tuned with
 `--games` (games per generation), `--iterations`/`--temperature` (self-play
-search), `--epochs`/`--batch-size`/`--learning-rate` (training), and `--seed`;
-unset flags fall back to modest built-in defaults. `--resume` reloads the most
-recent run's latest checkpoint and trains `--generations` more into the same
-run, reusing that run's recorded hyperparameters.
+search), `--epochs`/`--batch-size`/`--learning-rate` (training),
+`--features`/`--residual-blocks` (the network's width and depth), and
+`--seed`; unset flags fall back to modest built-in defaults. `--resume`
+reloads the most recent run's latest checkpoint and trains `--generations`
+more into the same run, reusing that run's recorded hyperparameters — the
+architecture included, so a resumed run rebuilds the network at the size it
+was started at.
 
 ## Development
 

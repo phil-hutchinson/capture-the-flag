@@ -23,17 +23,22 @@ import json
 import random
 import subprocess
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from importlib import metadata
 from pathlib import Path
 
 import torch
-from game_engine_learning.checkpoints import checkpoint_path, new_run_directory
+from game_engine_learning.checkpoints import (
+    checkpoint_path,
+    discover_checkpoints,
+    latest_run_directory,
+    new_run_directory,
+)
 from game_engine_learning.training_loop import EpochLoss
 from torch.optim import Adam
 
-from .ctf_checkpoint import DEFAULT_RUNS_DIR, save_checkpoint
+from .ctf_checkpoint import DEFAULT_RUNS_DIR, load_network, save_checkpoint
 from .ctf_crn import CtfCrn
 from .ctf_training import train_one_generation
 
@@ -90,8 +95,77 @@ def train_generations(
     network = CtfCrn()
     run_dir = new_run_directory(base_dir)
     _write_run_config(run_dir, config)
+    _run_generations(network, run_dir, config, start_generation=1, progress=progress)
+    return run_dir
 
-    for generation in range(1, config.generations + 1):
+
+def resume_generations(
+    added_generations: int,
+    base_dir: Path = DEFAULT_RUNS_DIR,
+    progress: ProgressCallback | None = None,
+) -> Path:
+    """Resume the most recent run and train `added_generations` more generations
+    into the *same* run directory, then return it.
+
+    The network is rehydrated from the run's latest checkpoint (Step 5's
+    `load_network`), so training continues from the saved weights rather than a
+    fresh init, and the appended checkpoints are numbered from the next generation
+    — `latest_checkpoint + 1` onward. The self-play and training hyperparameters
+    come from the run's own `run-config.json`, not from fresh defaults, so the
+    added generations are produced the same way as the original ones; only *how
+    many* more to run is chosen at resume time.
+
+    No reseeding happens here: the seed governed the original network init and
+    initial run, which are already in the past by the time a resume loads the
+    saved weights, so re-applying it would only reduce the diversity of the
+    additional self-play games.
+    """
+    if added_generations < 1:
+        raise ValueError(f"added_generations must be at least 1, got {added_generations}")
+
+    run_dir = latest_run_directory(base_dir)
+    if run_dir is None:
+        raise FileNotFoundError(f"No training run to resume under {base_dir}")
+
+    checkpoints = discover_checkpoints(run_dir)
+    if not checkpoints:
+        raise FileNotFoundError(f"No checkpoint to resume from in {run_dir}")
+
+    latest = checkpoints[-1]
+    network = load_network(latest.path)
+    config = replace(_read_run_config(run_dir), generations=added_generations)
+
+    _append_resume_record(
+        run_dir, resumed_from=latest.iteration, added_generations=added_generations
+    )
+    _run_generations(
+        network,
+        run_dir,
+        config,
+        start_generation=latest.iteration + 1,
+        progress=progress,
+    )
+    return run_dir
+
+
+def _run_generations(
+    network: CtfCrn,
+    run_dir: Path,
+    config: TrainingConfig,
+    *,
+    start_generation: int,
+    progress: ProgressCallback | None,
+) -> None:
+    """Train `config.generations` generations into `run_dir`, labelling the first
+    of them `start_generation` (1 for a fresh run, `latest_checkpoint + 1` for a
+    resume).
+
+    Each generation builds a fresh optimizer, trains `network` in place, and saves
+    it under the checkpoint convention — so the checkpoint iteration is the total
+    number of generations trained so far, and a resume can continue from it.
+    """
+    for offset in range(config.generations):
+        generation = start_generation + offset
         optimizer = Adam(network.parameters(), lr=config.learning_rate)
         history = train_one_generation(
             network,
@@ -105,8 +179,6 @@ def train_generations(
         save_checkpoint(network, checkpoint_path(run_dir, generation))
         if progress is not None:
             progress(generation, history)
-
-    return run_dir
 
 
 def _write_run_config(run_dir: Path, config: TrainingConfig) -> None:
@@ -123,6 +195,35 @@ def _write_run_config(run_dir: Path, config: TrainingConfig) -> None:
         "git_commit": _git_commit(),
     }
     path = run_dir / RUN_CONFIG_FILENAME
+    path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+
+
+def _read_run_config(run_dir: Path) -> TrainingConfig:
+    """Reconstruct the run's `TrainingConfig` from its `run-config.json`, so a
+    resume reproduces the original run's self-play and training settings instead
+    of falling back to fresh defaults."""
+    record = json.loads((run_dir / RUN_CONFIG_FILENAME).read_text(encoding="utf-8"))
+    return TrainingConfig(**record["config"])
+
+
+def _append_resume_record(
+    run_dir: Path, *, resumed_from: int, added_generations: int
+) -> None:
+    """Note this resume in the run's record. The original config is left intact
+    and each resume appends an entry — when it happened, which checkpoint it
+    continued from, how many generations it added, and the commit it ran against —
+    so the record still reproduces the run as a whole across any number of
+    resumes."""
+    path = run_dir / RUN_CONFIG_FILENAME
+    record = json.loads(path.read_text(encoding="utf-8"))
+    record.setdefault("resumes", []).append(
+        {
+            "resumed": datetime.now().isoformat(timespec="seconds"),
+            "resumed_from_checkpoint": resumed_from,
+            "added_generations": added_generations,
+            "git_commit": _git_commit(),
+        }
+    )
     path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
 
 

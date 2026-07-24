@@ -1,4 +1,4 @@
-"""Checkpoint save/load round-trip tests (story 00000009, Step 5).
+"""Checkpoint save/load round-trip tests.
 
 A checkpoint is weights-only, so the correctness claim is that a network reloaded
 from disk evaluates a fixed position *identically* to the in-memory original —

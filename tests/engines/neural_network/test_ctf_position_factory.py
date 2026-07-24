@@ -1,7 +1,7 @@
 """Tests for the self-play random-placement position factory.
 
 `CtfPositionFactory` is the zero-arg `position_factory` the shared
-`SelfPlayCollector` calls once per game (story 00000009, Step 2). It must return
+`SelfPlayCollector` calls once per game. It must return
 a legal, fully-placed phase-2 starting position, and successive calls must differ
 so self-play games actually diverge.
 """

@@ -1,4 +1,4 @@
-"""Tests for the self-play collection wiring (story 00000009, Step 3).
+"""Tests for the self-play collection wiring.
 
 Exercises `build_self_play_collector` end to end at a tiny search budget: the
 collected `TrainingSample`s must be structurally valid, their value targets must
@@ -12,6 +12,9 @@ from game_engine_learning.self_play_collector import SelfPlayCollector
 from capture_the_flag.engines.neural_network.ctf_crn import CtfCrn
 from capture_the_flag.engines.neural_network.ctf_engine_factory import CtfEngineFactory
 from capture_the_flag.engines.neural_network.ctf_nn_evaluator import CtfNNEvaluator
+from capture_the_flag.engines.neural_network.ctf_policy_target import (
+    transform_policy_to_white_perspective,
+)
 from capture_the_flag.engines.neural_network.ctf_position_factory import (
     CtfPositionFactory,
 )
@@ -19,9 +22,7 @@ from capture_the_flag.engines.neural_network.ctf_self_play import (
     build_self_play_collector,
 )
 from capture_the_flag.engines.neural_network.tensor_layout import INPUT_SHAPE
-from capture_the_flag.engines.neural_network.ctf_policy_target import (
-    transform_policy_to_white_perspective,
-)
+from capture_the_flag.position import CtfPosition
 
 
 def _evaluator() -> CtfNNEvaluator:
@@ -77,9 +78,9 @@ def test_target_values_alternate_within_a_game():
 
 def test_capture_time_transform_reframes_black_to_move_distributions():
     evaluator = _evaluator()
-    captures: list[tuple[object, dict[str, float], dict[str, float]]] = []
+    captures: list[tuple[CtfPosition, dict[str, float], dict[str, float]]] = []
 
-    def spy_transform(position, policy):
+    def spy_transform(position: CtfPosition, policy: dict[str, float]) -> dict[str, float]:
         transformed = transform_policy_to_white_perspective(position, policy)
         captures.append((position, policy, transformed))
         return transformed

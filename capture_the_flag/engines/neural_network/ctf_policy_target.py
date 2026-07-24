@@ -6,7 +6,7 @@ from torch import Tensor
 
 from ...ply import parse_ply
 from ...position import CtfPosition
-from .ctf_nn_evaluator import rotate_ply, policy_logit_location_for_ply
+from .ctf_nn_evaluator import policy_logit_location_for_ply, rotate_ply
 from .tensor_layout import ACTION_SPACE_SHAPE
 
 

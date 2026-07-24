@@ -1,4 +1,4 @@
-"""Checkpoint persistence for the learned play engine (story 00000009, Step 5).
+"""Checkpoint persistence for the learned play engine.
 
 Weights-only and resumable. Saving/loading the actual tensors is game-side code:
 the shared `game_engine_learning.checkpoints` module is torch-free and only
@@ -8,7 +8,7 @@ supplies the run-directory / checkpoint-path naming, so the `torch.save` /
 Two load directions share one file:
 
 - `load_network` rehydrates the `CtfCrn` itself, so training can resume from a
-  saved generation (Step 7 uses this).
+  saved generation (the resume path uses this).
 - `load_neural_player` wires that network into a playable seat (evaluator + MCTS
   engine + `NeuralCtfPlayer`), so any checkpoint plays through the same
   interfaces as every other engine.
@@ -36,8 +36,8 @@ from .neural_ctf_player import (
 )
 
 DEFAULT_RUNS_DIR = Path("training-runs")
-"""Repo-root-relative base directory for training-run artifacts (checkpoints and,
-from Step 6, the run-config record). Gitignored — runs are machine-local — and
+"""Repo-root-relative base directory for training-run artifacts (checkpoints and
+the run-config record). Gitignored — runs are machine-local — and
 resolved against the current working directory, matching the runners' existing
 `placements/` convention."""
 

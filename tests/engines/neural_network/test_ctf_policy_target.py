@@ -1,14 +1,14 @@
 import pytest
 import torch
-import torch.nn as nn
 from torch import Tensor
 
-from capture_the_flag.engines.neural_network.ctf_nn_evaluator import CtfNNEvaluator
-from capture_the_flag.engines.neural_network.neural_ctf_player import NeuralCtfPlayer
+from capture_the_flag.engines.neural_network.ctf_policy_target import (
+    ctf_policy_loss,
+    transform_policy_to_white_perspective,
+)
 from capture_the_flag.engines.neural_network.tensor_layout import (
     ACTION_SPACE_SHAPE,
 )
-from capture_the_flag.engines.neural_network.ctf_policy_target import ctf_policy_loss, transform_policy_to_white_perspective
 from capture_the_flag.position import CtfPosition
 from capture_the_flag.side import Side
 

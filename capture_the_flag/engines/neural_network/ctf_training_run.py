@@ -1,20 +1,20 @@
-"""Multi-generation training orchestrator (story 00000009, Step 6).
+"""Multi-generation training orchestrator.
 
-Wraps the single-generation glue (`train_one_generation`, Step 4) in the
-generations loop: each generation collects self-play with the *current* network,
-trains on it, and saves a checkpoint (Step 5), carrying the improved network into
-the next generation. One timestamped run directory holds the whole run — its
-checkpoint series plus a `run-config.json` reproducibility record.
+Wraps the single-generation glue (`train_one_generation`) in the generations
+loop: each generation collects self-play with the *current* network, trains on
+it, and saves a checkpoint, carrying the improved network into the next
+generation. One timestamped run directory holds the whole run — its checkpoint
+series plus a `run-config.json` reproducibility record.
 
-`TrainingConfig` carries the starting hyperparameters. The defaults are the
-deliberately-modest starting points chosen in the story discussion (5 games and
-200 search iterations per ply, self-play temperature 1.0, Adam at 1e-3, a few
-epochs) — cheap enough to run on one workstation, to be raised as throughput
-allows, not values tuned to demonstrated strength (that is deferred).
+`TrainingConfig` carries the starting hyperparameters. The defaults are
+deliberately modest (5 games and 200 search iterations per ply, self-play
+temperature 1.0, Adam at 1e-3, a few epochs) — cheap enough to run on one
+workstation, to be raised as throughput allows, not values tuned to demonstrated
+strength (that is deferred).
 
 A fresh optimizer is built per generation, so no optimizer state crosses a
-generation boundary — which is why checkpoints are weights-only (Step 5) and a
-resume (Step 7) can pick up from any checkpoint without it.
+generation boundary — which is why checkpoints are weights-only and a resume can
+pick up from any checkpoint without it.
 """
 
 from __future__ import annotations
@@ -40,6 +40,7 @@ from torch.optim import Adam
 
 from .ctf_checkpoint import DEFAULT_RUNS_DIR, load_network, save_checkpoint
 from .ctf_crn import CtfCrn
+from .ctf_position_factory import CtfPositionFactory
 from .ctf_training import train_one_generation
 
 RUN_CONFIG_FILENAME = "run-config.json"
@@ -77,25 +78,35 @@ def train_generations(
 
     Each generation trains `network` in place (via `train_one_generation`) and
     saves it as `checkpoint-<generation>.pt`, so the checkpoint iteration is the
-    number of generations trained so far — the anchor a resume (Step 7) continues
-    from. `progress`, if given, is called after each generation with that
-    generation's loss history, so a caller can report the trend live.
+    number of generations trained so far — the anchor a resume continues from.
+    `progress`, if given, is called after each generation with that generation's
+    loss history, so a caller can report the trend live.
     """
     if config.generations < 1:
         raise ValueError(f"generations must be at least 1, got {config.generations}")
 
+    position_factory: CtfPositionFactory | None = None
     if config.seed is not None:
-        # Seed torch (network init) and the process-global `random` (which
-        # placement and the search draw from). Note self-play placement still
-        # uses its own unseeded RNG, so a run is reproducible in configuration
-        # and network init but not bit-for-bit in the games played.
+        # Seed every stochastic source so the run is reproducible given the same
+        # environment: torch (network init), the process-global `random` (the
+        # search draws from it), and the placement factory (its own rng, seeded
+        # here so the self-play games are reproducible too rather than drawn from
+        # OS entropy).
         torch.manual_seed(config.seed)
         random.seed(config.seed)
+        position_factory = CtfPositionFactory(random.Random(config.seed))
 
     network = CtfCrn()
     run_dir = new_run_directory(base_dir)
     _write_run_config(run_dir, config)
-    _run_generations(network, run_dir, config, start_generation=1, progress=progress)
+    _run_generations(
+        network,
+        run_dir,
+        config,
+        start_generation=1,
+        position_factory=position_factory,
+        progress=progress,
+    )
     return run_dir
 
 
@@ -107,10 +118,10 @@ def resume_generations(
     """Resume the most recent run and train `added_generations` more generations
     into the *same* run directory, then return it.
 
-    The network is rehydrated from the run's latest checkpoint (Step 5's
-    `load_network`), so training continues from the saved weights rather than a
-    fresh init, and the appended checkpoints are numbered from the next generation
-    — `latest_checkpoint + 1` onward. The self-play and training hyperparameters
+    The network is rehydrated from the run's latest checkpoint (`load_network`),
+    so training continues from the saved weights rather than a fresh init, and the
+    appended checkpoints are numbered from the next generation —
+    `latest_checkpoint + 1` onward. The self-play and training hyperparameters
     come from the run's own `run-config.json`, not from fresh defaults, so the
     added generations are produced the same way as the original ones; only *how
     many* more to run is chosen at resume time.
@@ -154,6 +165,7 @@ def _run_generations(
     config: TrainingConfig,
     *,
     start_generation: int,
+    position_factory: CtfPositionFactory | None = None,
     progress: ProgressCallback | None,
 ) -> None:
     """Train `config.generations` generations into `run_dir`, labelling the first
@@ -175,6 +187,7 @@ def _run_generations(
             batch_size=config.batch_size,
             self_play_iterations=config.self_play_iterations,
             self_play_temperature=config.self_play_temperature,
+            position_factory=position_factory,
         )
         save_checkpoint(network, checkpoint_path(run_dir, generation))
         if progress is not None:

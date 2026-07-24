@@ -1,7 +1,7 @@
 """Tests for the self-play MCTS engine factory.
 
 `CtfEngineFactory` is the zero-arg `engine_factory` the shared
-`SelfPlayCollector` calls once per game (story 00000009, Step 3): it must build a
+`SelfPlayCollector` calls once per game: it must build a
 fresh `MCTSEngine` over the configured evaluator, carrying the self-play search
 budget and exploration temperature through to each engine it builds.
 """

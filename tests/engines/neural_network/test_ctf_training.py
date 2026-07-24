@@ -1,4 +1,4 @@
-"""Tests for the single-generation training glue (story 00000009, Step 4).
+"""Tests for the single-generation training glue.
 
 The overfit-a-batch sanity check: collect one small self-play batch and train
 several epochs on it, asserting the loss trends down. Because it spins up real
@@ -6,8 +6,8 @@ MCTS self-play plus gradient descent it is `slow`-marked (excluded from the
 default run; opt in with `pytest -m slow`).
 
 A falling *policy* loss is the real payload here — it is the end-to-end proof
-that the Step-1 str(ply) -> logit column mapping is correct. A flat or rising
-policy loss is that mapping's bug signature.
+that the str(ply) -> logit column mapping is correct. A flat or rising policy
+loss is that mapping's bug signature.
 """
 
 import random
@@ -40,6 +40,6 @@ def test_overfits_one_self_play_batch() -> None:
     # Training many epochs on one fixed batch must reduce the fit error. The
     # policy term carries the signal (value targets are near-constant when games
     # draw), so it is asserted on its own: a non-decreasing policy loss is the
-    # Step-1 column-mapping bug signature.
+    # column-mapping bug signature.
     assert history[-1].total < history[0].total
     assert history[-1].policy < history[0].policy

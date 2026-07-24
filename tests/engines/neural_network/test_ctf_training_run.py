@@ -1,4 +1,4 @@
-"""End-to-end smoke test for the training orchestrator (story 00000009, Step 6).
+"""End-to-end smoke test for the training orchestrator.
 
 Marked `slow`: it runs real self-play (MCTS) and gradient descent, so it is
 excluded from the default suite and opted into with `pytest -m slow`. At tiny

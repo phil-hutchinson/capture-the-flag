@@ -1,9 +1,9 @@
-"""Self-play collection wiring for Capture the Flag (story 00000009, Step 3).
+"""Self-play collection wiring for Capture the Flag.
 
 Composes the shared `SelfPlayCollector` from the game-specific pieces: the
-story-8 evaluator, the Step-3 engine factory (self-play search budget +
-exploration temperature), the Step-2 random-placement position factory, and the
-Step-1 capture-time policy transform.
+learned-engine evaluator, the engine factory (self-play search budget +
+exploration temperature), the random-placement position factory, and the
+capture-time policy transform.
 
 The transform is the load-bearing wiring. It re-keys each MCTS visit
 distribution into the network's white-normalized frame *while the collector
@@ -19,8 +19,8 @@ from game_engine_learning.self_play_collector import SelfPlayCollector
 from ...position import CtfPosition
 from .ctf_engine_factory import CtfEngineFactory
 from .ctf_nn_evaluator import CtfNNEvaluator
-from .ctf_position_factory import CtfPositionFactory
 from .ctf_policy_target import transform_policy_to_white_perspective
+from .ctf_position_factory import CtfPositionFactory
 
 
 def build_self_play_collector(

@@ -2,9 +2,9 @@
 
 `NeuralCtfPlayer` is a thin `CtfPlayer`: phase-2 play is delegated to an injected
 `MCTSEngine` (over the learned evaluator), and `get_placement` returns a random
-placement for now — placement intelligence is out of scope until stories
-00000010-00000012. `build_neural_player` is the construction seam the runners
-use; it is the only place `torch` (via the network and evaluator) is pulled in.
+placement for now — placement intelligence is out of scope here.
+`build_neural_player` is the construction seam the runners use; it is the only
+place `torch` (via the network and evaluator) is pulled in.
 
 The class still inherits the shared library's `AIPlayer` (its generic engine
 seat), but everything game-specific here is named "neural" to match the player
@@ -49,7 +49,7 @@ class NeuralCtfPlayer(AIPlayer[CtfPly, CtfPosition], CtfPlayer):
 
     def get_placement(self, side: Side) -> Placement:
         """A random legal placement. Placement intelligence is out of scope for
-        this story (stories 00000010-00000012)."""
+        now."""
         return random_placement(side, self._rng)
 
 

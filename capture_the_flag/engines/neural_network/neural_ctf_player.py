@@ -56,15 +56,17 @@ class NeuralCtfPlayer(AIPlayer[CtfPly, CtfPosition], CtfPlayer):
 def build_neural_player(
     name: str,
     *,
+    network: CtfCrn | None = None,
     iterations: int = DEFAULT_ITERATIONS,
     temperature: float = DEFAULT_TEMPERATURE,
     rng: random.Random | None = None,
     render_before_ply: bool = False,
 ) -> NeuralCtfPlayer:
-    """Construct an untrained learned-engine player: a fresh network wrapped in
-    the evaluator and an `MCTSEngine`, seated behind a `NeuralCtfPlayer`."""
+    """Construct a learned-engine player: `network` (a fresh untrained `CtfCrn` by
+    default, or one loaded from a checkpoint) wrapped in the evaluator and an
+    `MCTSEngine`, seated behind a `NeuralCtfPlayer`."""
     engine: MCTSEngine[CtfPly, CtfPosition, CtfNNEvaluator] = MCTSEngine(
-        evaluator=CtfNNEvaluator(CtfCrn()),
+        evaluator=CtfNNEvaluator(network if network is not None else CtfCrn()),
         iterations=iterations,
         temperature=temperature,
     )

@@ -31,3 +31,6 @@ Thumbs.db
 
 # Prepared phase-1 placement files for the PvP runner (personal, machine-local)
 placements/
+
+# Training-run artifacts: checkpoints and run-config records (machine-local)
+training-runs/

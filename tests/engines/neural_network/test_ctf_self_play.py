@@ -4,12 +4,16 @@ Exercises `build_self_play_collector` end to end at a tiny search budget: the
 collected `TrainingSample`s must be structurally valid, their value targets must
 alternate down a game, and the capture-time transform must reframe Black-to-move
 visit distributions into the network's white-normalized frame.
+
+Every test that actually calls `collect` plays real self-play games, so those are
+`slow`-marked (excluded from the default run; opt in with `pytest -m slow`). The
+wiring test, which only inspects how the collector was assembled, stays in the
+default run — that is where the cheap silent-failure check lives.
 """
 
 import pytest
 from game_engine_learning.self_play_collector import SelfPlayCollector
 
-from capture_the_flag.engines.neural_network.ctf_crn import CtfCrn
 from capture_the_flag.engines.neural_network.ctf_engine_factory import CtfEngineFactory
 from capture_the_flag.engines.neural_network.ctf_nn_evaluator import CtfNNEvaluator
 from capture_the_flag.engines.neural_network.ctf_policy_target import (
@@ -23,10 +27,13 @@ from capture_the_flag.engines.neural_network.ctf_self_play import (
 )
 from capture_the_flag.engines.neural_network.tensor_layout import INPUT_SHAPE
 from capture_the_flag.position import CtfPosition
+from tests.engines.neural_network.small_networks import small_network
 
 
 def _evaluator() -> CtfNNEvaluator:
-    return CtfNNEvaluator(CtfCrn())
+    # These tests collect real self-play games; what the network says is
+    # irrelevant to every assertion, so the tiny one keeps them affordable.
+    return CtfNNEvaluator(small_network())
 
 
 def _fast_engine_factory(evaluator: CtfNNEvaluator) -> CtfEngineFactory:
@@ -47,6 +54,7 @@ def test_build_self_play_collector_wires_the_game_specific_pieces():
     assert collector._policy_transform is transform_policy_to_white_perspective
 
 
+@pytest.mark.slow
 def test_collect_produces_structurally_valid_samples():
     evaluator = _evaluator()
     collector = build_self_play_collector(evaluator, _fast_engine_factory(evaluator))
@@ -63,6 +71,7 @@ def test_collect_produces_structurally_valid_samples():
         assert sum(probs) == pytest.approx(1.0)
 
 
+@pytest.mark.slow
 def test_target_values_alternate_within_a_game():
     evaluator = _evaluator()
     collector = build_self_play_collector(evaluator, _fast_engine_factory(evaluator))
@@ -76,6 +85,7 @@ def test_target_values_alternate_within_a_game():
     assert all(nxt == -prev for prev, nxt in zip(values, values[1:], strict=False))
 
 
+@pytest.mark.slow
 def test_capture_time_transform_reframes_black_to_move_distributions():
     evaluator = _evaluator()
     captures: list[tuple[CtfPosition, dict[str, float], dict[str, float]]] = []

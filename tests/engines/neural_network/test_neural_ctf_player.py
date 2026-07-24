@@ -6,14 +6,18 @@ opponent, and asserts the game reaches a legal terminal result with no errors.
 This is the first end-to-end exercise of the whole pipeline across a real game:
 encode -> network -> decode -> MCTS -> applied plies, driven through the same
 seam the runners use.
+
+A whole game of real MCTS search is more than a per-commit test cycle should pay
+for, so it is `slow`-marked (excluded from the default run; opt in with
+`pytest -m slow`).
 """
 
 import random
 
+import pytest
 import torch
 from game_engine_core.engines.mcts_engine import MCTSEngine
 
-from capture_the_flag.engines.neural_network.ctf_crn import CtfCrn
 from capture_the_flag.engines.neural_network.ctf_nn_evaluator import CtfNNEvaluator
 from capture_the_flag.engines.neural_network.neural_ctf_player import NeuralCtfPlayer
 from capture_the_flag.match import play_match
@@ -23,20 +27,24 @@ from capture_the_flag.outcome import (
     REASON_NO_LEGAL_MOVE,
 )
 from capture_the_flag.player import RandomCtfPlayer
+from tests.engines.neural_network.small_networks import small_network
 
 _LEGAL_REASONS = frozenset(
     {REASON_FLAG_CAPTURED, REASON_INACTIVITY, REASON_NO_LEGAL_MOVE}
 )
 
 
+@pytest.mark.slow
 def test_neural_player_completes_full_match_against_random():
     # Seed the network initialisation and the random opponent so a failure is
     # reproducible; the assertions are on game legality, not on any particular
     # outcome. A small iteration count keeps the match fast — the point is that
-    # the player finishes a legal game, not that it plays well (untrained).
+    # the player finishes a legal game, not that it plays well (untrained). A
+    # small network keeps it that way: a full match is many forward passes, and
+    # legality does not depend on the trunk's size.
     torch.manual_seed(0)
     engine = MCTSEngine(
-        evaluator=CtfNNEvaluator(CtfCrn()),
+        evaluator=CtfNNEvaluator(small_network()),
         iterations=25,
         temperature=0.0,
     )

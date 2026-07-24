@@ -7,7 +7,6 @@ from game_engine_core.engines.mcts_engine import MCTSEngine
 from torch import Tensor
 
 from capture_the_flag.board import BOARD_COLUMNS, BOARD_ROWS, Square
-from capture_the_flag.engines.neural_network.ctf_crn import CtfCrn
 from capture_the_flag.engines.neural_network.ctf_nn_evaluator import (
     CtfNNEvaluator,
     policy_logit_location_for_ply,
@@ -58,6 +57,7 @@ from capture_the_flag.pieces import PieceType as P
 from capture_the_flag.ply import CtfPly
 from capture_the_flag.position import CtfPosition
 from capture_the_flag.side import Side
+from tests.engines.neural_network.small_networks import small_network
 
 
 def _dummy_model():
@@ -415,7 +415,7 @@ def test_army_strength_planes_reflect_attrition(side_to_move):
     evaluator = CtfNNEvaluator(_dummy_model())
     encoded = evaluator.encode_position(position)
 
-    for rank, our_fp, their_fp in zip(_MOBILE_RANKS, _OUR_RANK_QUANTITY_FP, _THEIR_RANK_QUANTITY_FP):
+    for rank, our_fp, their_fp in zip(_MOBILE_RANKS, _OUR_RANK_QUANTITY_FP, _THEIR_RANK_QUANTITY_FP, strict=True):
         _check_uniform_plane_value(encoded, our_fp, our_counts[rank] / 3)
         _check_uniform_plane_value(encoded, their_fp, their_counts[rank] / 3)
 
@@ -541,7 +541,7 @@ def test_decode_policy_ignores_masked_indices(side_values, monkeypatch):
 )
 def test_evaluator_with_actual_nn_returns_valid_evaluation(side_to_move):
     
-    nn = CtfCrn()
+    nn = small_network()
     evaluator = CtfNNEvaluator(nn)
 
     position = _base_position(side_to_move, 0)
@@ -559,7 +559,7 @@ def test_evaluator_with_actual_nn_returns_valid_evaluation(side_to_move):
 )
 def test_evaluator_in_engine_with_actual_nn_returns_valid_ply(side_to_move):
     
-    nn = CtfCrn()
+    nn = small_network()
     engine: MCTSEngine[CtfPly, CtfPosition, CtfNNEvaluator] = MCTSEngine(
         evaluator = CtfNNEvaluator(nn),
         iterations = 100,

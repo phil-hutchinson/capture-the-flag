@@ -1,9 +1,5 @@
 # Story: Input feature engineering — flag-relative distance and army strength
 
-> Working draft, parked in `.local/` while the current branch is unrelated.
-> Promote into `doc/plan/00000026-feature-engineering/` when it becomes the
-> active story. Story number 26 (`00000026`).
-
 ## Summary
 
 Enrich the play engine's position encoding with two rule-derived feature

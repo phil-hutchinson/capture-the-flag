@@ -22,6 +22,10 @@ from pathlib import Path
 from game_engine_learning.training_loop import EpochLoss
 
 from .engines.neural_network.ctf_checkpoint import DEFAULT_RUNS_DIR
+from .engines.neural_network.ctf_crn import (
+    MAX_FEATURE_COUNT,
+    MAX_RESIDUAL_BLOCK_COUNT,
+)
 from .engines.neural_network.ctf_training_run import (
     TrainingConfig,
     resume_generations,
@@ -110,15 +114,17 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--features",
         type=int,
         default=None,
-        help=f"network trunk width (default: {_DEFAULTS.feature_count}); fixed for "
-        "the life of a run, so a resume rebuilds from the run's recorded value",
+        help=f"network trunk width, 1-{MAX_FEATURE_COUNT} (default: "
+        f"{_DEFAULTS.feature_count}); fixed for the life of a run, so a resume "
+        "rebuilds from the run's recorded value",
     )
     parser.add_argument(
         "--residual-blocks",
         type=int,
         default=None,
-        help=f"network trunk depth (default: {_DEFAULTS.residual_block_count}); "
-        "fixed for the life of a run, like --features",
+        help=f"network trunk depth, 1-{MAX_RESIDUAL_BLOCK_COUNT} (default: "
+        f"{_DEFAULTS.residual_block_count}); fixed for the life of a run, like "
+        "--features",
     )
     parser.add_argument(
         "--seed",

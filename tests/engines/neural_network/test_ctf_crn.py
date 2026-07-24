@@ -1,7 +1,12 @@
+import pytest
 import torch
 
 from capture_the_flag.board import BOARD_COLUMNS, BOARD_ROWS
-from capture_the_flag.engines.neural_network.ctf_crn import CtfCrn
+from capture_the_flag.engines.neural_network.ctf_crn import (
+    MAX_FEATURE_COUNT,
+    MAX_RESIDUAL_BLOCK_COUNT,
+    CtfCrn,
+)
 from capture_the_flag.engines.neural_network.tensor_layout import (
     ACTION_SPACE_SHAPE,
     TOTAL_FP_COUNT,
@@ -50,6 +55,25 @@ def test_ctf_crn_honours_requested_width_and_depth() -> None:
     value, policy_logits = crn.forward(input)
     assert value.shape == (_BATCH_SIZE, 1)
     assert policy_logits.shape == (_BATCH_SIZE, *ACTION_SPACE_SHAPE)
+
+
+@pytest.mark.parametrize(
+    "kwargs, expected",
+    [
+        ({"feature_count": 0}, "feature_count"),
+        ({"feature_count": -1}, "feature_count"),
+        ({"feature_count": MAX_FEATURE_COUNT + 1}, "feature_count"),
+        ({"residual_block_count": 0}, "residual_block_count"),
+        ({"residual_block_count": MAX_RESIDUAL_BLOCK_COUNT + 1}, "residual_block_count"),
+    ],
+)
+def test_ctf_crn_rejects_out_of_range_architecture(kwargs, expected) -> None:
+    # These reach the constructor from a CLI flag and from a checkpoint file, so
+    # a value that could only be a typo has to fail here — `residual_block_count=0`
+    # would otherwise build a trunkless network that trains and checkpoints
+    # perfectly happily, surfacing as an inexplicably weak run rather than an error.
+    with pytest.raises(ValueError, match=expected):
+        CtfCrn(**kwargs)
 
 
 def test_ctf_crn_same_seed_reproducible() -> None:

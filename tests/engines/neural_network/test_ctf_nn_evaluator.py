@@ -168,7 +168,9 @@ _ATTRITION_COUNTS: dict[Side, dict[P, int]] = {
 
 def _ranked_pieces(side: Side, counts: dict[P, int], start_row: int) -> dict[Square, tuple[Side, P]]:
     # Up to 18 pieces (6 ranks x roster of 3) can't fit in one 12-column row,
-    # so spread across two consecutive rows.
+    # so spread across two consecutive rows. Callers must pick a `start_row` whose
+    # pair avoids the lake rows (6-7), so the fixture stays a position the rules
+    # could actually produce.
     squares = (
         Square(column, row)
         for row in (start_row, start_row + 1)
@@ -186,7 +188,7 @@ def _full_army_position(side_to_move: Side = Side.WHITE) -> CtfPosition:
         Square(0, 1): (Side.WHITE, P.FLAG),
         Square(11, 12): (Side.BLACK, P.FLAG),
     }
-    board.update(_ranked_pieces(Side.WHITE, full_counts, start_row=5))
+    board.update(_ranked_pieces(Side.WHITE, full_counts, start_row=4))
     board.update(_ranked_pieces(Side.BLACK, full_counts, start_row=8))
     return _position(board, side_to_move=side_to_move)
 
@@ -195,7 +197,7 @@ def _attrition_position(side_to_move: Side = Side.WHITE) -> CtfPosition:
         Square(0, 1): (Side.WHITE, P.FLAG),
         Square(11, 12): (Side.BLACK, P.FLAG),
     }
-    board.update(_ranked_pieces(Side.WHITE, _ATTRITION_COUNTS[Side.WHITE], start_row=5))
+    board.update(_ranked_pieces(Side.WHITE, _ATTRITION_COUNTS[Side.WHITE], start_row=4))
     board.update(_ranked_pieces(Side.BLACK, _ATTRITION_COUNTS[Side.BLACK], start_row=8))
     return _position(board, side_to_move=side_to_move)
 
@@ -433,6 +435,29 @@ def test_army_strength_planes_equivalent_under_rotation(inactivity_counter):
 
     for fp in _OUR_RANK_QUANTITY_FP + _THEIR_RANK_QUANTITY_FP:
         assert torch.equal(white_encoded[fp], black_encoded[fp])
+
+@pytest.mark.parametrize(
+    "missing_side, expected",
+    [(Side.WHITE, "own"), (Side.BLACK, "enemy")],
+    ids=["own_flag", "enemy_flag"],
+)
+def test_encode_rejects_a_position_with_a_flag_missing(missing_side, expected):
+    # A flag leaves the board only by being captured, which ends the game, so this
+    # is a terminal position. Nothing in the engine's wiring encodes one (MCTS and
+    # the self-play collector both short-circuit on `outcome`), but `encode_position`
+    # is public, and the offset planes have no defined value here — so it names the
+    # problem rather than raising a bare StopIteration from the flag lookup.
+    board = {
+        square: piece
+        for square, piece in _matching_white_position().board.items()
+        if piece != (missing_side, P.FLAG)
+    }
+    position = _position(board, side_to_move=Side.WHITE, inactivity_counter=0)
+
+    evaluator = CtfNNEvaluator(_dummy_model())
+
+    with pytest.raises(ValueError, match=expected):
+        evaluator.encode_position(position)
 
 def test_rotate_square_involution():
     for column in range(BOARD_COLUMNS):

@@ -92,6 +92,27 @@ def tensor_position(square: Square, active_player_id: Literal[1, -1]) -> tuple[i
     return square.row - 1, square.column
 
 
+_ROW_INDICES = torch.arange(BOARD_ROWS, dtype=torch.float32).unsqueeze(1)
+_COLUMN_INDICES = torch.arange(BOARD_COLUMNS, dtype=torch.float32).unsqueeze(0)
+
+
+def _fill_flag_offset_planes(
+    encoded: Tensor, flag: tuple[int, int], row_plane: int, column_plane: int
+) -> None:
+    """Fill one flag's pair of signed offset planes, `flag` being its `(row,
+    column)` in the mover's frame.
+
+    Each square carries `(flag coordinate - own coordinate) / board extent` along
+    one axis, so the sign tells the network which side of the flag it sits on --
+    in front of vs. behind, left vs. right -- which an absolute distance discards.
+    Each plane varies along one axis only, so a single row/column vector
+    broadcasts across it.
+    """
+    flag_row, flag_column = flag
+    encoded[row_plane] = (flag_row - _ROW_INDICES) / BOARD_ROWS
+    encoded[column_plane] = (flag_column - _COLUMN_INDICES) / BOARD_COLUMNS
+
+
 def policy_logit_location_for_ply(
     ply: CtfPly, active_player_id: Literal[1, -1]
 ) -> tuple[int, int, int]:
@@ -165,12 +186,26 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
         # batch will be handled later - we just need to do the last three here
         encoded = torch.zeros(INPUT_SHAPE, dtype=torch.float32)
 
-        # Current pieces on board
+        # Current pieces on board. This single pass also collects what the two
+        # engineered plane families need — where each flag stands, and how many
+        # of each mobile rank survive — since both are functions of the same
+        # board traversal, and encoding is the hot path in self-play.
+        our_flag: tuple[int, int] | None = None
+        their_flag: tuple[int, int] | None = None
+        piece_strength = dict.fromkeys(CtfNNEvaluator._FP_PIECE_QUANTITY.values(), 0)
         for square, (side, piece_type) in position.board.items():
             tensor_row, tensor_column = tensor_position(square, position.active_player_id)
-            ours = (side.value * position.active_player_id) == 1
+            ours = side == position.side_to_move
             fp = CtfNNEvaluator._OUR_FP[piece_type] if ours else CtfNNEvaluator._THEIR_FP[piece_type]
             encoded[fp, tensor_row, tensor_column] = 1
+            if piece_type is PieceType.FLAG:
+                if ours:
+                    our_flag = (tensor_row, tensor_column)
+                else:
+                    their_flag = (tensor_row, tensor_column)
+            quantity_fp = CtfNNEvaluator._FP_PIECE_QUANTITY.get((ours, piece_type))
+            if quantity_fp is not None:
+                piece_strength[quantity_fp] += 1
         # Passable squares / Lake squares
         encoded[FP_PASSABLE, :, :].fill_(1)
         for lake_square in LAKE_SQUARES:
@@ -179,30 +214,27 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
         # Draw-by-inactivity counter
         move_limit_ratio = position.inactivity_counter / INACTIVITY_LIMIT
         encoded[FP_INACTIVITY_COUNT, :, :].fill_(move_limit_ratio)
-        # Flags relative position
-        our_flag_square = next(k for k, (side, piece_type) in position.board.items()
-              if side == position.side_to_move and piece_type == PieceType.FLAG)
-        our_flag_row, our_flag_column = tensor_position(our_flag_square, position.active_player_id)
-        for row in range(BOARD_ROWS):
-            encoded[FP_OUR_FLAG_RELATIVE_ROW, row, :].fill_((our_flag_row - row)/BOARD_ROWS)
-        for column in range(BOARD_COLUMNS):
-            encoded[FP_OUR_FLAG_RELATIVE_COLUMN, :, column].fill_((our_flag_column - column)/BOARD_COLUMNS)
-        their_flag_square = next(k for k, (side, piece_type) in position.board.items()
-              if side != position.side_to_move and piece_type == PieceType.FLAG)
-        their_flag_row, their_flag_column = tensor_position(their_flag_square, position.active_player_id)
-        for row in range(BOARD_ROWS):
-            encoded[FP_THEIR_FLAG_RELATIVE_ROW, row, :].fill_((their_flag_row - row)/BOARD_ROWS)
-        for column in range(BOARD_COLUMNS):
-            encoded[FP_THEIR_FLAG_RELATIVE_COLUMN, :, column].fill_((their_flag_column - column)/BOARD_COLUMNS)
+        # Flags relative position. Both flags stand on the board throughout play —
+        # a flag leaves it only by being captured, which ends the game — so a
+        # missing one means a terminal position reached the encoder. Nothing in
+        # the engine's own wiring does that (MCTS and the self-play collector both
+        # short-circuit on `outcome`), so this is a caller error worth naming
+        # rather than a state to encode some default for.
+        if our_flag is None or their_flag is None:
+            missing = "own" if our_flag is None else "enemy"
+            raise ValueError(
+                f"cannot encode a position with no {missing} flag on the board: "
+                "the flag-relative offset planes are undefined for it. A flag is "
+                "only ever removed by capture, which ends the game, so this is a "
+                "terminal position."
+            )
+        _fill_flag_offset_planes(
+            encoded, our_flag, FP_OUR_FLAG_RELATIVE_ROW, FP_OUR_FLAG_RELATIVE_COLUMN
+        )
+        _fill_flag_offset_planes(
+            encoded, their_flag, FP_THEIR_FLAG_RELATIVE_ROW, FP_THEIR_FLAG_RELATIVE_COLUMN
+        )
         # Army strength
-        piece_strength: dict[int, int] = {}
-        for fp_entry in CtfNNEvaluator._FP_PIECE_QUANTITY.values():
-            piece_strength[fp_entry] = 0
-        for _, (piece_side, piece_type) in position.board.items():
-            ours = (piece_side == position.side_to_move)
-            if (ours, piece_type) in CtfNNEvaluator._FP_PIECE_QUANTITY:
-                fp_to_increment = CtfNNEvaluator._FP_PIECE_QUANTITY[(ours, piece_type)]
-                piece_strength[fp_to_increment] += 1
         for feature_plane, quantity in piece_strength.items():
             encoded[feature_plane, :, :].fill_(quantity / CtfNNEvaluator._FP_PIECE_TOTAL_QUANTITY[feature_plane])
 

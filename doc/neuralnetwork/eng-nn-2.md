@@ -4,9 +4,9 @@ Name: ENG_NN_2
 
 See [README.md](README.md) for what this specification covers and when a new
 one is minted. Supersedes [ENG_NN_1](eng-nn-1.md): no rule change, but the
-input gains eighteen feature-engineered planes (flag-relative distance,
-army-strength), which widens the tensor contract. The output contract is
-unchanged from `ENG_NN_1` and carries over verbatim below.
+input gains sixteen feature-engineered planes — four flag-relative distance
+planes and twelve army-strength planes — which widens the tensor contract. The
+output contract is unchanged from `ENG_NN_1` and carries over verbatim below.
 
 ## Compatible Rulesets
 
@@ -83,7 +83,7 @@ column offset = (flag's column − square's column) / 12
 ```
 
 Positive means the flag lies at a higher row/column than the square, negative
-the reverse. Values fall in (−11/12, 11/12) ⊂ (−1, 1). A flag is always
+the reverse. Values fall in [−11/12, 11/12] ⊂ (−1, 1). A flag is always
 present during play (its capture ends the game), so these planes are always
 defined.
 

@@ -125,6 +125,17 @@ def load_network(path: Path) -> CtfCrn:
             "rebuilt to fit them."
         )
     architecture = checkpoint[_CHECKPOINT_ARCHITECTURE_KEY]
+    if not isinstance(architecture, dict) or not {
+        _FEATURE_COUNT_KEY,
+        _RESIDUAL_BLOCK_COUNT_KEY,
+    } <= architecture.keys():
+        # A stamp that is present but unreadable is no better than an absent one,
+        # and deserves the same named failure rather than a bare KeyError.
+        raise ValueError(
+            f"{path}'s architecture stamp is malformed: expected a mapping with "
+            f"{_FEATURE_COUNT_KEY!r} and {_RESIDUAL_BLOCK_COUNT_KEY!r}, got "
+            f"{architecture!r}."
+        )
     network = CtfCrn(
         feature_count=architecture[_FEATURE_COUNT_KEY],
         residual_block_count=architecture[_RESIDUAL_BLOCK_COUNT_KEY],

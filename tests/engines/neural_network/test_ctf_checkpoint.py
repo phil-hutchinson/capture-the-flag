@@ -164,3 +164,20 @@ def test_load_network_rejects_a_checkpoint_with_no_architecture_stamp(tmp_path: 
 
     with pytest.raises(ValueError, match="architecture stamp"):
         load_network(path)
+
+
+def test_load_network_rejects_a_malformed_architecture_stamp(tmp_path: Path):
+    # A stamp that is present but unreadable is no better than an absent one, so
+    # it gets the same named failure rather than a bare KeyError from indexing it.
+    path = checkpoint_path(tmp_path, 0)
+    torch.save(
+        {
+            "spec": ENGINE_SPEC_NAME,
+            "architecture": {"feature_count": 8},  # depth missing
+            "state_dict": small_network().state_dict(),
+        },
+        path,
+    )
+
+    with pytest.raises(ValueError, match="malformed"):
+        load_network(path)

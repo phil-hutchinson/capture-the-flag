@@ -1,9 +1,12 @@
 """The learned play engine's evaluator: position encoding and policy decoding.
 
-`encode_position` presents a `CtfPosition` to the network as a 18-plane one-hot
-12x12 image, always from the side-to-move's perspective: when Black is to move,
-the board is rotated 180 degrees and ownership relabelled, so the network always
-sees "own side moving up the board" and never knows which colour it is playing.
+`encode_position` presents a `CtfPosition` to the network as a `TOTAL_FP_COUNT`-
+plane 12x12 image, always from the side-to-move's perspective: when Black is to
+move, the board is rotated 180 degrees and ownership relabelled, so the network
+always sees "own side moving up the board" and never knows which colour it is
+playing. Most planes are one-hot piece/lake indicators, but the engineered
+planes (flag-relative offsets, army-strength ratios) are continuous-valued
+broadcasts — see `tensor_layout.py` for the full plane layout.
 
 Two coordinate conventions meet here and nowhere else: `Square` is
 column-first and 1-indexed on rows (matching the rules' "A3" notation), while

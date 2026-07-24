@@ -165,3 +165,66 @@ Entries (row delta, column delta):
 - 5: Right two squares (0, 2)
 - 6: Down two squares (-2, 0)
 - 7: Left two squares (0, -2)
+
+## Design rationale (non-normative)
+
+Nothing below is part of the contract — a network satisfies this spec by
+matching the tensors above, whatever its internals. This section records *why
+the contract has this shape*, since the alternative considered would have
+produced a different one, and the reasoning is worth more than the conclusion
+alone. Network internals stay out of a spec (see [README.md](README.md)); the
+architecture a given set of weights was trained at is recorded with the
+artifact, in the checkpoint's own metadata.
+
+### Whole-board scalars as broadcast planes
+
+Army strength (planes 22–33) and the inactivity count (plane 17) are
+per-position scalars — one number each, with no spatial structure whatsoever —
+yet they are carried as full 12×12 planes. That spends thirteen of the input's
+thirty-four channels restating thirteen numbers 144 times each.
+
+The alternative is a **scalar side-input pathway**: keep them as a small vector
+on a second input, run it through a tiny fully-connected branch, and merge the
+result into the trunk. It is exact where a broadcast plane is redundant, and
+cheap where a broadcast plane spends a whole channel through the stem.
+
+Broadcast planes were chosen anyway, for one reason that dominates the others:
+**it keeps the game↔network contract a single tensor.** That contract is the
+integration surface for everything outside this codebase — training pipelines,
+an exported model file, a front end driving an AI opponent — and the encoder
+seam it is consumed through lives in a pinned dependency. Widening it from one
+input to two is a change to every consumer; a wider single tensor is a change
+to none of them. The channel cost is real, but it is bounded and known, and it
+buys the simpler contract outright.
+
+### The merge point, precisely
+
+The deferred alternative is easy to describe imprecisely, so: **merging a
+scalar side input into the value head's flattened representation is not
+equivalent to what is built here.** A broadcast plane enters at the stem, so
+both heads see it. A value-head merge leaves the *policy* head with no access
+to army strength at all — and strength is exactly the kind of fact that should
+inform which ply to prefer (whether to trade, whether to press). That is a
+different model, not a cheaper encoding of the same one.
+
+The equivalent merge is a **per-channel bias applied to the stem's output**:
+the branch emits one number per trunk channel, added uniformly across all
+squares. A broadcast plane passed through the stem's 3×3 convolution
+contributes precisely that — with one exception. The convolution is
+zero-padded, so a square on the board's edge has off-board zeros in its 3×3
+window, and the constant plane's contribution is attenuated there (most in the
+corners). A "constant" plane is therefore not constant after one convolution:
+it leaks a weak how-close-to-the-edge signal that a per-channel bias would not.
+Whether that is harmful noise or a mild positional cue is unmeasured, and it is
+the only functional difference between the two designs.
+
+### Deferred, not dropped
+
+Switching to a side-input pathway changes the tensor contract — one input
+becomes two — so it would mint a new spec rather than being an internal
+refactor. Whether it is worth doing is a strength-and-throughput question: the
+broadcast planes cost stem width and a little compute per position, the side
+input costs contract complexity across every consumer, and at this board size
+neither trade can be settled from first principles. It stays a **live
+follow-up**, gated on the same strength-measurement apparatus the rest of this
+story's "does it actually help" questions wait on.

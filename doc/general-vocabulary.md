@@ -62,6 +62,19 @@ adapts a per-parameter step size from recent gradient history, so it mostly "jus
 works" without careful learning-rate tuning — which is why it's the usual default
 for a "does this learn at all" check.
 
+**Optimizer state (moment estimates / momentum)** — the running per-parameter
+statistics an adaptive optimizer carries *between* steps: Adam keeps a first
+moment (an EMA of the gradient) and a second moment (an EMA of the squared
+gradient), plus a timestep for bias correction; SGD-with-momentum keeps a
+velocity buffer. It is separate from the weights — dropping it leaves the model
+intact but makes the optimizer "re-warm up" (moments restart at zero, so the
+first few steps are noisier and mis-scaled until the EMAs refill). Persisting it
+across a training resume only matters when one long-lived optimizer spans the
+whole run (e.g. with a replay buffer and a learning-rate schedule); if a fresh
+optimizer is built per generation, its state never crosses a generation boundary
+anyway, so saving weights only and re-initialising on resume is exactly
+consistent with normal operation.
+
 **Backpropagation** — the algorithm that turns the one scalar loss into a
 gradient over every parameter, by applying the chain rule backward through the
 network layer by layer. The forward pass records what each operation did; the

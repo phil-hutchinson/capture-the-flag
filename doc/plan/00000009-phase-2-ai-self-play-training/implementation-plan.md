@@ -1,18 +1,28 @@
 # Implementation Plan: Phase 2 AI self-play training (Story 00000009)
 
 > The developer is implementing this story (in whole or in part) for learning
-> purposes. Steps stay high-level — intent and verification, no code — and the
-> hyperparameter / training-shape decisions are intentionally **left open**:
-> finding them is the story's own acceptance criterion ("a workable training
-> recipe … finding these is part of the story"). Each open decision lists the
-> constraints a good answer must satisfy, not the answer.
+> purposes. Steps stay high-level — intent and verification, no code. The
+> hyperparameter / training-shape decisions are left to the developer's
+> judgement: this re-scoped story asks for **sensible starting points that are
+> chosen and recorded**, not values tuned until strength demonstrably improves
+> (that tuning, and the tournament that would measure it, are deferred — see
+> "Deferred to follow-up work"). Each open decision lists the constraints a good
+> starting point must satisfy.
+>
+> **Status:** Steps 1–4 are implemented (commits through "Single-generation
+> training"). This revision re-scopes Steps 5 onward and drops the tournament /
+> strength-measurement and flag-plane steps from the story.
 
 ## Context and constraints
 
-The deliverable is a **training run** that turns the untrained play engine from
-story 00000008 into one of clearly increasing strength, with saved checkpoints,
-a way to measure that strength as a number, and a recorded recipe. Everything
-below builds on two established surfaces:
+The deliverable is the **training machinery**: a self-play → train → checkpoint
+loop that turns the untrained play engine from story 00000008 into a saved model
+you can play against or resume training from, wired correctly and runnable
+end-to-end on one workstation, with sensible starting hyperparameters and a
+run-config record. Turning that machinery into a *demonstrated, measured*
+strength gain is deferred to a follow-up (see "Deferred to follow-up work") — it
+is gated on self-play throughput this story does not yet have. Everything below
+builds on two established surfaces:
 
 **What story 00000008 already provides (do not rebuild):**
 
@@ -43,13 +53,9 @@ below builds on two established surfaces:
   (`new_run_directory`, `checkpoint_path`, `discover_checkpoints`,
   `latest_run_directory`). Deliberately torch-free: it deals in paths and
   iteration numbers only, so **saving/loading the actual weights is our code.**
-- `game_engine_core.evaluators.null_evaluator.NullEvaluator` — returns
-  `value=0.0` with a default (uniform) policy. Wrapped in an `MCTSEngine` this is
-  exactly the story's **flat-value reference engine**: pure search, no learned
-  judgement.
-- `game_engine_core.tournament.Tournament` — round-robin over anything
-  implementing `Player`, with alternating first move and standings/cross-table
-  reporting. Its `position_factory` is `match.build_initial_position`.
+(The flat-value reference engine `NullEvaluator` and
+`game_engine_core.tournament.Tournament` belong to the deferred
+strength-measurement work, not this story.)
 
 **Fixed points, load-bearing for the plan:**
 
@@ -90,30 +96,28 @@ below builds on two established surfaces:
   mean not using the shared collector; the default is almost certainly the right
   starting point and any change is an open decision, not a step.
 
-## Decisions deliberately left open (the learning content)
+## Decisions to pick a sensible starting point for (the learning content)
 
-The plan requires *that* these exist, not *what* they are:
+The plan requires *that* these exist and are **recorded**, not that they are
+tuned until strength improves (that is deferred). For each, choose a defensible
+starting value and capture it in the run-config record:
 
 - **Training-loop shape.** Fresh samples every generation vs. a replay buffer
   mixing recent generations; games per generation; epochs per generation; batch
-  size; optimizer and learning rate. Constraints: the run completes unattended in
-  acceptable wall-clock on one workstation, and strength visibly increases across
-  checkpoints.
+  size; optimizer and learning rate. Constraint: the run completes unattended in
+  acceptable wall-clock on one workstation.
 - **Self-play exploration.** The self-play temperature (and any within-game
   schedule) — distinct from the greedy play-time default. Constraint: enough
   exploration that self-play games diverge, without so much noise that the visit
   distribution stops being a useful policy target.
-- **Search budget, training vs. measurement.** Iterations per ply during
-  self-play (cheap enough for volume) and iterations per ply in the strength
-  tournament (must be *equal across all entrants* for a fair comparison). These
-  two budgets need not match.
-- **Checkpoint cadence and tournament selection.** How often to checkpoint, and
-  which checkpoints enter the strength tournament (all of them, or a sampled
-  ladder from early to final).
+- **Self-play search budget.** Iterations per ply during self-play — cheap
+  enough for volume at this stage.
+- **Checkpoint cadence.** How often to write a checkpoint. A single resumable
+  latest checkpoint is sufficient here; a strength ladder is deferred.
 - **The run-config record.** What a reproducibility record must capture (seed,
-  every hyperparameter above, the `game-engine-core` pin / git commit, dates,
-  and the resulting per-checkpoint strength numbers), and where it lives in the
-  story folder.
+  every hyperparameter above, the `game-engine-core` pin / git commit, dates)
+  and where it lives in the story folder. Per-checkpoint strength numbers are
+  deferred with the tournament.
 
 ---
 
@@ -211,108 +215,94 @@ own self-play targets (an overfit-a-batch sanity check). A flat or rising policy
 loss here is the signature of a Step-1 column-mapping bug, so this step is also
 the real test that the mapping is right end to end.
 
-### Step 5 — Checkpoint save and load
+### Step 5 — Checkpoint save and load (resumable)
 
 Implement weight persistence on top of the shared `checkpoints` conventions: save
 the `CtfCrn` state at `checkpoint_path(run_dir, iteration)`, and a loader that
-rebuilds a playable neural seat (evaluator + engine + `NeuralCtfPlayer`) from a
-checkpoint file. This satisfies the AC that *any* checkpoint can be loaded and
-used through the same interfaces as every other engine.
+(a) rebuilds a playable neural seat (evaluator + engine + `NeuralCtfPlayer`) from
+a checkpoint file, and (b) rehydrates the network into an in-memory `CtfCrn` so
+training can continue from it. Numbered checkpoints come free from the shared
+convention; there is no strength-ladder or selection logic here — a single
+resumable latest is the target. Optimizer state is deliberately **not** persisted
+yet (weights only); resuming re-initialises the optimizer, which is acceptable at
+this scale and noted so the gap is a known one.
 
-Depends on: the story-8 network/player (what gets saved and reconstructed).
-Later steps depend on it: Step 6 writes checkpoints, Steps 7–8 load them.
+Depends on: the story-8 network/player (what gets saved and reconstructed) and
+the shared `checkpoints` path/iteration conventions. Later steps depend on it:
+Step 6 writes checkpoints, Step 7 loads the latest to resume.
 
 Verification (automated): a round-trip test — save a network, load it into a
 fresh evaluator, and assert it produces identical value and policy to the
 in-memory original on a fixed position; and that `discover_checkpoints` returns
 saved files in iteration order. Run `pytest`.
 
-### Step 6 — Training orchestrator and run record
+### Step 6 — Training orchestrator, config, and runner
 
 Assemble the generations loop: for each generation, collect self-play with the
 current network (Step 3), train on it (Step 4), and save a checkpoint (Step 5),
 carrying the improved network into the next generation. Introduce the training
-configuration (the open hyperparameters) and write a run-config record into the
-run directory. Expose it as a `python -m capture_the_flag.<train>` runner.
+configuration holding the chosen starting hyperparameters (see "Decisions to pick
+a sensible starting point for"), and write a run-config record into the run
+directory. Expose it as a `python -m capture_the_flag.<train>` runner with an
+argparse `main(argv)`, in the same shape as `batch_runner` / `game_runner`.
 
-Depends on: Steps 3–5. Later steps depend on it: Steps 7–9 consume its
-checkpoints.
+Depends on: Steps 3–5. Later steps depend on it: Step 7 resumes one of its runs.
 
-Verification (manual): run a deliberately tiny configuration (a few generations,
-few games each, low iterations) unattended and confirm it completes without
-intervention and leaves a series of checkpoints plus a reproducible config record
-in one run directory. This is the AC "a training run completes end to end and
-produces a series of checkpoints," exercised at toy scale before the real run.
+Verification (manual): run a modest configuration (a few generations, few games
+each, low iterations) unattended and confirm it completes without intervention,
+leaves a checkpoint series plus a reproducible config record in one run
+directory, and that the per-generation loss trend is downward — the machinery
+learns from its own self-play. This is the AC "the loop runs end to end and
+produces a saved model," exercised at modest scale.
 
-### Step 7 — Reference and checkpoint seats
+### Step 7 — Resume training from the latest checkpoint
 
-Make the two remaining tournament entrants seatable through the runner surface:
-the flat-value reference engine (`NullEvaluator` in an `MCTSEngine`) as a new
-player kind, and a checkpoint file loaded (via Step 5) into a neural seat. Extend
-`make_player` / the runner arguments accordingly, keeping the existing kinds and
-defaults intact.
+Extend the runner so a run can be *resumed*: on startup, discover the latest run
+directory and checkpoint (via the shared conventions and Step 5's loader),
+rehydrate the network, and continue collecting/training/checkpointing from the
+next generation rather than starting fresh. This is the developer-facing "stop
+now, keep the model to play against, resume training later" capability that
+motivated the re-scope.
 
-Depends on: Step 5 (checkpoint loading). Step 8 depends on it (the roster it
-builds).
+Depends on: Step 5 (load) and Step 6 (the loop and run directory). Nothing
+depends on it.
 
-Verification (manual): through `game_runner`, play the flat-value engine against
-a checkpoint-loaded neural seat in both colours and confirm each game finishes
-with a legal result and no errors — the seating mechanics work before the
-tournament relies on them.
+Verification (manual): run Step 6's modest configuration, stop it, then re-invoke
+in resume mode and confirm training continues — generation numbering picks up
+where it left off and new checkpoints are appended to the same run — and that the
+resumed network is the saved one, not a fresh re-initialisation (e.g. its
+evaluation on a fixed position matches the last checkpoint before more training).
 
-### Step 8 — Strength-measurement tournament runner
+### Step 8 — README check
 
-Build the strength runner: assemble a roster from selected checkpoints plus the
-random and flat-value reference engines, run the shared `Tournament` with
-`build_initial_position` as its `position_factory` and an equal per-entrant
-search budget, and report standings and the cross-table. Expose it as a
-`python -m capture_the_flag.<tournament>` runner.
+Confirm `README.md` still describes the project accurately now that a training
+runner and resumable checkpoints exist — updating it or confirming no change is
+needed.
 
-Depends on: Step 7 (seats) and Step 6 (checkpoints to enter). Step 9 uses it to
-read strength.
-
-Verification (manual): run it over the toy checkpoints from Step 6 and confirm it
-emits standings and a cross-table with per-pairing win/loss/draw counts. Strength
-*ordering* is not asserted here (toy checkpoints need not be ordered) — that is
-Step 9; this step verifies the measurement apparatus produces numbers.
-
-### Step 9 — The training run, recipe, and its record
-
-Run training at real settings, iterating on the open hyperparameters until the
-strength tournament (Step 8) shows genuine improvement, and record what was tried
-and the outcome in the story folder. This is the story's headline deliverable.
-
-Depends on: Steps 6 and 8 (the apparatus). Nothing depends on it.
-
-Verification (manual): the Step-8 tournament shows later checkpoints beating
-earlier ones, the final checkpoint beating the random engine overwhelmingly and
-performing credibly against (ideally beating) the flat-value reference; and the
-winning configuration plus the strength numbers are recorded well enough to
-reproduce the run. This satisfies the remaining acceptance criteria.
-
-### Step 10 — (Optional) Flag-relative-location input planes
-
-Only if baseline training is working and there is appetite: add the four
-flag-offset input planes described in the story's "Noted ideas" (signed
-own/enemy-flag horizontal and vertical offsets, computed in the side-to-move
-frame), which changes the encoder's `INPUT_SHAPE`. Retrain under an equal budget
-and compare strength to a baseline checkpoint via the Step-8 tournament.
-
-Depends on: Step 9 (a baseline to compare against). Explicitly **optional and not
-an acceptance criterion.**
-
-Verification (manual): a head-to-head tournament between a baseline-trained and a
-flag-plane-trained checkpoint of equal training budget shows whether the extra
-planes help.
-
-### Step 11 — README check
-
-Confirm `README.md` still describes the project accurately now that training and
-tournament runners, a flat-value engine kind, and checkpoint seating exist —
-updating it or confirming no change is needed.
-
-Depends on: Steps 7–9 (the user-visible surface is final by then).
+Depends on: Steps 6–7 (the user-visible surface is final by then).
 
 Verification (manual): run `/update-readme` (reviews the branch diff and updates
-`README.md` if warranted); confirm the player roster and usage examples match the
-shipped behaviour.
+`README.md` if warranted); confirm the described runners and usage examples match
+the shipped behaviour.
+
+---
+
+## Deferred to follow-up work
+
+These were in the original, larger story and are intentionally out of scope here.
+Each depends on the machinery this story delivers, so nothing above blocks on
+them:
+
+- **Strength-measurement tournament** (original Steps 7–8): the flat-value
+  reference seat (`NullEvaluator` in an `MCTSEngine`) and checkpoint seats as
+  runner player kinds, plus a `Tournament`-based strength runner reporting
+  standings and a cross-table at an *equal per-entrant* search budget. This is
+  how strength becomes a number rather than an impression.
+- **The tuned training run to demonstrated improvement** (original Step 9):
+  iterating the hyperparameters until later checkpoints measurably beat earlier
+  ones and the random / flat-value references. **Gated on self-play throughput** —
+  a meaningful game currently takes on the order of 15 minutes, so a
+  strength-bearing run is not yet practical; rules-engine performance work may
+  need to come first.
+- **Flag-relative-location input planes** (original Step 10): the four flag-offset
+  input planes change the encoder's `INPUT_SHAPE` and are their own story.

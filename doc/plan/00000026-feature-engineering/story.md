@@ -136,6 +136,20 @@ the new planes.
   spec the checkpoints correspond to (see next section). Alternatively, the 
   existing data could be deleted.
 - Review **broadcast planes** vs. **scalar side-input pathway**.
+- **Trunk width and depth become configurable (resolved).** The review found the
+  trunk at 32 features — now narrower than its own 34 input planes, and small in
+  absolute terms regardless of this change. Rather than swap one hard-coded size
+  for another, width and residual-block count become constructor parameters,
+  training-run hyperparameters recorded in `run-config.json`, and part of each
+  checkpoint's metadata, with the defaults raised to a more realistic scale. The
+  spec stamp and the architecture stamp are handled differently on load: a spec
+  mismatch is rejected (the input contract changed, so the weights mean nothing),
+  while a differing architecture is *reconstructed* (the weights are valid, only
+  the container shape differs) — which is what allows checkpoints trained at
+  different widths to coexist under one code version, as any later width
+  comparison will require. Choosing *which* width and depth are actually best is
+  a strength question and stays out of scope here; this story only makes them
+  answerable.
 
 ### New engine I/O spec (ENG_NN_2)
 
@@ -206,6 +220,8 @@ feature-engineering plane additions explicitly). So this story owns:
   `(34, 12, 12)` contract (all 34 planes, conventions, unchanged output), with the
   encoder matching it exactly; `ENG_NN_1` is left untouched and the new artifact's
   metadata stamps `ENG_NN_2`.
-- The change is self-contained to the game side — no game-engine-core edit — and
-  the scalar side-input pathway is captured as a named follow-up (not silently
-  dropped).
+- **Trunk width and residual-block count are configurable** — settable at
+  construction, passable as training-run parameters, recorded in
+  `run-config.json` and in each checkpoint's metadata, and used to rebuild the
+  network on resume; supplying them to a resume warns they are ignored, matching
+  the treatment of every other non-resumable hyperparameter.

@@ -116,33 +116,83 @@ Verification (manual): read `eng-nn-2.md` side by side with
 and convention matches exactly; grep confirms the story-00000009
 cross-references now name story 00000026.
 
-## Step 7 — Architecture-stack review
+## Step 7 — Configurable network architecture, stamped in checkpoints
 
-With the encoder, network, checkpoint format, and spec all finished, do the
-deliberate architecture-stack review the story's "Architecture-stack
-accommodation" section asks for: walk `CtfCrn`'s stem, residual blocks,
-policy head, and value head and confirm none of them need any change beyond
-the stem's wider input convolution (spatial dims are untouched, so the value
-head's flatten/linear sizing is unaffected). Record the reasoning behind
-choosing broadcast constant planes over a scalar side-input pathway for
-army-strength — already decided in the story, but not yet written down
-anywhere durable — as a short rationale note (e.g. in `eng-nn-2.md` or
-alongside it), so the decision and its "why" survive past this branch.
+The architecture-stack review the story's "Architecture-stack accommodation"
+section asks for found one thing that does need changing beyond the stem's
+wider input convolution: `CtfCrn`'s trunk width and residual-block count are
+fixed class constants, and at 32 features they are narrower than the 34 input
+planes now feeding them. Make both constructor parameters instead, and raise
+the defaults from 32 features / 6 blocks to a scale closer to what the engine
+will actually be trained at (64 / 10 as the working default) so throughput
+measured in later work reflects a realistic stack. Because the defaults get
+more expensive, tests that only need *a* network should construct small ones
+explicitly rather than pay the new default's forward cost.
 
-Depends on: Steps 1–6 (there is nothing to review holistically until the
-encoder, network, checkpoint stamping, and spec are all in their final
-form).
+Record the architecture alongside the engine-spec stamp in every saved
+checkpoint, and have `load_network` build the network from the recorded values
+rather than from current defaults. Note the deliberate asymmetry between the
+two stamps: an engine-spec mismatch means the input contract changed and the
+weights are meaningless, so it is rejected (as Step 5 established); an
+architecture difference means the weights are valid and only the container
+shape differs, so it is *reconstructed*, not rejected. That is what lets
+checkpoints trained at different widths coexist under one code version — the
+precondition for any later width comparison.
 
-Verification (manual): read through `ctf_crn.py` end to end and confirm each
-head's reasoning still holds at the new input width; confirm the
-broadcast-vs-scalar-side-input rationale is written down somewhere durable,
-not just implicit in the code.
+Depends on: Step 5 (the checkpoint format and spec stamp this extends) and
+Step 4 (the finalized input width the stem is sized against).
 
-## Step 8 — README check
+Verification (automated): a checkpoint saved from a network built at
+non-default width and depth round-trips through `save_checkpoint` /
+`load_network`, coming back at those same sizes with matching weights; a
+default-built checkpoint still round-trips; the existing spec-mismatch and
+missing-stamp rejection tests still pass.
+
+## Step 8 — Architecture as training-run parameters
+
+Expose the two architecture values as training hyperparameters: fields on
+`TrainingConfig`, flags on the training runner, and entries in the runner's
+ignored-on-resume table, so a resume rebuilds the network from the values
+recorded in the run's `run-config.json` and warns that freshly-supplied flags
+are ignored — the same treatment every other non-resumable hyperparameter
+already gets. A resumed run then has two independent records of its
+architecture, the run config and the checkpoint stamp, which must agree.
+
+Depends on: Step 7 (the constructor parameters these values feed, and the
+checkpoint stamp they are checked against).
+
+Verification (manual): start a short run with non-default architecture flags
+and confirm `run-config.json` records them; resume that run with architecture
+flags supplied again and confirm the runner warns they are ignored and that
+the resumed network is built at the recorded size rather than the default.
+
+## Step 9 — Record the architecture rationale in the spec
+
+Add a short design-rationale section to `doc/neuralnetwork/eng-nn-2.md`
+covering the two architecture decisions this story made but has not written
+down anywhere durable: why army strength is carried as broadcast constant
+planes rather than through a scalar side-input pathway, and what that deferred
+alternative would actually involve. Be precise about the merge point — a
+scalar side input merged into the value head's flattened representation is
+*not* equivalent to what was built, because it leaves the policy head with
+nothing; the equivalent merge is a per-channel bias applied after the stem,
+which differs from a broadcast plane only by the zero-padding attenuation at
+the board edge. Name the side-input pathway as a live follow-up gated on the
+strength-measurement apparatus, so the story's "captured as a named follow-up"
+criterion is met in version control rather than in scratch notes.
+
+Depends on: Steps 7–8 (the architecture is in its final, configurable form, so
+the rationale describes what actually shipped).
+
+Verification (manual): read the new section against `ctf_crn.py` and confirm
+it describes the network as built; confirm the deferred side-input pathway is
+named somewhere version-controlled.
+
+## Step 10 — README check
 
 Review `README.md` against everything this story changed (input shape, spec
-name, checkpoint format) and update it if it describes any of these, or
-confirm no update is needed.
+name, checkpoint format, configurable architecture) and update it if it
+describes any of these, or confirm no update is needed.
 
 Depends on: all prior steps being final, so there is nothing left to
 describe.

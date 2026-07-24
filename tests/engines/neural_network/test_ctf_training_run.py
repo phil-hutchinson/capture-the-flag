@@ -4,19 +4,32 @@ Marked `slow`: it runs real self-play (MCTS) and gradient descent, so it is
 excluded from the default suite and opted into with `pytest -m slow`. At tiny
 scale it exercises the whole generations loop and asserts the run's artifacts —
 a checkpoint per generation and a parseable run-config record — rather than any
-strength claim, which is deferred.
+strength claim, which is deferred. The runs are trained at the small test
+architecture: the loop's behaviour does not depend on the trunk's size, and the
+default one would make an already-slow test slower still.
 """
 
 import json
 
 import pytest
-from game_engine_learning.checkpoints import discover_checkpoints, new_run_directory
+from game_engine_learning.checkpoints import (
+    checkpoint_path,
+    discover_checkpoints,
+    new_run_directory,
+)
 
+from capture_the_flag.engines.neural_network.ctf_checkpoint import save_checkpoint
+from capture_the_flag.engines.neural_network.ctf_crn import CtfCrn
 from capture_the_flag.engines.neural_network.ctf_training_run import (
     RUN_CONFIG_FILENAME,
     TrainingConfig,
+    _write_run_config,
     resume_generations,
     train_generations,
+)
+from tests.engines.neural_network.small_networks import (
+    SMALL_FEATURE_COUNT,
+    SMALL_RESIDUAL_BLOCK_COUNT,
 )
 
 
@@ -28,6 +41,8 @@ def test_train_generations_writes_a_checkpoint_series_and_config(tmp_path):
         self_play_iterations=10,
         epochs_per_generation=2,
         batch_size=8,
+        feature_count=SMALL_FEATURE_COUNT,
+        residual_block_count=SMALL_RESIDUAL_BLOCK_COUNT,
         seed=0,
     )
     recorded: list[tuple[int, list]] = []
@@ -81,6 +96,8 @@ def test_resume_appends_to_the_same_run_and_continues_numbering(tmp_path):
         self_play_iterations=10,
         epochs_per_generation=2,
         batch_size=8,
+        feature_count=SMALL_FEATURE_COUNT,
+        residual_block_count=SMALL_RESIDUAL_BLOCK_COUNT,
         seed=0,
     )
     original_run = train_generations(config, base_dir=tmp_path)
@@ -106,3 +123,29 @@ def test_resume_appends_to_the_same_run_and_continues_numbering(tmp_path):
     assert len(record["resumes"]) == 1
     assert record["resumes"][0]["resumed_from_checkpoint"] == 1
     assert record["resumes"][0]["added_generations"] == 1
+
+    # The architecture the run was started at is what it resumed at, from the
+    # run's own record rather than from the (different) current defaults.
+    assert record["config"]["feature_count"] == SMALL_FEATURE_COUNT
+    assert record["config"]["residual_block_count"] == SMALL_RESIDUAL_BLOCK_COUNT
+    assert SMALL_FEATURE_COUNT != TrainingConfig().feature_count
+
+
+def test_resume_rejects_a_run_whose_config_and_checkpoint_disagree(tmp_path):
+    """The two independent architecture records — the run config and the
+    checkpoint's own stamp — must agree. They cannot legitimately differ, so a
+    hand-edited or mixed-up run directory is refused rather than resumed under a
+    config that does not describe the network being trained. Assembled directly
+    (no training) because the failure is about the recorded metadata, not about
+    anything the loop computes."""
+    run_dir = new_run_directory(tmp_path)
+    config = TrainingConfig(feature_count=SMALL_FEATURE_COUNT, residual_block_count=3)
+    _write_run_config(run_dir, config)
+    # A checkpoint at a *different* depth than the config claims.
+    save_checkpoint(
+        CtfCrn(feature_count=SMALL_FEATURE_COUNT, residual_block_count=2),
+        checkpoint_path(run_dir, 1),
+    )
+
+    with pytest.raises(ValueError, match="inconsistent"):
+        resume_generations(1, base_dir=tmp_path)

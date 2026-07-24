@@ -177,6 +177,16 @@ rides alongside the spatial planes. It hands the network a global fact
 directly, sparing it from reconstructing it via board-spanning receptive field
 and a summation path the conv tower lacks until its head.
 
+**Scalar side-input pathway** — the alternative to a broadcast plane for
+feeding whole-board scalars: keep them as a small vector on a second input,
+run it through a tiny fully-connected branch, and merge the result into the
+trunk (commonly as a per-channel bias after the stem, or concatenated into the
+value head before its linear layers). Exact and cheap where a broadcast plane
+spends a whole channel — and a spatially-padded convolution over a "constant"
+plane is not actually constant at the border — but it widens the game↔network
+tensor contract from one input to two, so it is the more invasive option when
+that contract lives in a pinned dependency.
+
 **One-hot encoding** — representing a category as a vector (or plane stack)
 that is all zeros except a single 1 marking which category applies. Preferred
 over numeric codes (Knight=3, Tower=7) because a network would otherwise have
@@ -254,7 +264,14 @@ is the per-square vocabulary: how many distinct features the network can
 track about each square at once; parameters grow with width². Depth (blocks)
 is composition: each layer builds features *of* the previous layer's
 features and extends spatial reach one step per conv; parameters grow
-linearly with depth.
+linearly with depth. Wall-clock does not follow parameter count, though:
+depth is *serial* (layers wait on each other, and every layer pays fixed
+per-layer overhead however small it is) while width is *parallel* (larger
+tensors vectorize and amortize that overhead). At small spatial sizes on CPU
+the tower is overhead- and memory-bound rather than compute-bound, so depth
+costs disproportionately more latency than its share of the arithmetic
+suggests. Depth is also the harder axis to optimize — longer gradient paths —
+which is what residual connections and batch normalization exist to mitigate.
 
 **Zero-padding** — inserting a ring of zero-valued fake squares around a
 convolution's input so the output keeps the board's size (a 3×3 conv would

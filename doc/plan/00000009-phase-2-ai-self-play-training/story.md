@@ -56,8 +56,8 @@ strength is the immediate follow-up.
   measurable as a checkpoint-strength comparison. Must be computed in the
   side-to-move perspective frame like every other input plane, and changes
   the encoder's `INPUT_SHAPE`. (Idea from the story-00000008 step 4
-  architecture discussion.) Now scoped as its own follow-up story, not part of
-  this one.
+  architecture discussion.) Scoped and delivered as story 00000026 (also
+  adding army-strength planes), not part of this one.
 
 ## Out of scope
 

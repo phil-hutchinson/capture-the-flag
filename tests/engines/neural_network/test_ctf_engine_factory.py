@@ -8,13 +8,14 @@ budget and exploration temperature through to each engine it builds.
 
 from game_engine_core.engines.mcts_engine import MCTSEngine
 
-from capture_the_flag.engines.neural_network.ctf_crn import CtfCrn
 from capture_the_flag.engines.neural_network.ctf_engine_factory import CtfEngineFactory
 from capture_the_flag.engines.neural_network.ctf_nn_evaluator import CtfNNEvaluator
+from tests.engines.neural_network.small_networks import small_network
 
 
 def _evaluator() -> CtfNNEvaluator:
-    return CtfNNEvaluator(CtfCrn())
+    # Nothing here searches, so the cheapest real network will do.
+    return CtfNNEvaluator(small_network())
 
 
 def test_call_builds_mcts_engine_over_the_configured_evaluator():

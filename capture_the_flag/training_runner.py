@@ -8,6 +8,9 @@ the checkpoint series and a `run-config.json` reproducibility record.
 
 The hyperparameter defaults are the modest starting points from `TrainingConfig`;
 raise `--games` / `--iterations` / `--generations` as self-play throughput allows.
+`--features` / `--residual-blocks` size the network itself, so — like every other
+non-resumable hyperparameter — they are fixed when the run starts and a resume
+rebuilds from what the run recorded.
 """
 
 import argparse
@@ -19,6 +22,10 @@ from pathlib import Path
 from game_engine_learning.training_loop import EpochLoss
 
 from .engines.neural_network.ctf_checkpoint import DEFAULT_RUNS_DIR
+from .engines.neural_network.ctf_crn import (
+    MAX_FEATURE_COUNT,
+    MAX_RESIDUAL_BLOCK_COUNT,
+)
 from .engines.neural_network.ctf_training_run import (
     TrainingConfig,
     resume_generations,
@@ -40,6 +47,8 @@ _TRAINING_FLAGS = {
     "--epochs": ("epochs", "epochs_per_generation"),
     "--batch-size": ("batch_size", "batch_size"),
     "--learning-rate": ("learning_rate", "learning_rate"),
+    "--features": ("features", "feature_count"),
+    "--residual-blocks": ("residual_blocks", "residual_block_count"),
     "--seed": ("seed", "seed"),
 }
 
@@ -100,6 +109,22 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=float,
         default=None,
         help=f"Adam learning rate (default: {_DEFAULTS.learning_rate})",
+    )
+    parser.add_argument(
+        "--features",
+        type=int,
+        default=None,
+        help=f"network trunk width, 1-{MAX_FEATURE_COUNT} (default: "
+        f"{_DEFAULTS.feature_count}); fixed for the life of a run, so a resume "
+        "rebuilds from the run's recorded value",
+    )
+    parser.add_argument(
+        "--residual-blocks",
+        type=int,
+        default=None,
+        help=f"network trunk depth, 1-{MAX_RESIDUAL_BLOCK_COUNT} (default: "
+        f"{_DEFAULTS.residual_block_count}); fixed for the life of a run, like "
+        "--features",
     )
     parser.add_argument(
         "--seed",

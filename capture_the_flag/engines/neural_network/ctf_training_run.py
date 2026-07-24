@@ -39,7 +39,7 @@ from game_engine_learning.training_loop import EpochLoss
 from torch.optim import Adam
 
 from .ctf_checkpoint import DEFAULT_RUNS_DIR, load_network, save_checkpoint
-from .ctf_crn import CtfCrn
+from .ctf_crn import DEFAULT_FEATURE_COUNT, DEFAULT_RESIDUAL_BLOCK_COUNT, CtfCrn
 from .ctf_position_factory import CtfPositionFactory
 from .ctf_training import train_one_generation
 
@@ -56,7 +56,12 @@ class TrainingConfig:
     Grouped by what they govern: the first block is self-play data production
     (the expensive half — wall-clock is dominated by
     `games_per_generation x self_play_iterations`), the second is learning over
-    that data (the cheap half), and `generations` / `seed` frame the run itself.
+    that data (the cheap half), the third is the network the run trains, and
+    `generations` / `seed` frame the run itself.
+
+    The architecture fields are what the run's network is *built* from, so like
+    the rest of these they are fixed for the life of a run: a resume rebuilds
+    from the recorded values rather than from whatever the current defaults are.
     """
 
     generations: int = 10
@@ -66,6 +71,8 @@ class TrainingConfig:
     epochs_per_generation: int = 3
     batch_size: int = 32
     learning_rate: float = 1e-3
+    feature_count: int = DEFAULT_FEATURE_COUNT
+    residual_block_count: int = DEFAULT_RESIDUAL_BLOCK_COUNT
     seed: int | None = None
 
 
@@ -96,7 +103,10 @@ def train_generations(
         random.seed(config.seed)
         position_factory = CtfPositionFactory(random.Random(config.seed))
 
-    network = CtfCrn()
+    network = CtfCrn(
+        feature_count=config.feature_count,
+        residual_block_count=config.residual_block_count,
+    )
     run_dir = new_run_directory(base_dir)
     _write_run_config(run_dir, config)
     _run_generations(
@@ -124,7 +134,12 @@ def resume_generations(
     `latest_checkpoint + 1` onward. The self-play and training hyperparameters
     come from the run's own `run-config.json`, not from fresh defaults, so the
     added generations are produced the same way as the original ones; only *how
-    many* more to run is chosen at resume time.
+    many* more to run is chosen at resume time. That includes the architecture,
+    which the run therefore records twice — in the run config and in the
+    checkpoint's own stamp. The checkpoint stamp is what the network is actually
+    rebuilt from (it is the one attached to the weights); the run config is
+    checked against it, and a disagreement means the run directory is
+    inconsistent and is refused rather than silently resolved.
 
     No reseeding happens here: the seed governed the original network init and
     initial run, which are already in the past by the time a resume loads the
@@ -145,6 +160,7 @@ def resume_generations(
     latest = checkpoints[-1]
     network = load_network(latest.path)
     config = replace(_read_run_config(run_dir), generations=added_generations)
+    _check_architecture_agrees(network, config, latest.path)
 
     _append_resume_record(
         run_dir, resumed_from=latest.iteration, added_generations=added_generations
@@ -192,6 +208,28 @@ def _run_generations(
         save_checkpoint(network, checkpoint_path(run_dir, generation))
         if progress is not None:
             progress(generation, history)
+
+
+def _check_architecture_agrees(
+    network: CtfCrn, config: TrainingConfig, checkpoint: Path
+) -> None:
+    """Cross-check a resumed run's two independent architecture records.
+
+    `network` was rebuilt from the checkpoint's own stamp and `config` from the
+    run's `run-config.json`; the two are written by the same run and cannot
+    legitimately differ. If they do, the run directory has been edited or files
+    from different runs have been mixed, and continuing would train under a
+    config that does not describe the network being trained.
+    """
+    recorded = (config.feature_count, config.residual_block_count)
+    stamped = (network.feature_count, network.residual_block_count)
+    if recorded != stamped:
+        raise ValueError(
+            f"{RUN_CONFIG_FILENAME} records a network of {recorded[0]} features "
+            f"x {recorded[1]} residual blocks, but {checkpoint} holds one of "
+            f"{stamped[0]} x {stamped[1]}. The run directory is inconsistent; "
+            "resume from a run whose config and checkpoints match."
+        )
 
 
 def _write_run_config(run_dir: Path, config: TrainingConfig) -> None:

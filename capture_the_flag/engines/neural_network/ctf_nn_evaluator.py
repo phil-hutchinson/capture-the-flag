@@ -56,6 +56,11 @@ def rotate_square(square: Square) -> Square:
     applying the same function."""
     return Square(11 - square.column, 13 - square.row)
 
+def rotate_ply(ply: CtfPly) -> CtfPly:
+    return CtfPly(
+        rotate_square(ply.source),
+        rotate_square(ply.destination),
+    )
 
 def tensor_position(square: Square, active_player_id: Literal[1, -1]) -> tuple[int, int]:
     """`square` as 0-based tensor indices, in `(row, column)` order.

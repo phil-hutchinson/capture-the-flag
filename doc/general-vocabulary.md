@@ -42,6 +42,118 @@ backpropagation, is one value per parameter saying how much the loss would
 fall if that parameter nudged up. Each training step: forward pass → scalar
 loss → gradient → small parameter update against the gradient.
 
+**Epoch / minibatch / epoch loss** — an *epoch* is one full pass over the whole
+training dataset; within it the data is split into *minibatches* and one
+gradient update is taken per minibatch, so an epoch is many updates, not one.
+"Train for N epochs" means show the network the same dataset N times over. The
+*epoch loss* is the average loss across one such pass — a single summary number
+(here the combined value + policy loss, each minibatch weighted by its sample
+count) whose downward trend across epochs is the signal that learning is
+happening. Training repeatedly on one fixed batch (the overfit-a-batch sanity
+check) lets the loss fall by memorization, which tests the plumbing without
+proving general strength.
+
+**Optimizer** — the component that turns each computed gradient into an actual
+weight change; backprop produces the gradient, the optimizer decides the step.
+You select and configure one from the framework (e.g. Adam, SGD) over the
+network's parameters rather than implementing it, and the training loop calls its
+step after each minibatch. Plain SGD applies one global learning rate; Adam
+adapts a per-parameter step size from recent gradient history, so it mostly "just
+works" without careful learning-rate tuning — which is why it's the usual default
+for a "does this learn at all" check.
+
+**Optimizer state (moment estimates / momentum)** — the running per-parameter
+statistics an adaptive optimizer carries *between* steps: Adam keeps a first
+moment (an EMA of the gradient) and a second moment (an EMA of the squared
+gradient), plus a timestep for bias correction; SGD-with-momentum keeps a
+velocity buffer. It is separate from the weights — dropping it leaves the model
+intact but makes the optimizer "re-warm up" (moments restart at zero, so the
+first few steps are noisier and mis-scaled until the EMAs refill). Persisting it
+across a training resume only matters when one long-lived optimizer spans the
+whole run (e.g. with a replay buffer and a learning-rate schedule); if a fresh
+optimizer is built per generation, its state never crosses a generation boundary
+anyway, so saving weights only and re-initialising on resume is exactly
+consistent with normal operation.
+
+**Learning rate (step size)** — how big a parameter update each gradient step
+takes. It is a stability-vs-speed dial, not an over/under-fitting one: too high
+and training oscillates or diverges (it overshoots minima and the loss bounces or
+blows up); too low and training is stable but crawls, making negligible progress
+per step. Adaptive optimizers (e.g. Adam) adjust a per-parameter step size from
+recent gradient history, so a single nominal rate like 1e-3 works across a wide
+range — which is why it is the usual default for a "does this learn at all"
+check. Couples with batch size (a larger, less-noisy batch can support a higher
+rate) and trades off against epochs (low-rate-more-epochs ≈ high-rate-fewer).
+
+**Batch size (gradient noise vs. stability)** — how many samples are averaged
+into each gradient step. Larger batches give a less noisy estimate of the true
+gradient and smoother steps but, for a fixed dataset, fewer update steps per
+epoch; smaller batches give noisier gradients that act as a mild regularizer.
+Bigger is therefore not simply better. The batch mixes samples across games
+(shuffled), so a step reflects a mean over *positions*, not whole games. At small
+self-play scale it is a low-impact knob — a conventional value is fine.
+
+**Backpropagation** — the algorithm that turns the one scalar loss into a
+gradient over every parameter, by applying the chain rule backward through the
+network layer by layer. The forward pass records what each operation did; the
+backward pass walks it in reverse, accumulating each parameter's share of the
+loss. This is why collapsing a batch to a single number (via `.sum()` /
+`.mean()`) loses nothing: differentiation re-expands that scalar into a full
+per-parameter — and, one step earlier, per-logit — signed correction.
+
+**Softmax cross-entropy gradient** — the reason the policy loss can train from a
+scalar. For a softmax followed by cross-entropy against a target distribution,
+the gradient on each logit collapses to `predicted_i − target_i`: a signed,
+per-column error. A column the network favoured more than the search visited
+gets a positive gradient (descent lowers it); one it favoured less gets a
+negative gradient (descent raises it); an exact match gets zero. So the "this
+was too high, this too low, by how much" signal lives in the gradient, not the
+scalar loss — the scalar is only a summary to watch trend down. A corollary:
+since the target is zero on illegal columns, any illegal move the network likes
+gets gradient `predicted − 0 > 0` and is pushed down, so an unmasked loss still
+teaches legality.
+
+**Cross-entropy** — the standard loss for scoring a predicted probability
+distribution against a target one: it sums, over the possible outcomes, the
+target probability times the negative log of the predicted probability, so it
+rewards putting mass where the target has mass and punishes confident wrong
+guesses hardest. In this project it scores the policy head (a softmax over the
+legal plies) against the search's visit distribution; the target is itself a
+full distribution, not a single "correct" move. At a perfect match it does
+*not* reach zero — it bottoms out at the *entropy* of the target distribution
+(see below) — reaching zero only when the target puts all its mass on one
+option. Its gradient drives the prediction toward the target either way.
+
+**Entropy** — how spread-out a distribution is: its probability-weighted
+average surprisal, −Σ p·log p (in bits when the log is base 2). Largest for a
+uniform distribution, zero for a certain (one-hot) one. It is the *floor* of
+cross-entropy — scoring a distribution against itself yields its entropy, not
+zero — so a perfectly-matched policy prediction still shows a positive loss
+equal to that entropy.
+
+**Surprisal** — the surprise of a single outcome under a prediction, −log p:
+near zero for something you called almost certain, growing without bound as the
+predicted probability approaches zero. Cross-entropy is the target-weighted
+average of the prediction's surprisals; entropy is the special case where a
+distribution weights its own surprisals.
+
+**Mode-covering (cross-entropy asymmetry)** — because surprisal −log q is
+unbounded as q→0 but bounded (→0) as q→1, cross-entropy punishes
+*under*-prediction of an important option far more than *over*-prediction of an
+unimportant one. Assigning near-zero probability to a ply the target weights
+heavily costs enormously; keeping a little leftover probability on plies that
+turn out unimportant costs almost nothing. So the loss drives a prediction to
+*cover* every option the target cares about (never zero one out) rather than to
+commit to a single peak — exactly the right pressure for a policy target: the
+network is penalized hardest for ignoring a move the search rated well.
+
+**KL divergence (relative entropy)** — how far a prediction q sits from a
+target p: Σ p·log(p/q), equivalently cross-entropy minus the target's entropy.
+Zero exactly when the two match, positive otherwise. Because a training
+target's entropy is a fixed constant, minimizing cross-entropy and minimizing
+KL divergence give identical gradients — so the simpler cross-entropy is used
+as the loss even though KL is the "distance" that reads zero at a match.
+
 **Replay buffer** — the pool of stored training examples that self-play
 writes into and training samples minibatches out of. Decouples the two
 loops: game generation appends (position, search visit-distribution,
@@ -57,6 +169,13 @@ Knight here"). Planes stack along the *channel* axis to form the full input
 (a 12×12×N tensor is an N-channel image). Only the grid axes carry spatial
 meaning; channels have no adjacency or ordering significance, so their order
 just needs to be fixed and consistent.
+
+**Broadcast plane (global scalar as constant plane)** — the standard way to
+feed a whole-board scalar (e.g. a per-rank material count, side-to-move flag)
+to a convolutional trunk: fill an entire 12×12 plane with that one value so it
+rides alongside the spatial planes. It hands the network a global fact
+directly, sparing it from reconstructing it via board-spanning receptive field
+and a summation path the conv tower lacks until its head.
 
 **One-hot encoding** — representing a category as a vector (or plane stack)
 that is all zeros except a single 1 marking which category applies. Preferred
@@ -81,6 +200,16 @@ network's gut sense of how good the current position is (a single number in
 [-1, 1]); the policy head is its gut sense of which moves look promising (one
 logit per action-space entry). Keeping the heads thin forces most learning
 into the shared trunk, so one board representation serves both judgments.
+
+**Weight initialization / symmetry breaking** — networks start from *small
+random* weights, never all zeros. Zero (or any identical) init makes every unit
+in a layer compute the same output and receive the same gradient, so they update
+in lockstep and never differentiate — the layer collapses to acting like a single
+unit. Random init breaks that symmetry; the "small" keeps early activations and
+gradients in a sane range. A consequence at cold start: a tanh value head from
+literal zero weights would output exactly 0, but real (random) init emits small
+nonzero noise, so an all-draw batch still shows a tiny value loss that training
+drives toward the constant 0 target.
 
 **Residual block / skip connection** — a network building block whose output
 is its input *plus* a learned correction (the input is added back in via a
@@ -150,6 +279,55 @@ exports without the consumer noticing. What it deliberately excludes is the
 semantics of those tensors — what the planes mean, how outputs map to moves —
 which must live in a separate written spec.
 
+## Reinforcement learning / training dynamics
+
+**Sparse reward / cold start** — the situation where the only learning signal
+(here, the game outcome) appears rarely, because a near-random early policy
+almost never reaches a decisive terminal. Until *something* produces a
+non-neutral result the value targets are almost all the same value (draws → 0),
+giving the network nothing to distinguish positions by, so it collapses to
+predicting that constant. The flywheel that turns weak play into strong play
+cannot start until decisive terminals appear often enough to bite.
+
+**Credit assignment** — the problem of deciding *which* earlier decisions
+deserve the blame or credit for a final outcome. When the collector labels
+every ply of a game with the same terminal ±outcome (no discounting) and the
+policy was near-random over a long horizon, most of those labels are
+unattributable: the win wasn't *caused* by the aimless midgame positions it's
+stamped onto, so the same-looking position ends up labeled "win" once and
+"draw" ninety-nine times. Sparse *and* noisy-labeled is worse than sparse
+alone — the signal has to be local (outcome tight in time and reliably caused
+by the position) to be learnable.
+
+**Bootstrapping (value)** — improving the value estimate of a position from the
+(searched) value estimates of positions just after it, rather than only from
+final outcomes. It's how a tight, learnable signal near a terminal — e.g. "a
+piece adjacent to the enemy flag ≈ win" — leaks backward one ply per
+generation into earlier positions, gradually extending the network's sense of
+"good position" away from the terminal. This is the mechanism that lets the
+cold-start flywheel turn once *any* attributable signal exists.
+
+**Curriculum learning** — training on a sequence of progressively harder
+versions of the task instead of the full task from the start, so the early,
+easy stages produce a learnable signal that bootstraps the harder ones. Here:
+begin self-play with a tiny army (low branching, frequent decisive terminals),
+then grow the army toward the real game. Works when each stage's lesson is
+directionally right but incomplete; breaks when an early stage teaches
+something the later stages must actively un-learn.
+
+**Catastrophic forgetting** — a network overwriting earlier-learned competence
+when the training distribution shifts to something new, because the same
+weights get repurposed for the new data. The failure mode of a hard-switched
+curriculum (or any non-stationary training): mitigated by *ramping* stages —
+keeping some earlier-stage examples in the replay buffer during the transition
+— rather than switching cleanly between them.
+
+**Non-stationarity (training distribution)** — when the distribution of
+training examples changes over the course of training rather than being drawn
+from one fixed source, so the network chases a moving target. Inherent to
+self-play (the opponent is the improving network itself) and amplified by a
+curriculum that deliberately shifts the position distribution across stages.
+
 ## Game theory
 
 **Markov property / Markov-complete state** — a state representation is
@@ -174,7 +352,101 @@ proportionally; lowering it sharpens toward always picking the top choice
 (→ 0 is fully greedy); raising it flattens toward uniform. Mnemonic: heat is
 randomness — freeze it and all randomness stops.
 
+**Policy-improvement operator (search as a teacher)** — running search on top of
+the network's raw policy produces a *better* move distribution than the raw
+prior: the visit counts are the prior sharpened by lookahead. Training the policy
+head toward those visit counts is what makes self-play improve — each generation
+the network chases a searched version of itself that is stronger than itself,
+then search improves on the new network, and so on. The strength of this teacher
+is bounded by the quality of the prior and the leaf value estimates it searches
+over, so over a near-random network few simulations add little signal; more
+iterations per ply pay off as the network gets good enough for search to extract
+more. A second, indirect training benefit: better play reaches decisive terminals
+more often, and decisive outcomes are the scarce value signal at cold start.
+
+**Self-play temperature (diversity vs. trajectory quality)** — in self-play
+collection, temperature sets how the *played* move is sampled from the visit
+counts, shaping the game trajectory and thus which positions and outcomes enter
+the dataset; it does not change the per-position policy target (the raw visit
+distribution) and costs essentially no compute. Too low and every game plays the
+same line, so N games collapse to one game's worth of correlated positions; too
+high and moves go random regardless of search, giving aimless games that rarely
+reach decisive terminals and positions unrepresentative of real play. The usual
+within-game fix — explore early, sharpen toward the endgame — needs a temperature
+schedule this engine lacks, so a single fixed value is one whole-game compromise.
+Random starting placements already supply large trajectory diversity, so this
+project needs less temperature-driven exploration than a fixed-start game.
+
+## Hardware / performance
+
+**Batch-1 GPU latency (launch overhead & occupancy)** — for a *single* small
+input, a GPU is often no faster than a CPU, for two reasons unrelated to the
+arithmetic (which is genuinely microseconds). First, a forward pass issues one
+scheduled operation ("kernel") per layer — dozens of them, each carrying a
+fixed host-side launch/dispatch cost and chained by data dependency, so the
+overheads serialize and dwarf the compute. Second, a tiny per-position result
+can only occupy a sliver of the GPU's thousands of cores (low *occupancy*).
+Both overheads are per *call*, not per position, so the fix is batching many
+positions into one forward pass: it amortizes the launch cost and fills the
+cores, which is the only regime where a GPU's throughput advantage appears.
+A CPU "wins" at batch-1 not by faster math but by paying none of these
+overheads. In serial MCTS every leaf evaluation is a batch-1 call, which is
+why plain self-play does not benefit from a GPU until the search is
+parallelized enough to batch its evaluations.
+
+**Eager vs. graph/compiled execution** — in *eager* mode each network
+operation runs the moment Python reaches it (simple and debuggable, but paying
+per-op launch/dispatch overhead every call); *graph* or *compiled* mode captures
+the whole forward pass once into a static graph and replays it, fusing
+operations, folding inference-time constants (e.g. batch-norm into the
+preceding convolution), and collapsing many kernel launches into one. Compiling
+attacks launch overhead (helping even at batch-1) but not occupancy — the
+kernels are still small — so it complements batching rather than replacing it.
+The cost is flexibility: graph capture wants static input shapes and has a
+warm-up cost, so the usual pattern is develop eager, compile for the long run.
+
 ## Python
+
+**`Callable[[args], Return]` (function type)** — the type annotation for "a
+function/callable." Two slots: the inner list is the *parameter types*, the
+second is the *return type*. Empty inner brackets `Callable[[], T]` mean **takes
+no arguments** (a populated-with-nothing parameter list, not "unspecified") and
+returns `T`; `Callable[[int, str], bool]` takes those two and returns a bool.
+Distinct from `Callable[..., T]`, where the literal `...` means "any arguments,
+don't care." A zero-arg factory like the self-play `position_factory` is
+`Callable[[], TPosition]`: call it with nothing, get a position.
+
+**Type variable / generic (`TPosition`, `TPly`)** — a placeholder type that a
+generic class or function is defined over, pinned to a concrete type when
+instantiated. `SelfPlayCollector[TPosition]` is written against an abstract
+"position" and "ply" type; for this repo they resolve to the Capture the Flag
+position and ply. Conventionally named with a leading `T`.
+
+**Closure** — a function that captures ("closes over") variables from the scope
+it was defined in, so those values ride along when it's called later. A factory
+function returning an inner function is the usual way to bake settings into a
+zero-arg callable: the inner function reads the enclosing parameters even after
+the outer one has returned.
+
+**Partial application (`functools.partial`)** — pre-binding some of a function's
+arguments to produce a new callable that needs only the rest (here, none). The
+Python analogue of currying: `partial(build, army_size=2)` returns something you
+call with the remaining args. Freezes settings into a function without writing a
+closure by hand.
+
+**Callable object (`__call__`)** — an instance of a class that defines
+`__call__` can be invoked like a function (`obj()` runs `obj.__call__()`).
+Preferred over a closure/partial when there is real configuration to hold: the
+class is named, importable, and testable, configured in `__init__` and invoked
+with no further args — so an instance *is* a `Callable[[], T]`. Keep per-call
+behaviour (e.g. fresh randomness) inside `__call__`, not `__init__`.
+
+**Structural typing (duck typing)** — a value satisfies a type by having the
+right shape/behaviour, not by declaring it inherits from a named type. Python's
+`Callable[[], T]` is structural: a plain function, a closure, a `partial`, and a
+class instance with `__call__` are all interchangeable at that seam because each
+is callable-with-no-args — which is what lets one factory be swapped for another
+without the consumer knowing.
 
 **Module vs. package** — a module is a single `.py` file; a package is a
 directory of modules with an `__init__.py` (which makes the directory itself

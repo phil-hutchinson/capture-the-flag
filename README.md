@@ -12,11 +12,12 @@ position/ply types, evaluators, and the phase 1 / phase 2 training on top of it.
 
 > **Status:** the rules engine is fully implemented and playable — board and
 > piece geometry, legal move generation, combat resolution, and every ending
-> condition. On top of it sits an *untrained* learned play engine — position
-> encoding, a value/policy network, an evaluator, and an MCTS-backed player —
-> that plays complete legal games (weakly, until trained). Random, human, and
-> learned players are selectable in both the headless batch runner and the
-> terminal single-game runner. Training the network lands in subsequent stories.
+> condition. On top of it sits a learned play engine — position encoding, a
+> value/policy network, an evaluator, and an MCTS-backed player — that plays
+> complete legal games, together with a self-play training loop that improves
+> the network generation over generation. Random, human, and learned players are
+> selectable in both the headless batch runner and the terminal single-game
+> runner.
 
 ## Requirements
 
@@ -77,6 +78,25 @@ same setup for either side. Moves are typed in the simple source–destination
 notation (e.g. `A2A3`); malformed or illegal input re-prompts with an
 explanation, and each turn's display shows the coordinate-labelled board,
 captured pieces, and the inactivity clock.
+
+## Training the engine
+
+A self-play training runner improves the learned network generation over
+generation: each generation collects self-play games with the current network,
+trains on them, saves a checkpoint, and carries the improved network forward.
+
+```bash
+python -m capture_the_flag.training_runner --generations 10
+```
+
+Each run lands in its own timestamped directory under `./training-runs/`
+(gitignored), holding the checkpoint series and a `run-config.json`
+reproducibility record. The self-play and training shape is tuned with
+`--games` (games per generation), `--iterations`/`--temperature` (self-play
+search), `--epochs`/`--batch-size`/`--learning-rate` (training), and `--seed`;
+unset flags fall back to modest built-in defaults. `--resume` reloads the most
+recent run's latest checkpoint and trains `--generations` more into the same
+run, reusing that run's recorded hyperparameters.
 
 ## Development
 

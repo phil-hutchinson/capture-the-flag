@@ -18,6 +18,8 @@ from capture_the_flag.engines.neural_network.tensor_layout import (
     ACTION_SPACE_SHAPE,
     FP_INACTIVITY_COUNT,
     FP_OUR_FLAG,
+    FP_OUR_FLAG_RELATIVE_COLUMN,
+    FP_OUR_FLAG_RELATIVE_ROW,
     FP_OUR_RANK_1,
     # FP_OUR_RANK_2,
     # FP_OUR_RANK_3,
@@ -27,6 +29,8 @@ from capture_the_flag.engines.neural_network.tensor_layout import (
     FP_OUR_TOWER,
     FP_PASSABLE,
     FP_THEIR_FLAG,
+    FP_THEIR_FLAG_RELATIVE_COLUMN,
+    FP_THEIR_FLAG_RELATIVE_ROW,
     # FP_THEIR_RANK_1,
     FP_THEIR_RANK_2,
     # FP_THEIR_RANK_3,
@@ -109,6 +113,31 @@ def _check_tensor_piece_fill(encoded: Tensor, expected_piece_placements: set[tup
             for row in range(12):
                 expected_value = 1 if (fp, column, row) in expected_piece_placements else 0
                 assert encoded[fp, row, column] == expected_value
+
+def _check_flag_relative_planes(
+    encoded: Tensor,
+    our_flag_position: tuple[int, int],
+    their_flag_position: tuple[int, int],
+) -> None:
+    # Positions are (tensor row, tensor column) of each flag, in the frame
+    # `encoded` was built in. Checked at every square, since the offset is
+    # defined board-wide, not just at sampled points.
+    our_flag_row, our_flag_column = our_flag_position
+    their_flag_row, their_flag_column = their_flag_position
+    for row in range(BOARD_ROWS):
+        for column in range(BOARD_COLUMNS):
+            assert encoded[FP_OUR_FLAG_RELATIVE_ROW, row, column] == pytest.approx(
+                (our_flag_row - row) / BOARD_ROWS
+            )
+            assert encoded[FP_OUR_FLAG_RELATIVE_COLUMN, row, column] == pytest.approx(
+                (our_flag_column - column) / BOARD_COLUMNS
+            )
+            assert encoded[FP_THEIR_FLAG_RELATIVE_ROW, row, column] == pytest.approx(
+                (their_flag_row - row) / BOARD_ROWS
+            )
+            assert encoded[FP_THEIR_FLAG_RELATIVE_COLUMN, row, column] == pytest.approx(
+                (their_flag_column - column) / BOARD_COLUMNS
+            )
 
 def _check_tensor_lake_fill(encoded: Tensor) -> None:
     expected_lake_placements = {
@@ -228,6 +257,42 @@ def test_inactivity_counter_populated(inactivity_counter):
     for row in range(12):
         for column in range(12):
             assert encoded[FP_INACTIVITY_COUNT, row, column] == pytest.approx(expected_value)
+
+@pytest.mark.parametrize(
+    "position, our_flag_position, their_flag_position",
+    [
+        (_matching_white_position(), (0, 0), (11, 4)),
+        (_matching_black_position(), (0, 0), (11, 4)),
+    ],
+    ids=["white_board", "black_board"],
+)
+def test_flag_relative_planes_normalized_correctly(position, our_flag_position, their_flag_position):
+    # Both fixtures are the same position, one from each side's perspective, so
+    # both flags land at the same tensor coordinates once re-based into the
+    # mover's frame -- (0, 0) for the mover's own flag, (11, 4) for the enemy's.
+    evaluator = CtfNNEvaluator(_dummy_model())
+    encoded = evaluator.encode_position(position)
+    _check_flag_relative_planes(encoded, our_flag_position, their_flag_position)
+
+@pytest.mark.parametrize(
+    "inactivity_counter",
+    [0, 10, 49]
+)
+def test_flag_relative_planes_equivalent_under_rotation(inactivity_counter):
+    white_position = _matching_white_position(inactivity_counter)
+    black_position = _matching_black_position(inactivity_counter)
+
+    evaluator = CtfNNEvaluator(_dummy_model())
+    white_encoded = evaluator.encode_position(white_position)
+    black_encoded = evaluator.encode_position(black_position)
+
+    for fp in (
+        FP_OUR_FLAG_RELATIVE_ROW,
+        FP_OUR_FLAG_RELATIVE_COLUMN,
+        FP_THEIR_FLAG_RELATIVE_ROW,
+        FP_THEIR_FLAG_RELATIVE_COLUMN,
+    ):
+        assert torch.equal(white_encoded[fp], black_encoded[fp])
 
 def test_rotate_square_involution():
     for column in range(BOARD_COLUMNS):

@@ -19,15 +19,18 @@ import torch.nn.functional as F
 from game_engine_learning.neural_network_evaluator import NeuralNetworkEvaluator
 from torch import Tensor
 
-from ...board import LAKE_SQUARES, Square
+from ...board import BOARD_COLUMNS, BOARD_ROWS, LAKE_SQUARES, Square
 from ...outcome import INACTIVITY_LIMIT
 from ...pieces import PieceType
 from ...ply import CtfPly
 from ...position import CtfPosition
+from ...side import Side
 from .tensor_layout import (
     ACTION_SPACE_SHAPE,
     FP_INACTIVITY_COUNT,
     FP_OUR_FLAG,
+    FP_OUR_FLAG_RELATIVE_COLUMN,
+    FP_OUR_FLAG_RELATIVE_ROW,
     FP_OUR_RANK_1,
     FP_OUR_RANK_2,
     FP_OUR_RANK_3,
@@ -37,6 +40,8 @@ from .tensor_layout import (
     FP_OUR_TOWER,
     FP_PASSABLE,
     FP_THEIR_FLAG,
+    FP_THEIR_FLAG_RELATIVE_COLUMN,
+    FP_THEIR_FLAG_RELATIVE_ROW,
     FP_THEIR_RANK_1,
     FP_THEIR_RANK_2,
     FP_THEIR_RANK_3,
@@ -113,7 +118,6 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
     def encode_position(self, position: CtfPosition) -> Tensor:
         # tensor expected to be (batch, channels, height, width)
         # batch will be handled later - we just need to do the last three here
-
         encoded = torch.zeros(INPUT_SHAPE, dtype=torch.float32)
 
         # Current pieces on board
@@ -130,6 +134,21 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
         # Draw-by-inactivity counter
         move_limit_ratio = position.inactivity_counter / INACTIVITY_LIMIT
         encoded[FP_INACTIVITY_COUNT, :, :].fill_(move_limit_ratio)
+        # Flags relative position
+        our_flag_square = next(k for k, (side, piece_type) in position.board.items()
+              if side == position.side_to_move and piece_type == PieceType.FLAG)
+        our_flag_row, our_flag_column = tensor_position(our_flag_square, position.active_player_id)
+        for row in range(BOARD_ROWS):
+            encoded[FP_OUR_FLAG_RELATIVE_ROW, row, :].fill_((our_flag_row - row)/BOARD_ROWS)
+        for column in range(BOARD_COLUMNS):
+            encoded[FP_OUR_FLAG_RELATIVE_COLUMN, :, column].fill_((our_flag_column - column)/BOARD_COLUMNS)
+        their_flag_square = next(k for k, (side, piece_type) in position.board.items()
+              if side != position.side_to_move and piece_type == PieceType.FLAG)
+        their_flag_row, their_flag_column = tensor_position(their_flag_square, position.active_player_id)
+        for row in range(BOARD_ROWS):
+            encoded[FP_THEIR_FLAG_RELATIVE_ROW, row, :].fill_((their_flag_row - row)/BOARD_ROWS)
+        for column in range(BOARD_COLUMNS):
+            encoded[FP_THEIR_FLAG_RELATIVE_COLUMN, :, column].fill_((their_flag_column - column)/BOARD_COLUMNS)
 
         return encoded
     

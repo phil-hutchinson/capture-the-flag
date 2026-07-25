@@ -105,6 +105,20 @@ def test_dict_form_round_trips_through_json_and_keeps_the_nesting() -> None:
     assert self_play["children"][0]["children"][0]["name"] == "evaluate"
 
 
+def test_leaf_regions_report_no_remainder() -> None:
+    """A childless region's remainder is its whole inclusive time, which explains
+    nothing and would double-count almost the entire run if summed. The console
+    form has never shown it; the dict form does not carry it either."""
+    restored = json.loads(json.dumps(report_to_dict(build_report(sample_tree()))))
+
+    search = restored["children"][0]["children"][0]
+    assert search["name"] == "search"
+    assert search["unattributed_seconds"] == 2.0
+    evaluate = search["children"][0]
+    assert evaluate["name"] == "evaluate" and not evaluate["children"]
+    assert "unattributed_seconds" not in evaluate
+
+
 def test_console_tree_indents_by_depth_and_shows_the_remainder() -> None:
     rendered = format_report(build_report(sample_tree()))
     lines = rendered.splitlines()

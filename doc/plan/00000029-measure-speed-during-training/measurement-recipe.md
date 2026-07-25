@@ -100,6 +100,14 @@ count is in the baseline record, being the sum of every node's `calls`. At 816 n
 each that is **33 ms, or 0.165% of the run**; with timing switched off the
 always-installed wrapper costs about 12 ms, or 0.06%.
 
+One cost the entry count does not cover: the timed arm also emits the record at
+the end of a run — rendering the tree, reading the environment (which shells out
+to git), and writing two files. It is milliseconds against twenty seconds, and
+unlike the region entries it is a fixed cost per run rather than one that grows
+with the workload, so it does not belong in the per-entry arithmetic above. On a
+workload small enough for it to matter, this comparison is measuring the wrong
+thing anyway.
+
 That ratio is not luck, it is the instrumentation rule from the plan: regions
 wrap *calls*, never inner loops. The cheapest thing measured here — one legal-ply
 generation — costs ~230,000 ns, some 280 times a region entry. Instrumenting

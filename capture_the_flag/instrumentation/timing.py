@@ -38,7 +38,7 @@ import functools
 import time
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from typing import ParamSpec, TypeVar
+from typing import ParamSpec, Protocol, TypeVar
 
 Clock = Callable[[], int]
 """A monotonic nanosecond clock. Injectable so tests can drive time exactly."""
@@ -47,6 +47,23 @@ DEFAULT_ROOT_NAME = "run"
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
+
+
+class Region(Protocol):
+    """What `region()` hands back: something to `with`.
+
+    The public name for the return type, so a caller holding one has a type to
+    write. Which of the two implementations it is — the live session or the
+    shared do-nothing object — is the module's business, not the caller's.
+    """
+
+    def __enter__(self) -> object: ...
+
+    # Returning None rather than `bool` is load-bearing: a context manager whose
+    # `__exit__` can return True is one that can swallow an exception, and a type
+    # checker then has to treat every `with region(...): return ...` as a
+    # function that might fall off the end. Regions never suppress.
+    def __exit__(self, *exception: object) -> None: ...
 
 
 class RegionNode:
@@ -100,8 +117,8 @@ class _InactiveRegion:
     def __enter__(self) -> "_InactiveRegion":
         return self
 
-    def __exit__(self, *_exception: object) -> bool:
-        return False
+    def __exit__(self, *_exception: object) -> None:
+        """Nothing was opened, so there is nothing to close."""
 
 
 _INACTIVE_REGION = _InactiveRegion()
@@ -148,14 +165,13 @@ class TimingSession:
     def __enter__(self) -> "TimingSession":
         return self
 
-    def __exit__(self, *_exception: object) -> bool:
+    def __exit__(self, *_exception: object) -> None:
         # Read the clock first: everything after it is the measurement's own
         # overhead and belongs to nobody.
         ended_ns = self._clock()
         node = self._open.pop()
         node.elapsed_ns += ended_ns - self._started_ns.pop()
         node.calls += 1
-        return False
 
     def snapshot(self) -> RegionNode:
         """A copy of the tree as it stands, reportable while the run continues.
@@ -219,7 +235,7 @@ def active_session() -> TimingSession | None:
     return _active_session
 
 
-def region(name: str) -> TimingSession | _InactiveRegion:
+def region(name: str) -> Region:
     """Time the enclosing `with` block as `name`, nested under whatever region
     is already open.
 
@@ -257,6 +273,15 @@ def timing_session(
     Sessions do not nest — a run has one root by construction — so activating
     one while another is active is an error rather than a silently discarded
     measurement.
+
+    **Known limitation.** That error is raised at the *entry point*, so an
+    instrumented entry point invoked from inside another one (a script opening a
+    session and then calling `run_batch`, which measures itself by default)
+    aborts the work, not just the measurement. Nothing in this project does
+    that today — each entry point is a process — and the alternatives (reusing
+    the open session, or silently declining to measure) both trade a loud
+    failure for a quiet surprise, so this stays as it is until something
+    actually needs to nest.
     """
     global _active_session
     if _active_session is not None:

@@ -78,6 +78,7 @@ def report_timings(
     stem: str = TIMING_RECORD_STEM,
     preamble: Sequence[str] = (),
     echo: bool = True,
+    overwrite: bool = True,
 ) -> tuple[Path, Path]:
     """Write a run's breakdown as both companion files, and print it.
 
@@ -104,10 +105,18 @@ def report_timings(
     `echo=False` writes without printing: what a run in progress does at each
     checkpoint, where a whole tree on the console every generation would be
     noise rather than a report.
+
+    `overwrite=False` steps aside to `<stem>-2`, `<stem>-3`, ... when a record
+    is already there, for callers whose output directory is routinely reused (a
+    batch's `--output-dir`, where the record left over from last time may be a
+    baseline someone is keeping). Callers that rewrite one measurement as it
+    proceeds — a training run, at every checkpoint — need the default.
     """
     report = build_report(session.snapshot())
     breakdown = format_report(report)
 
+    if not overwrite:
+        stem = _free_stem(directory, stem)
     directory.mkdir(parents=True, exist_ok=True)
     json_path = directory / f"{stem}.json"
     json_path.write_text(
@@ -121,6 +130,22 @@ def report_timings(
     if echo:
         print(f"\n{breakdown}\n\nTimings written to {json_path} and {text_path.name}")
     return json_path, text_path
+
+
+def _free_stem(directory: Path, stem: str) -> str:
+    """`stem` if neither companion is already there, else the first numbered
+    variant that is free. Both files are checked, so a half-written pair does
+    not get half-overwritten."""
+    if not _stem_taken(directory, stem):
+        return stem
+    index = 2
+    while _stem_taken(directory, f"{stem}-{index}"):
+        index += 1
+    return f"{stem}-{index}"
+
+
+def _stem_taken(directory: Path, stem: str) -> bool:
+    return (directory / f"{stem}.json").exists() or (directory / f"{stem}.txt").exists()
 
 
 def _record(

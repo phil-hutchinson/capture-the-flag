@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 
 from capture_the_flag.batch_runner import run_batch
-from capture_the_flag.timing_record import TIMING_RECORD_FILENAME
+from capture_the_flag.timing_record import TIMING_RECORD_FILENAME, TIMING_RECORD_STEM
 from capture_the_flag.timing_regions import PLAY_GAMES, ROOT_BATCH
 
 
@@ -52,11 +52,30 @@ def test_children_never_claim_more_than_their_parent(tmp_path: Path) -> None:
     def check(node: dict) -> None:
         children_total = sum(child["seconds"] for child in node["children"])
         assert children_total <= node["seconds"] + 1e-6
-        assert node["unattributed_seconds"] >= -1e-6
+        # Leaves carry no remainder — there is nothing for it to be a remainder of.
+        assert ("unattributed_seconds" in node) == bool(node["children"])
+        assert node.get("unattributed_seconds", 0.0) >= -1e-6
         for child in node["children"]:
             check(child)
 
     check(timing_record(tmp_path)["timings"])
+
+
+def test_a_second_batch_writes_beside_the_first_record(tmp_path: Path) -> None:
+    """Batch output directories get reused casually, and the record already there
+    may be a baseline someone is keeping — so a later batch numbers itself rather
+    than replacing it."""
+    run_batch(2, tmp_path, seed=11, timing=True)
+    first = (tmp_path / TIMING_RECORD_FILENAME).read_text(encoding="utf-8")
+
+    run_batch(3, tmp_path, seed=12, timing=True)
+
+    assert (tmp_path / TIMING_RECORD_FILENAME).read_text(encoding="utf-8") == first
+    second = json.loads(
+        (tmp_path / f"{TIMING_RECORD_STEM}-2.json").read_text(encoding="utf-8")
+    )
+    assert second["settings"]["games"] == 3
+    assert (tmp_path / f"{TIMING_RECORD_STEM}-2.txt").exists()
 
 
 def test_an_untimed_batch_writes_no_record(tmp_path: Path) -> None:

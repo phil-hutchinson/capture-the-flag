@@ -17,6 +17,7 @@ import subprocess
 import sys
 from importlib import metadata
 from pathlib import Path
+from types import ModuleType
 
 
 def environment_facts() -> dict[str, object]:
@@ -117,7 +118,7 @@ def _torch_compute_facts() -> dict[str, object]:
     return facts
 
 
-def _import_torch():
+def _import_torch() -> ModuleType | None:
     """torch if it is importable, else None.
 
     Imported lazily: a random-vs-random batch has no reason to pay torch's
@@ -126,7 +127,7 @@ def _import_torch():
     return sys.modules.get("torch") or _import_torch_module()
 
 
-def _import_torch_module():
+def _import_torch_module() -> ModuleType | None:
     try:
         import torch
     except ImportError:  # pragma: no cover - torch is a hard dependency

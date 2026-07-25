@@ -43,6 +43,16 @@ first generation."""
 SAVE_CHECKPOINT = "save-checkpoint"
 POLICY_LOSS = "policy-loss"
 POLICY_TRANSFORM = "policy-transform"
+"""Re-framing one search's visit distribution as a training target.
+
+This is as close as the report gets to naming the *capture* of a training
+sample, which the story lists among the seams inside self-play. The capture
+itself belongs to the shared `SelfPlayCollector`: the two pieces of it this
+repository owns are this transform and the `encode-position` the collector
+performs per step, both of which appear under `self-play` on their own. What the
+collector does around them — accumulating the samples, attaching the game's
+outcome — stays inside `self-play`'s unattributed remainder, reported rather
+than chased, like the other upstream gaps."""
 
 # Game mechanics: the per-position work that search calls hundreds of thousands
 # of times per game.

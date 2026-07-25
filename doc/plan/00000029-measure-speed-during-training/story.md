@@ -72,8 +72,11 @@ The breakdown should be able to answer, for a given run:
   encoding of the position from the network's forward pass from the decoding of
   its output), generating legal plies, applying a ply, deciding whether a
   position is terminal, and capturing the training sample.
-- **Inside training** — assembling batches, forward, loss, backward and
-  optimizer step.
+- **Inside training** — the network's forward pass and the loss computation.
+  Batch assembly, the backward pass, and the optimizer step run inside the
+  shared training loop, so the rule below applies to them as it does to search:
+  they are reported as that region's unattributed remainder rather than reached
+  into.
 
 Granularity is a judgment call and belongs in the implementation plan, but the
 governing rule is: instrument at the seams *between* meaningful units of work,

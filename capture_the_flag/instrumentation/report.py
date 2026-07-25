@@ -55,17 +55,25 @@ def report_to_dict(report: RegionReport) -> dict[str, object]:
 
     Seconds are rounded to microsecond precision: the underlying clock does not
     justify more, and full float repr would make the file needlessly unreadable.
+
+    `unattributed_seconds` appears only where a region has children. A childless
+    region's remainder is trivially its whole inclusive time — nothing is
+    unexplained about a leaf — and emitting it would invite a reader, or a
+    comparison script, to sum a column that double-counts nearly the entire run.
+    The console form suppresses the row for the same reason.
     """
-    return {
+    record: dict[str, object] = {
         "name": report.name,
         "calls": report.calls,
         "seconds": round(report.seconds, 6),
         "mean_seconds": round(report.mean_seconds, 9),
-        "unattributed_seconds": round(report.unattributed_seconds, 6),
-        "percent_of_root": round(report.percent_of_root, 2),
-        "percent_of_parent": round(report.percent_of_parent, 2),
-        "children": [report_to_dict(child) for child in report.children],
     }
+    if report.children:
+        record["unattributed_seconds"] = round(report.unattributed_seconds, 6)
+    record["percent_of_root"] = round(report.percent_of_root, 2)
+    record["percent_of_parent"] = round(report.percent_of_parent, 2)
+    record["children"] = [report_to_dict(child) for child in report.children]
+    return record
 
 
 def format_report(report: RegionReport, max_name_width: int = 44) -> str:

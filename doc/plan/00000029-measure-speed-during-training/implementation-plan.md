@@ -120,13 +120,18 @@ retains a non-zero unattributed remainder of its own.
 
 ## Step 5 — Time the boundary into the shared search engine
 
-Introduce a timing wrapper that stands in front of a `GameEngine`, opening a
-region around each call into it (ply selection, ply-with-policy selection,
-observation, reset) and delegating unchanged. Wire it into the two places engines
-are constructed — the self-play engine factory and the learned player's builder —
-so both self-play and ordinary play measure the same boundary. Like Step 1's
-module, this wrapper carries no game-specific knowledge and belongs with the
-shareable code.
+Introduce a timed `MCTSEngine` subclass that opens a region around each call
+into the engine (ply selection, ply-with-policy selection, observation, reset)
+and delegates unchanged. Wire it into the two places engines are constructed —
+the self-play engine factory and the learned player's builder — so both self-play
+and ordinary play measure the same boundary. Like Step 1's module, it carries no
+game-specific knowledge and belongs with the shareable code.
+
+A subclass rather than a wrapper standing in front of the `GameEngine` protocol:
+the shared self-play collector asks for an `MCTSEngine` by name, so a wrapper
+would not satisfy it. The coupling is the point at which this timing would move
+upstream — if it ever does, it belongs in `MCTSEngine` itself and the subclass
+disappears.
 
 Depends on: Steps 3 and 4 (the callbacks that must appear underneath this region
 already have to be instrumented for this step's verification to mean anything).
@@ -385,3 +390,22 @@ Depends on: Steps 12 and 13 (one overhead measurement covers both).
 Verification (manual): run the recipe with and without timing several times and
 confirm the overhead still sits under the story's budget at the higher entry count,
 with the recorded numbers as the step's artifact.
+
+## Step 15 — Write up what the numbers say
+
+The story's deliverable is the apparatus, but its *purpose* is the evidence — "the
+output is the evidence that tells a later story what to optimize." That evidence
+is a document, not a JSON file: a reader six months from now needs to know which
+figures are findings, which are this machine's, and which are guesses recorded as
+guesses. Take a full-scale run at the architecture and search budget the baseline
+used, and write up what it shows in `findings.md` beside the story — each item
+naming what was measured, what it means, and what it does *not* establish.
+
+Nothing here is acted on: the story's "findings are written down, not acted on"
+holds, and any fix suggested by an item is described rather than made.
+
+Depends on: Steps 12–14 (the run to write up should be one whose remainders have
+already been closed, or the findings are mostly "we do not know").
+
+Verification (manual): the document exists, every figure in it is traceable to a
+region in the run's record, and the run it came from is named.

@@ -94,7 +94,8 @@ def run_batch(
 
     With `timing`, the batch measures itself: the breakdown is printed and
     written to `timings.json` beside the game records, alongside the settings and
-    environment that produced it. Playing a batch is the cheapest way to ask
+    environment that produced it (a later batch into the same directory writes
+    `timings-2` rather than replacing it). Playing a batch is the cheapest way to ask
     where time goes at a given search budget, so this is the knob-turning
     entry point — a training run measures the same regions at greater expense.
     """
@@ -122,12 +123,18 @@ def run_batch(
         # The batch's own tallies head the text record, so it reads as a whole
         # report rather than a tree with no context. They are printed after the
         # breakdown by `main`, not here.
+        #
+        # An output directory gets reused far more casually than a training run's
+        # (which is timestamped and its own), and the record sitting there may be
+        # a baseline someone is keeping — so a second batch writes alongside the
+        # first rather than over it.
         report_timings(
             session,
             directory=output_dir,
             kind=ROOT_BATCH,
             settings=settings,
             preamble=summary.format().splitlines(),
+            overwrite=False,
         )
 
     return summary
@@ -286,7 +293,9 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=TIMING_ON_BY_DEFAULT,
         help="measure where the batch spends its time: print the breakdown and "
         f"write it to {TIMING_RECORD_STEM}.json/.txt in the output directory "
-        f"(default: {'on' if TIMING_ON_BY_DEFAULT else 'off'})",
+        f"(default: {'on' if TIMING_ON_BY_DEFAULT else 'off'}); a later batch "
+        f"into the same directory writes {TIMING_RECORD_STEM}-2 and so on, "
+        "leaving earlier records intact",
     )
     return parser.parse_args(argv)
 

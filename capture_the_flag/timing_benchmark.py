@@ -90,6 +90,15 @@ def run_workload(*, timing: bool, output_dir: Path, games: int, iterations: int)
     is a constant that would dilute the overhead percentage without telling us
     anything about the instrumentation. The batch's own output is swallowed —
     the breakdown it prints is not what this command is reporting.
+
+    The stopwatch covers the whole of `run_batch`, so on the timed arm it also
+    covers emitting the record: rendering the tree, reading the environment
+    (which shells out to git), and writing two files. That is deliberate — it is
+    part of what having timing on costs — but it is a fixed cost per run rather
+    than a per-region one, so it does not scale with the workload the way the
+    region entries do. On the recipe's two-game workload it is milliseconds
+    against ~20 seconds; on a workload small enough for it to matter, this
+    comparison is measuring the wrong thing anyway.
     """
     with contextlib.redirect_stdout(io.StringIO()):
         started = time.perf_counter()

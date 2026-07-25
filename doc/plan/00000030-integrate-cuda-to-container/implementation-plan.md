@@ -50,8 +50,11 @@ come due at the end.
 Parameterize the existing `.devcontainer/Dockerfile` so the torch wheel index is
 a build argument, defaulting to the CPU index it hard-codes today. Add a second
 dev container configuration in its own subdirectory that reuses that same
-Dockerfile (with the CUDA index and the repository root as build context),
-requests GPU passthrough from the host, and keeps everything else — the env-file
+Dockerfile (with the CUDA index, and `.devcontainer` as the build context so
+both configurations resolve the same one — the Dockerfile `COPY`s nothing, and a
+repository-root context would ship the whole workspace, training artifacts
+included, to the daemon on every build), requests GPU passthrough from the host,
+and keeps everything else — the env-file
 handling, the Claude Code volume and its `initializeCommand`, the
 `postCreateCommand`, the VS Code extensions and settings — identical to the CPU
 one. The existing configuration stays exactly where it is and keeps its current

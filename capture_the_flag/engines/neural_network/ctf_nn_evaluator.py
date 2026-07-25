@@ -24,12 +24,20 @@ from game_engine_learning.neural_network_evaluator import NeuralNetworkEvaluator
 from torch import Tensor
 
 from ...board import BOARD_COLUMNS, BOARD_ROWS, LAKE_SQUARES, Square
-from ...instrumentation.timing import timed
+from ...instrumentation.timing import region, timed
 from ...outcome import INACTIVITY_LIMIT
 from ...pieces import PieceType
 from ...ply import CtfPly
 from ...position import CtfPosition
-from ...timing_regions import DECODE_POLICY, ENCODE_POSITION, EVALUATE_POSITION
+from ...timing_regions import (
+    BUILD_POLICY_MASK,
+    DECODE_POLICY,
+    ENCODE_POSITION,
+    EVALUATE_POSITION,
+    MAP_PLY_SLOTS,
+    POLICY_SOFTMAX,
+    READ_PLY_PROBABILITIES,
+)
 from .tensor_layout import (
     ACTION_SPACE_SHAPE,
     FP_INACTIVITY_COUNT,
@@ -258,22 +266,38 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
     
     @timed(DECODE_POLICY)
     def decode_policy(self, policy_logits: Tensor, position: CtfPosition) -> dict[str, float]:
+        # Each of the four phases below is timed separately: decoding is entered
+        # once per position evaluation — over a million times in a training run —
+        # and the phases have very different characters (two walk the legal plies
+        # a tensor element at a time, one is a single fused tensor op), so a
+        # single figure for the whole call says nothing about which to attack.
+        #
+        # The legal plies are read *before* the first region opens: `legal_plies`
+        # is itself timed, and reading it inside `map-ply-slots` would bury its
+        # cost under that phase instead of leaving it the sibling of these four it
+        # has always been.
+        legal_plies = position.legal_plies
+
         # identify location in policy_logits tensor for all legal plies
-        legal_ply_mapping: dict[tuple[int, int, int], CtfPly] = {}
-        for ply in position.legal_plies:
-            logit_location = policy_logit_location_for_ply(ply, position.active_player_id)
-            legal_ply_mapping[logit_location] = ply
+        with region(MAP_PLY_SLOTS):
+            legal_ply_mapping: dict[tuple[int, int, int], CtfPly] = {}
+            for ply in legal_plies:
+                logit_location = policy_logit_location_for_ply(ply, position.active_player_id)
+                legal_ply_mapping[logit_location] = ply
 
         # create filter, starting with all positions masked, and unmasking legal plies
-        mask = torch.full(ACTION_SPACE_SHAPE, float('-inf'))
-        for policy_logit_location in legal_ply_mapping:
-            mask[policy_logit_location] = 0.0
-        
+        with region(BUILD_POLICY_MASK):
+            mask = torch.full(ACTION_SPACE_SHAPE, float('-inf'))
+            for policy_logit_location in legal_ply_mapping:
+                mask[policy_logit_location] = 0.0
+
         # create a probability for all legal plies, summing to one
         # masked locations in policy_logits will receive a probability of 0
-        masked = policy_logits + mask
-        probabilities = F.softmax(masked.flatten(), dim = -1).reshape(ACTION_SPACE_SHAPE)
-        
+        with region(POLICY_SOFTMAX):
+            masked = policy_logits + mask
+            probabilities = F.softmax(masked.flatten(), dim = -1).reshape(ACTION_SPACE_SHAPE)
+
         # map the probabilities back to valid plies
-        return {str(ply): probabilities[policy_logit_location].item() for (policy_logit_location, ply) in legal_ply_mapping.items()}
+        with region(READ_PLY_PROBABILITIES):
+            return {str(ply): probabilities[policy_logit_location].item() for (policy_logit_location, ply) in legal_ply_mapping.items()}
 

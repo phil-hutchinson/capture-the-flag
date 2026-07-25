@@ -254,3 +254,134 @@ and confirm each output directory holds a `timings.txt` whose contents match
 what the run printed, with the training file also carrying its generation loss
 lines; confirm a resume writes its own `.txt` alongside its own `.json` and
 leaves both originals intact.
+
+## Steps 12–14 — Closing the unattributed gaps (added after the first full-scale run)
+
+The first run at realistic settings — 5 generations x 5 games, 700 search
+iterations per ply, a 128-feature 12-block trunk, 2h57m, recorded in
+`training-runs/20260724-191645/` — does its job: it says where the time goes, and
+what it says loudest is that too much of the run has no name. Three unattributed
+remainders together account for about a sixth of it:
+
+| remainder inside | share of root | per call | whose code |
+| --- | --- | --- | --- |
+| `decode-policy` | 9.4% | 924us x 1,082,691 | ours |
+| `evaluate-position` | 5.7% | 562us x 1,082,691 | shared base class, around calls into ours |
+| `search-with-policy` | 1.1% | 72ms x 1,594, i.e. ~103us per search iteration | the pinned dependency's |
+
+A remainder is a ceiling on optimization: nothing inside it can be targeted,
+because nothing inside it is named. At a sixth of the run these three cap what
+any later optimization can claim. These steps subdivide the first two — the 15%
+that is reachable from this repository. They make nothing faster (the story's
+stance holds), but they turn the next story's targets from suspicions into line
+items.
+
+**The search remainder is left as an aggregate, deliberately.** Everything of ours
+that the engine calls back into is already attributed and already appears beneath
+the search region, so those 114 seconds are `game-engine-core`'s own work: the
+PUCT comparison over children, the expansion shuffle and node construction, the
+policy-dict copy, the backprop walk. Subdividing it would need overrides of the
+engine's private per-phase methods, and would produce a finding this repository
+cannot act on — the argument for an upstream story, which the aggregate figure
+already makes. The story's out-of-scope line ("the unattributed remainder is
+reported, not chased") therefore stands as written. Two conditions would reopen it:
+the share growing as the reachable 15% is optimized away, or a decision to work in
+the dependency, at which point the timing belongs in `MCTSEngine` itself rather
+than in a subclass reaching through it. A one-off profiler run on a single search
+— already listed in the story's noted ideas — is the cheap way to answer "which
+phase" if the question becomes pressing before then.
+
+Two smaller remainders are also left alone: `outcome`'s 52.5s (0.5% of root,
+being the termination checks around its legal-ply call) and `train`'s 31.2s, which
+is the shared training loop's batch assembly, backward pass, and optimizer step —
+upstream, and already the story's declared stance.
+
+A throwaway probe at the run's architecture (one starting position, 44 legal
+plies, no timing active) was used to choose where the new region boundaries fall.
+Its figures are indicative, not findings — producing the real ones is the point
+of the steps:
+
+- Inside `decode-policy`: mask construction ~167us and probability extraction
+  ~179us, both dominated by per-ply torch element access; ply-to-slot mapping
+  ~30us; the softmax itself ~8us.
+- Inside `evaluate-position`: `model.eval()` ~335us, and every other line of the
+  base class's body at ~2us or less. Torch implements the mode switch as a
+  recursive walk over every submodule, and the shared evaluator performs it on
+  each of the million single-position evaluations.
+
+### Step 12 — Subdivide policy decoding
+
+Add a region per phase of the learned evaluator's `decode_policy`: mapping the
+position's legal plies to their action-space slots, building the masked-logit
+tensor, the softmax over it, and extracting the per-ply probabilities into the
+returned dict. Names join the vocabulary in `timing_regions.py` with the rest.
+
+One region per phase per call — the loops over legal plies *within* each phase
+stay uninstrumented. That is the Step 1 rule still applying rather than being
+waived: a whole phase at ~170us is 200 region entries' worth of work, while a
+region per ply would be entered some 50 million times in a run to time
+operations only a few times its own cost.
+
+Depends on: Step 4 (the `decode-policy` region these subdivide, and its existing
+`legal-plies` child, which stays a sibling of the new phases).
+
+Verification (automated): extend `tests/instrumentation/test_evaluator_regions.py`
+— decode a policy for a constructed position under an active session, assert each
+new phase region appears as a child of `decode-policy` with one call per decode
+alongside the existing legal-ply child, and assert what is left unattributed is a
+small fraction of `decode-policy`'s inclusive time rather than the majority of it.
+
+### Step 13 — Attribute the evaluation gap to the mode switch
+
+The `evaluate-position` remainder sits in the shared base class's body, which this
+repository does not own — but the expensive line in that body is a call into a
+network it does. Add a region around `CtfCrn`'s train/eval mode switch. Because
+the switch is entered from inside the base body, the call-path rule files it under
+`evaluate-position` without changing the delegation, and the same region will
+separately record the training loop's own mode switches on the training branch of
+the tree — which is worth seeing too.
+
+What survives is the base body's tensor plumbing: the batch wrap, the no-grad
+context, the value unwrap. The probe puts that at a few microseconds a call, and
+the step stops there deliberately — naming those pieces would mean copying the
+upstream body into this repository to earn a fraction of a percent, and a
+remainder that small is an honest residue rather than a blind spot.
+
+Depends on: Step 4 (the `evaluate-position` and `network-forward` regions this
+step's new region sits between).
+
+Verification (automated + manual): a unit test asserts the mode-switch region is
+recorded under `evaluate-position` once per evaluation, and that a run of
+evaluations leaves `evaluate-position` with a remainder that is a minority of its
+inclusive time. Then, because a small test network makes the walk cheap and the
+effect is a large-network one, run a short timed batch at the full-scale
+architecture and confirm in `timings.txt` that the region carries what used to be
+the gap.
+
+### Step 14 — Re-measure what the instrumentation costs
+
+The two steps above put new regions in the hottest path there is: five more
+entries per position evaluation, on top of the 11.0 million the 2026-07-24 run
+already performed — call it 16 million, half again as many. At the ~816ns per
+entry measured in Step 8 the arithmetic says a tenth of a percent, but "region
+entries per second of work" is the figure `measurement-recipe.md` names as the one
+to watch, and it has now moved. Re-run the recipe's timed-versus-untimed
+comparison, recompute the entry count, and confirm or revise the on-by-default
+decision — then record the new figures in `measurement-recipe.md` beside the
+existing ones, so the two are readable as a before and after rather than one
+overwriting the other.
+
+The old baseline record needs no replacing: these steps only add children to
+existing regions, so every node in it keeps its identity and remains comparable to
+whatever a later full-scale run produces. Taking such a run is worth doing — it is
+what makes the new sub-regions' real shares known — but it is hours of wall clock
+and no code depends on it, so it stays outside the plan.
+
+No developer-facing surface changes here — no new flags, no new files — so Step
+10's README review still stands.
+
+Depends on: Steps 12 and 13 (one overhead measurement covers both).
+
+Verification (manual): run the recipe with and without timing several times and
+confirm the overhead still sits under the story's budget at the higher entry count,
+with the recorded numbers as the step's artifact.

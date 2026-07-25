@@ -1,8 +1,10 @@
+from typing import Self
+
 import torch
 import torch.nn as nn
 
 from ...instrumentation.timing import timed
-from ...timing_regions import NETWORK_FORWARD
+from ...timing_regions import NETWORK_FORWARD, NETWORK_MODE_SWITCH
 from .tensor_layout import ACTION_SPACE_SHAPE, INPUT_SHAPE, TOTAL_FP_COUNT
 
 DEFAULT_FEATURE_COUNT: int = 64
@@ -107,6 +109,20 @@ class CtfCrn(nn.Module):
     # sides of the pipeline — search evaluates one position at a time, training
     # pushes whole minibatches through — and the call-path nesting keeps those
     # two on separate branches of the report without needing separate names.
+    # Timed for what it costs rather than for what it looks like. Torch
+    # implements a mode switch as a recursive walk over every submodule, so at
+    # this trunk's depth one costs several hundred microseconds — and the shared
+    # evaluator performs one per single-position evaluation, over a million times
+    # in a training run. `eval()` routes through here too, being `train(False)`.
+    #
+    # The region belongs to the network because the walk is the network's own
+    # work; the call-path rule then files it under whichever caller triggered it,
+    # so search evaluations and the training loop's own mode switches stay on
+    # separate branches of the report without a second name.
+    @timed(NETWORK_MODE_SWITCH)
+    def train(self, mode: bool = True) -> Self:
+        return super().train(mode)
+
     @timed(NETWORK_FORWARD)
     def forward(self, x) -> tuple[torch.Tensor, torch.Tensor]:
         trunk = self._stem(x)

@@ -52,11 +52,38 @@ OUTCOME = "outcome"
 OUTCOME_REASON = "outcome-reason"
 STARTING_POSITION = "starting-position"
 
-# The learned evaluator: one position in, a value and a policy out. The three
+# The learned evaluator: one position in, a value and a policy out. The four
 # children below account for `evaluate-position`; what they leave over is the
-# shared base class's own wrapping (eval-mode switching, batching a single
-# sample, unwrapping the value tensor).
+# shared base class's own tensor plumbing (batching a single sample, unwrapping
+# the value tensor, entering the no-grad context) — microseconds a call, and
+# nameable only by copying that class's body into this repository, which is not
+# worth doing for it.
 EVALUATE_POSITION = "evaluate-position"
 ENCODE_POSITION = "encode-position"
 NETWORK_FORWARD = "network-forward"
 DECODE_POLICY = "decode-policy"
+NETWORK_MODE_SWITCH = "network-mode-switch"
+"""Switching the network between training and evaluation mode.
+
+Nominally a flag, actually a recursive walk over every submodule — which at trunk
+depth costs more per call than encoding a position does. The shared evaluator
+performs one on *every* single-position evaluation, so this appears under
+`evaluate-position` in search, and separately on the training branch where the
+training loop switches the shared model to train mode."""
+
+# Policy decoding, phase by phase. The first full-scale run left three quarters
+# of `decode-policy` unattributed — 9.4% of the whole run, and a ceiling on what
+# any optimization could claim — so its four phases are named individually. Each
+# is one region per decode, never one per ply: a phase costs a couple of hundred
+# microseconds, some hundreds of times a region entry, while a region per ply
+# would be entered tens of millions of times per run to time work only a few
+# times its own cost. `legal-plies` stays a sibling of these four rather than a
+# parent of the first, so its line in a report means what it meant before.
+MAP_PLY_SLOTS = "map-ply-slots"
+"""Locating each legal ply's slot in the action space."""
+BUILD_POLICY_MASK = "build-policy-mask"
+"""Building the additive mask that leaves only legal slots unmasked."""
+POLICY_SOFTMAX = "policy-softmax"
+"""The masked softmax: raw logits to a distribution over legal plies."""
+READ_PLY_PROBABILITIES = "read-ply-probabilities"
+"""Reading each legal ply's probability back out of the tensor."""

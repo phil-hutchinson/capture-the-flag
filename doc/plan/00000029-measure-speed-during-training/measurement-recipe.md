@@ -106,16 +106,57 @@ generation — costs ~230,000 ns, some 280 times a region entry. Instrumenting
 inside move generation's per-square loops would invert that ratio, which is
 exactly why nothing does.
 
+### Re-measured 2026-07-25, after the gap-closing regions
+
+Steps 12 and 13 added five region entries per position evaluation — four phases
+inside policy decoding, one around the network's mode switch — so the recipe was
+re-run as the note below instructs. Same machine, same torch, same workload,
+measured in the working tree that adds those regions on top of `868ecd4`.
+
+```
+timing off   19.27s, 20.20s, 20.71s   mean 20.06s   fastest 19.27s   spread 7.5%
+timing on    19.84s, 20.58s, 21.47s   mean 20.63s   fastest 19.84s   spread 8.2%
+
+overhead: +2.9% by mean, +3.0% by fastest run
+machine noise (worst spread within an arm): 8.2%
+```
+
+The sign flipped from July 24's -2.4%, and that is the reading rather than a
+finding: when the two arms differ by less than either arm's own ~8% spread, the
+comparison cannot tell +3% from -3%. Both measurements say the same thing — the
+cost is below what this machine resolves — and neither should be quoted as *the*
+overhead.
+
+The sharper bound is the one that moved meaningfully, and it moved as predicted:
+
+| | 2026-07-24 | 2026-07-25 |
+| --- | --- | --- |
+| region entries per benchmark run | 39,412 | 58,422 |
+| entries per second of work | ~1,970 | ~2,730 |
+| cost per entry, session active | ~816 ns | ~845 ns |
+| implied cost of measuring | 33 ms, 0.16% | 49 ms, 0.23% |
+
+Entries grew 1.48x, and the implied cost with them, to a bit under a quarter of a
+percent. The per-entry figure is the same work measured twice — the timing core did
+not change between them — so the 29 ns is noise on the microbenchmark, not drift.
+
+One ratio did tighten, and it is the one to keep an eye on. In July the cheapest
+instrumented thing was legal-ply generation at ~230us, some 280x a region entry.
+The cheapest now is `policy-softmax` at ~27us: still 32x, still a wide margin,
+but the headroom for subdividing further is a tenth of what it was. Anything
+materially cheaper than the softmax does not deserve its own region.
+
 ### The decision
 
 **Timing is on by default** (`TIMING_ON_BY_DEFAULT = True` in
-`capture_the_flag/timing_record.py`). At ~0.2% of a run, with an unmeasurably
-small effect on wall clock, the case for making developers remember a flag does
-not survive: a run that turns out to be interesting has already recorded why.
-Both entry points still take `--no-timing`, which restores the pre-story cost to
-within ~0.06%.
+`capture_the_flag/timing_record.py`), and the 2026-07-25 re-measurement leaves
+that unchanged. At ~0.2% of a run, with an unmeasurably small effect on wall
+clock, the case for making developers remember a flag does not survive: a run
+that turns out to be interesting has already recorded why. Both entry points
+still take `--no-timing`, which restores the pre-story cost to within ~0.06%.
 
 Re-run the recipe after any change that adds instrumented regions in the hot
 path, or on a materially different machine. The figure to watch is region
-entries per second of work: if a future change pushed that toward the millions,
-this conclusion would need revisiting.
+entries per second of work — ~1,970 in July, ~2,730 after the gap-closing
+regions. If a future change pushed it toward the millions, this conclusion would
+need revisiting.

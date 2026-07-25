@@ -19,14 +19,17 @@ from typing import Literal
 
 import torch
 import torch.nn.functional as F
+from game_engine_core.models.position_evaluation import PositionEvaluation
 from game_engine_learning.neural_network_evaluator import NeuralNetworkEvaluator
 from torch import Tensor
 
 from ...board import BOARD_COLUMNS, BOARD_ROWS, LAKE_SQUARES, Square
+from ...instrumentation.timing import timed
 from ...outcome import INACTIVITY_LIMIT
 from ...pieces import PieceType
 from ...ply import CtfPly
 from ...position import CtfPosition
+from ...timing_regions import DECODE_POLICY, ENCODE_POSITION, EVALUATE_POSITION
 from .tensor_layout import (
     ACTION_SPACE_SHAPE,
     FP_INACTIVITY_COUNT,
@@ -181,6 +184,19 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
         FP_THEIR_RANK_6_QUANTITY: PieceType.MILITIA.army_count,
     }
 
+    @timed(EVALUATE_POSITION)
+    def evaluate_position(self, position: CtfPosition) -> PositionEvaluation:
+        """Time the whole evaluation, then defer to the shared implementation.
+
+        Search spends most of a self-play game inside this call, and its three
+        instrumented children (encoding, forward pass, policy decoding) do not
+        add up to it — the difference is the base class's own per-call overhead,
+        which is worth seeing rather than hiding. The override exists only to
+        name the region; the evaluation itself stays where it was.
+        """
+        return super().evaluate_position(position)
+
+    @timed(ENCODE_POSITION)
     def encode_position(self, position: CtfPosition) -> Tensor:
         # tensor expected to be (batch, channels, height, width)
         # batch will be handled later - we just need to do the last three here
@@ -240,6 +256,7 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
 
         return encoded
     
+    @timed(DECODE_POLICY)
     def decode_policy(self, policy_logits: Tensor, position: CtfPosition) -> dict[str, float]:
         # identify location in policy_logits tensor for all legal plies
         legal_ply_mapping: dict[tuple[int, int, int], CtfPly] = {}

@@ -11,12 +11,14 @@ from dataclasses import dataclass
 from typing import Literal
 
 from .board import Square
+from .instrumentation.timing import region
 from .moves import legal_plies as _legal_plies
 from .outcome import compute_outcome as _compute_outcome
 from .outcome import compute_outcome_reason as _compute_outcome_reason
 from .pieces import PieceType
 from .ply import CtfPly
 from .side import Side
+from .timing_regions import APPLY_PLY, LEGAL_PLIES, OUTCOME, OUTCOME_REASON
 
 
 @dataclass(frozen=True)
@@ -40,23 +42,34 @@ class CtfPosition:
 
     @property
     def legal_plies(self) -> tuple[CtfPly, ...]:
-        """Every legal ply for the side to move (rules.md Section 4.2)."""
-        return _legal_plies(self)
+        """Every legal ply for the side to move (rules.md Section 4.2).
+
+        These four members are the pipeline's hottest instrumented seams — search
+        reaches them hundreds of thousands of times per game — so each is timed
+        at the call, never inside its own loops (see `timing_regions.py`). When no
+        timing session is active the wrapper costs a global load and a
+        comparison.
+        """
+        with region(LEGAL_PLIES):
+            return _legal_plies(self)
 
     def apply_ply(self, ply: CtfPly) -> "CtfPosition":
         """The successor position after applying `ply` (rules.md Sections
         4.3, 5.3)."""
         from .transitions import apply_ply as _apply_ply
 
-        return _apply_ply(self, ply)
+        with region(APPLY_PLY):
+            return _apply_ply(self, ply)
 
     @property
     def outcome(self) -> Literal[1, 0, -1] | None:
         """Current-player-relative outcome (rules.md Section 5)."""
-        return _compute_outcome(self)
+        with region(OUTCOME):
+            return _compute_outcome(self)
 
     @property
     def outcome_reason(self) -> str | None:
         """Why the game ended (rules.md Section 5): a short label once `outcome`
         is non-`None`, else `None`. Recorded as `ResultReason` in game records."""
-        return _compute_outcome_reason(self)
+        with region(OUTCOME_REASON):
+            return _compute_outcome_reason(self)

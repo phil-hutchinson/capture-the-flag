@@ -17,6 +17,7 @@ from game_engine_core.engines.mcts_engine import MCTSEngine
 from game_engine_core.players.ai_player import AIPlayer
 from game_engine_core.protocols.game_engine import GameEngine
 
+from ...instrumentation.timed_search import TimedMCTSEngine
 from ...placement import Placement, random_placement
 from ...player import CtfPlayer
 from ...ply import CtfPly
@@ -64,8 +65,12 @@ def build_neural_player(
 ) -> NeuralCtfPlayer:
     """Construct a learned-engine player: `network` (a fresh untrained `CtfCrn` by
     default, or one loaded from a checkpoint) wrapped in the evaluator and an
-    `MCTSEngine`, seated behind a `NeuralCtfPlayer`."""
-    engine: MCTSEngine[CtfPly, CtfPosition, CtfNNEvaluator] = MCTSEngine(
+    `MCTSEngine`, seated behind a `NeuralCtfPlayer`.
+
+    The engine is the timed subclass, so an ordinary batch of games measures the
+    same search boundary self-play does; with no timing session active it behaves
+    exactly as the plain engine."""
+    engine: MCTSEngine[CtfPly, CtfPosition, CtfNNEvaluator] = TimedMCTSEngine(
         evaluator=CtfNNEvaluator(network if network is not None else CtfCrn()),
         iterations=iterations,
         temperature=temperature,

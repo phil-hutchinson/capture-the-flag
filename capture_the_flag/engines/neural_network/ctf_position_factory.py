@@ -1,8 +1,10 @@
 from random import Random
 
+from ...instrumentation.timing import region
 from ...placement import assemble_position, random_placement
 from ...position import CtfPosition
 from ...side import Side
+from ...timing_regions import STARTING_POSITION
 
 
 class CtfPositionFactory:
@@ -19,6 +21,7 @@ class CtfPositionFactory:
         self._rng = rng if rng is not None else Random()
 
     def __call__(self) -> CtfPosition:
-        white_placement = random_placement(Side.WHITE, self._rng)
-        black_placement = random_placement(Side.BLACK, self._rng)
-        return assemble_position(white_placement, black_placement)
+        with region(STARTING_POSITION):
+            white_placement = random_placement(Side.WHITE, self._rng)
+            black_placement = random_placement(Side.BLACK, self._rng)
+            return assemble_position(white_placement, black_placement)

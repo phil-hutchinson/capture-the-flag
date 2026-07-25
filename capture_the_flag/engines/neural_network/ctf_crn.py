@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from ...instrumentation.timing import timed
+from ...timing_regions import NETWORK_FORWARD
 from .tensor_layout import ACTION_SPACE_SHAPE, INPUT_SHAPE, TOTAL_FP_COUNT
 
 DEFAULT_FEATURE_COUNT: int = 64
@@ -101,6 +103,11 @@ class CtfCrn(nn.Module):
         """The trunk depth this instance was built at (what a checkpoint stamps)."""
         return self._residual_block_count
 
+    # One region covers the whole trunk-and-heads pass. It is entered from both
+    # sides of the pipeline — search evaluates one position at a time, training
+    # pushes whole minibatches through — and the call-path nesting keeps those
+    # two on separate branches of the report without needing separate names.
+    @timed(NETWORK_FORWARD)
     def forward(self, x) -> tuple[torch.Tensor, torch.Tensor]:
         trunk = self._stem(x)
 

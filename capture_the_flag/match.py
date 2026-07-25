@@ -16,11 +16,13 @@ from game_engine_core.protocols.player import Player
 
 from .game_logging import CtfGameLogging
 from .game_ui import CtfGameUI
+from .instrumentation.timing import region
 from .placement import Placement, assemble_position
 from .player import CtfPlayer
 from .ply import CtfPly
 from .position import CtfPosition
 from .side import Side
+from .timing_regions import STARTING_POSITION
 
 
 @dataclass(frozen=True)
@@ -47,9 +49,13 @@ def build_initial_position(
     `Player` protocol does not carry, so we downcast: a tournament's roster is
     always built from `CtfPlayer`s.
     """
-    white_placement = cast(CtfPlayer, side_one).get_placement(Side.WHITE)
-    black_placement = cast(CtfPlayer, side_other).get_placement(Side.BLACK)
-    return assemble_position(white_placement, black_placement)
+    # Timed: the shared runner plays a whole batch inside one call, so this
+    # callback — invoked once per game — is where a timing report gets its
+    # per-game structure from.
+    with region(STARTING_POSITION):
+        white_placement = cast(CtfPlayer, side_one).get_placement(Side.WHITE)
+        black_placement = cast(CtfPlayer, side_other).get_placement(Side.BLACK)
+        return assemble_position(white_placement, black_placement)
 
 
 def play_match(

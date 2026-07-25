@@ -114,7 +114,9 @@ def train_generations(
 
     With `timing`, the run measures itself and leaves a `timings.json` beside its
     checkpoints — the breakdown together with the hyperparameters that produced
-    it, so the file stands on its own when compared against a later run.
+    it, so the file stands on its own when compared against a later run. It is
+    rewritten with every checkpoint, so a run that never reaches its end still
+    leaves the generations it finished.
     """
     if config.generations < 1:
         raise ValueError(f"generations must be at least 1, got {config.generations}")
@@ -137,6 +139,7 @@ def train_generations(
         )
         run_dir = new_run_directory(base_dir)
         _write_run_config(run_dir, config)
+        settings = asdict(config)
         reported = _run_generations(
             network,
             run_dir,
@@ -144,9 +147,10 @@ def train_generations(
             start_generation=1,
             position_factory=position_factory,
             progress=progress,
+            record_timings=_timing_recorder(session, run_dir, settings=settings),
         )
 
-    _report_timings(session, run_dir, settings=asdict(config), preamble=reported)
+    _report_timings(session, run_dir, settings=settings, preamble=reported)
     return run_dir
 
 
@@ -197,24 +201,20 @@ def resume_generations(
         resume_index = _append_resume_record(
             run_dir, resumed_from=latest.iteration, added_generations=added_generations
         )
+        settings = {**asdict(config), "resumed_from_checkpoint": latest.iteration}
+        stem = TIMING_RESUME_STEM_TEMPLATE.format(index=resume_index)
         reported = _run_generations(
             network,
             run_dir,
             config,
             start_generation=latest.iteration + 1,
             progress=progress,
+            record_timings=_timing_recorder(
+                session, run_dir, settings=settings, stem=stem
+            ),
         )
 
-    _report_timings(
-        session,
-        run_dir,
-        settings={
-            **asdict(config),
-            "resumed_from_checkpoint": latest.iteration,
-        },
-        stem=TIMING_RESUME_STEM_TEMPLATE.format(index=resume_index),
-        preamble=reported,
-    )
+    _report_timings(session, run_dir, settings=settings, stem=stem, preamble=reported)
     return run_dir
 
 
@@ -241,6 +241,7 @@ def _run_generations(
     start_generation: int,
     position_factory: CtfPositionFactory | None = None,
     progress: ProgressCallback | None,
+    record_timings: Callable[[list[str]], None] | None = None,
 ) -> list[str]:
     """Train `config.generations` generations into `run_dir`, labelling the first
     of them `start_generation` (1 for a fresh run, `latest_checkpoint + 1` for a
@@ -253,6 +254,9 @@ def _run_generations(
     The returned lines are the same loss summaries a caller's `progress` callback
     prints (both come from `format_generation_progress`), collected so the run's
     timing record can carry them and read as the whole story of the run.
+
+    `record_timings`, if given, is called with those lines after every
+    checkpoint — see `_timing_recorder`.
     """
     reported: list[str] = []
     for offset in range(config.generations):
@@ -276,9 +280,43 @@ def _run_generations(
             with region(SAVE_CHECKPOINT):
                 save_checkpoint(network, checkpoint_path(run_dir, generation))
         reported.append(format_generation_progress(generation, history))
+        # Paired with the checkpoint: a generation's weights and the cost of
+        # producing them land on disk together, so whatever ends the run —
+        # an exception, a Ctrl-C, the machine rebooting under it — leaves the
+        # generations that did finish accounted for.
+        if record_timings is not None:
+            record_timings(reported)
         if progress is not None:
             progress(generation, history)
     return reported
+
+
+def _timing_recorder(
+    session: TimingSession | None,
+    run_dir: Path,
+    *,
+    settings: dict[str, object],
+    stem: str = TIMING_RECORD_STEM,
+) -> Callable[[list[str]], None] | None:
+    """A callable that rewrites the run's record from the timings so far, or
+    None when the run is not being measured.
+
+    Overwriting the same pair each time rather than numbering them keeps a run
+    directory to one record per measurement: the last write, at the end of the
+    run, is the complete one, and the interim writes exist only so that there is
+    something to read if that write never happens. They are cheap next to the
+    checkpoint they accompany — kilobytes against ~15MB — and silent, since a
+    whole tree on the console every generation would drown the loss lines.
+    """
+    if session is None:
+        return None
+
+    def record(reported: list[str]) -> None:
+        _report_timings(
+            session, run_dir, settings=settings, stem=stem, preamble=reported, echo=False
+        )
+
+    return record
 
 
 def _report_timings(
@@ -288,8 +326,9 @@ def _report_timings(
     settings: dict[str, object],
     stem: str = TIMING_RECORD_STEM,
     preamble: list[str],
+    echo: bool = True,
 ) -> None:
-    """Write and print the run's breakdown, if it was measured at all.
+    """Write (and by default print) the run's breakdown, if it was measured at all.
 
     The hyperparameters go into the timing record as well as `run-config.json`:
     the record is what gets carried elsewhere and compared against a later run,
@@ -305,6 +344,7 @@ def _report_timings(
         settings=settings,
         stem=stem,
         preamble=preamble,
+        echo=echo,
     )
 
 

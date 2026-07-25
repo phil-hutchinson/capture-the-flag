@@ -114,8 +114,10 @@ writes it beside the run's other output as a pair of companion files:
 same aligned tree that was printed, with whatever the run reported about itself
 (a training run's per-generation losses, a batch's outcome tallies) above it. The
 JSON also carries the settings and the environment — commit, versions, device,
-thread counts, CPU — that produced the numbers. `--no-timing` on the batch or
-training runner turns it off; leaving it on costs roughly 0.2% of a run.
+thread counts, CPU — that produced the numbers. A training run rewrites the pair
+at every checkpoint, so a run that is interrupted or killed still accounts for
+the generations it finished. `--no-timing` on the batch or training runner turns
+it off; leaving it on costs roughly 0.2% of a run.
 
 Regions nest by call path rather than by name, so work is attributed to whatever
 reached it — legal-ply generation inside a search is a different line from

@@ -157,6 +157,28 @@ class TimingSession:
         node.calls += 1
         return False
 
+    def snapshot(self) -> RegionNode:
+        """A copy of the tree as it stands, reportable while the run continues.
+
+        Regions accumulate on exit, so an open region holds nothing yet — the
+        root above all, which would otherwise read as zero for the whole of a
+        run. A snapshot credits every currently-open region the time it has been
+        open for and counts it as one call, so a report taken part-way through
+        reconciles exactly the way a finished one does.
+
+        The live tree is not touched, so snapshotting is invisible to the
+        measurement: a run that writes one after every checkpoint measures the
+        same thing as one that writes only at the end.
+        """
+        now = self._clock()
+        # Keyed by identity: a node cannot be its own descendant, so no node
+        # appears twice on the open stack.
+        in_flight = {
+            id(node): now - started_ns
+            for node, started_ns in zip(self._open, self._started_ns, strict=True)
+        }
+        return _copy_tree(self.root, in_flight)
+
     def finish(self) -> RegionNode:
         """Close the root region and return the completed tree.
 
@@ -174,6 +196,19 @@ class TimingSession:
             )
         self.__exit__()
         return self.root
+
+
+def _copy_tree(node: RegionNode, in_flight: dict[int, int]) -> RegionNode:
+    """`node` and its descendants copied, with any open region's elapsed time
+    topped up by how long it has been open (see `TimingSession.snapshot`)."""
+    copy = RegionNode(node.name)
+    pending_ns = in_flight.get(id(node))
+    copy.calls = node.calls + (1 if pending_ns is not None else 0)
+    copy.elapsed_ns = node.elapsed_ns + (pending_ns or 0)
+    copy.children = {
+        name: _copy_tree(child, in_flight) for name, child in node.children.items()
+    }
+    return copy
 
 
 _active_session: TimingSession | None = None

@@ -8,7 +8,9 @@ gets compared against a future run.
 
 The record is written next to whatever the run already produces (the batch's
 game records, the training run's checkpoints), so a run directory holds its own
-evidence rather than pointing at a separate log.
+evidence rather than pointing at a separate log. A long run rewrites it as it
+goes — see `report_timings`' `echo` — so that a run which never reaches its own
+ending still accounts for the work it did finish.
 """
 
 import json
@@ -17,7 +19,12 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-from .instrumentation.report import build_report, format_report, report_to_dict
+from .instrumentation.report import (
+    RegionReport,
+    build_report,
+    format_report,
+    report_to_dict,
+)
 from .instrumentation.timing import TimingSession, timing_session
 from .run_environment import environment_facts
 
@@ -70,67 +77,60 @@ def report_timings(
     settings: Mapping[str, object],
     stem: str = TIMING_RECORD_STEM,
     preamble: Sequence[str] = (),
+    echo: bool = True,
 ) -> tuple[Path, Path]:
-    """Print a finished run's breakdown and write both companion files.
+    """Write a run's breakdown as both companion files, and print it.
 
-    Returns `(json path, text path)`. The printed breakdown and the one written
-    to `<stem>.txt` are the same string, rendered once — the readable file cannot
-    drift from what the run reported.
+    Returns `(json path, text path)`. One snapshot of the session feeds the JSON,
+    the text, and the printed tree, so the three cannot disagree — which matters
+    most mid-run, where the session is still open and every snapshot differs
+    from the last.
+
+    `settings` is whatever the entry point was asked to do — the batch's game
+    count and search budget, the training run's hyperparameters — recorded
+    verbatim so the numbers below it can be read in context.
+
+    `stem` names the pair. Callers override it where one directory accumulates
+    more than one measurement (a resumed training run adds to a run directory
+    that already holds the original run's record, which must not be overwritten
+    — it is the baseline).
 
     `preamble` is whatever else the run has to say for itself — a training run's
     per-generation loss lines, a batch's outcome tallies — written above the tree
     so the text file stands on its own without the terminal it came from. It is
     not re-printed: a caller supplying it has either printed it live already or
     prints it after.
+
+    `echo=False` writes without printing: what a run in progress does at each
+    checkpoint, where a whole tree on the console every generation would be
+    noise rather than a report.
     """
-    breakdown = format_timing_summary(session)
-    json_path = write_timing_record(
-        session,
-        directory=directory,
-        kind=kind,
-        settings=settings,
-        filename=f"{stem}.json",
+    report = build_report(session.snapshot())
+    breakdown = format_report(report)
+
+    directory.mkdir(parents=True, exist_ok=True)
+    json_path = directory / f"{stem}.json"
+    json_path.write_text(
+        json.dumps(_record(report, kind=kind, settings=settings), indent=2) + "\n",
+        encoding="utf-8",
     )
     text_path = directory / f"{stem}.txt"
     text = "\n\n".join(["\n".join(preamble), breakdown]) if preamble else breakdown
     text_path.write_text(text + "\n", encoding="utf-8")
 
-    print(f"\n{breakdown}\n\nTimings written to {json_path} and {text_path.name}")
+    if echo:
+        print(f"\n{breakdown}\n\nTimings written to {json_path} and {text_path.name}")
     return json_path, text_path
 
 
-def write_timing_record(
-    session: TimingSession,
-    *,
-    directory: Path,
-    kind: str,
-    settings: Mapping[str, object],
-    filename: str | None = None,
-) -> Path:
-    """Write a finished session's machine-readable record and return its path.
-
-    `settings` is whatever the entry point was asked to do — the batch's game
-    count and search budget, the training run's hyperparameters — recorded
-    verbatim so the numbers below it can be read in context.
-
-    `filename` defaults to `timings.json`; callers override it where one
-    directory accumulates more than one measurement (a resumed training run adds
-    to a run directory that already holds the original run's record, which must
-    not be overwritten — it is the baseline).
-    """
-    record = {
+def _record(
+    report: RegionReport, *, kind: str, settings: Mapping[str, object]
+) -> dict[str, object]:
+    """The machine-readable record: what was run, where, and what it cost."""
+    return {
         "created": datetime.now().isoformat(timespec="seconds"),
         "kind": kind,
         "settings": dict(settings),
         "environment": environment_facts(),
-        "timings": report_to_dict(build_report(session.root)),
+        "timings": report_to_dict(report),
     }
-    directory.mkdir(parents=True, exist_ok=True)
-    path = directory / (filename or TIMING_RECORD_FILENAME)
-    path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
-    return path
-
-
-def format_timing_summary(session: TimingSession) -> str:
-    """The console form of a finished session's breakdown."""
-    return format_report(build_report(session.root))

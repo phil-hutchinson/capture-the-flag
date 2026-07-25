@@ -212,6 +212,52 @@ def test_finishing_with_a_region_still_open_is_an_error() -> None:
         session.finish()
 
 
+def test_snapshot_credits_the_regions_that_are_still_open() -> None:
+    """A mid-run report's whole point: the root — open for the entire run — would
+    otherwise read as zero, and every share computed against it with it."""
+    clock = FakeClock()
+    with timing_session("run", clock=clock) as session:
+        with region("done"):
+            clock.advance(5)
+        with region("still-open"):
+            clock.advance(30)
+            snapshot = session.snapshot()
+
+    assert snapshot.calls == 1  # the root, counted as the call it is part-way through
+    assert snapshot.elapsed_ns == 35
+    assert child(snapshot, "done").elapsed_ns == 5
+    still_open = child(snapshot, "still-open")
+    assert still_open.calls == 1
+    assert still_open.elapsed_ns == 30
+
+
+def test_snapshot_does_not_disturb_the_live_measurement() -> None:
+    clock = FakeClock()
+    with timing_session("run", clock=clock) as session:
+        with region("work"):
+            clock.advance(10)
+            session.snapshot()
+            clock.advance(10)
+
+    work = child(session.root, "work")
+    assert work.calls == 1  # not the snapshot's in-flight extra
+    assert work.elapsed_ns == 20
+    assert session.root.elapsed_ns == 20
+
+
+def test_snapshotting_a_finished_session_copies_the_tree_unchanged() -> None:
+    clock = FakeClock()
+    with timing_session("run", clock=clock) as session:
+        with region("work"):
+            clock.advance(12)
+
+    snapshot = session.snapshot()
+
+    assert snapshot is not session.root
+    assert (snapshot.calls, snapshot.elapsed_ns) == (1, 12)
+    assert child(snapshot, "work").elapsed_ns == 12
+
+
 def test_finish_is_idempotent() -> None:
     clock = FakeClock()
     session = TimingSession("run", clock=clock)

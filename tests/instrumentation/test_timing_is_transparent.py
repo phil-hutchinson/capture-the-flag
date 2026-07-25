@@ -34,10 +34,14 @@ def game_records(directory: Path) -> list[str]:
 
 
 def call_counts(directory: Path) -> list[tuple[str, int]]:
-    """Every region in the record as `(path, calls)`, depth-first.
+    """Every region in the record as `(path, calls)`, sorted by path.
 
-    Compared as a list so a difference in tree *shape* — a region reached on one
-    run and not the other — fails as loudly as a difference in counts.
+    A list rather than a set, so a difference in tree *shape* — a region reached
+    on one run and not the other — fails as loudly as a difference in counts.
+    Sorted by path rather than left in the record's own order, because that order
+    is by inclusive time: two sibling regions of similar cost swap places from
+    run to run, which says nothing about call counts and is exactly the noise
+    these tests exist to look past.
     """
     record = json.loads(
         (directory / TIMING_RECORD_FILENAME).read_text(encoding="utf-8")
@@ -50,7 +54,7 @@ def call_counts(directory: Path) -> list[tuple[str, int]]:
             counts.extend(walk(child, path))
         return counts
 
-    return walk(record["timings"], "")
+    return sorted(walk(record["timings"], ""))
 
 
 @pytest.mark.slow

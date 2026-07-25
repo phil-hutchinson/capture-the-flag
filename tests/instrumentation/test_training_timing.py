@@ -110,6 +110,36 @@ def test_the_text_record_carries_the_runs_generation_lines(tmp_path) -> None:
 
 
 @pytest.mark.slow
+def test_every_checkpoint_leaves_a_readable_record(tmp_path) -> None:
+    """A record exists from the first checkpoint onward, so a run that is killed
+    part-way through still accounts for the generations it finished. Inspected
+    from the progress callback, which is the only vantage point *inside* a run."""
+    seen: list[dict] = []
+
+    def inspect(_generation: int, _history: list) -> None:
+        run_dir = next(path for path in tmp_path.iterdir() if path.is_dir())
+        seen.append(read_record(run_dir)["timings"])
+        assert (run_dir / TIMING_TEXT_FILENAME).exists(), "no readable companion"
+
+    run_dir = train_generations(
+        TINY_RUN, base_dir=tmp_path, progress=inspect, timing=True
+    )
+
+    # One record per generation, each covering the generations finished so far.
+    assert [node(timings, GENERATION)["calls"] for timings in seen] == [1, 2]
+    # The root is still open at that point; a snapshot that did not credit it
+    # would report the whole run as zero seconds, and every share with it.
+    assert all(timings["seconds"] > 0 for timings in seen)
+    assert all(timings["percent_of_root"] == 100.0 for timings in seen)
+    # The final write replaces the last interim one rather than adding a file.
+    assert sorted(path.name for path in run_dir.glob("timings*")) == [
+        TIMING_RECORD_FILENAME,
+        TIMING_TEXT_FILENAME,
+    ]
+    assert node(read_record(run_dir)["timings"], GENERATION)["calls"] == 2
+
+
+@pytest.mark.slow
 def test_a_resume_writes_its_own_record_and_leaves_the_original(tmp_path) -> None:
     run_dir = train_generations(TINY_RUN, base_dir=tmp_path, timing=True)
     original = read_record(run_dir)

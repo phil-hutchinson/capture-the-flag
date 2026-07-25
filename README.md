@@ -50,7 +50,9 @@ seat's search is tuned with `--iterations`/`--temperature`. Each record names th
 result and how the game ended and renders moves in the ruleset's combat
 notation, and the run prints an outcome split, an ending-category breakdown, and
 game-length statistics. Record files follow the format documented in
-[`doc/ruleset/technical-notes.md`](doc/ruleset/technical-notes.md).
+[`doc/ruleset/technical-notes.md`](doc/ruleset/technical-notes.md), and the batch
+also writes a `timings.json`/`timings.txt` breakdown of where its time went (see
+[Measuring where the time goes](#measuring-where-the-time-goes)).
 
 ## Playing a game in the terminal
 
@@ -90,8 +92,9 @@ python -m capture_the_flag.training_runner --generations 10
 ```
 
 Each run lands in its own timestamped directory under `./training-runs/`
-(gitignored), holding the checkpoint series and a `run-config.json`
-reproducibility record. The self-play and training shape is tuned with
+(gitignored), holding the checkpoint series, a `run-config.json`
+reproducibility record, and a `timings.json`/`timings.txt` breakdown of where the
+run spent its time. The self-play and training shape is tuned with
 `--games` (games per generation), `--iterations`/`--temperature` (self-play
 search), `--epochs`/`--batch-size`/`--learning-rate` (training),
 `--features`/`--residual-blocks` (the network's width and depth), and
@@ -100,6 +103,38 @@ reloads the most recent run's latest checkpoint and trains `--generations`
 more into the same run, reusing that run's recorded hyperparameters — the
 architecture included, so a resumed run rebuilds the network at the size it
 was started at.
+
+## Measuring where the time goes
+
+Every run measures itself. When it finishes it prints a nested, cumulative
+breakdown — for each instrumented section of code, the total time spent in it
+across the whole run, how many times it ran, its mean, and its share — and
+writes it beside the run's other output as a pair of companion files:
+`timings.json` for comparing runs mechanically, and `timings.txt` holding the
+same aligned tree that was printed, with whatever the run reported about itself
+(a training run's per-generation losses, a batch's outcome tallies) above it. The
+JSON also carries the settings and the environment — commit, versions, device,
+thread counts, CPU — that produced the numbers. A training run rewrites the pair
+at every checkpoint, so a run that is interrupted or killed still accounts for
+the generations it finished. `--no-timing` on the batch or training runner turns
+it off; leaving it on costs roughly 0.2% of a run.
+
+Regions nest by call path rather than by name, so work is attributed to whatever
+reached it — legal-ply generation inside a search is a different line from
+legal-ply generation in the game loop — and every region also reports what its
+instrumented children do not account for. For the call into `game-engine-core`'s
+search, that remainder is the search's own internals, which this repository
+cannot instrument directly.
+
+```bash
+python -m capture_the_flag.timing_benchmark --record-dir baseline
+```
+
+The benchmark runs a fixed, seeded workload with timing on and off to measure
+what instrumenting costs, and keeps the timed run's record as a baseline for a
+later optimization to be compared against. The recipe, the measurements, and
+what would call for revisiting them are in
+[`doc/plan/00000029-measure-speed-during-training/measurement-recipe.md`](doc/plan/00000029-measure-speed-during-training/measurement-recipe.md).
 
 ## Development
 

@@ -16,9 +16,17 @@ from pathlib import Path
 from game_engine_core.tournament.tournament import Tournament
 
 from .game_logging import CtfGameLogging
+from .instrumentation.timing import region
 from .match import build_initial_position
 from .player import MACHINE_PLAYER_KINDS, PlayerContext, make_player
 from .record import write_record
+from .timing_record import (
+    TIMING_ON_BY_DEFAULT,
+    TIMING_RECORD_STEM,
+    report_timings,
+    timing_run,
+)
+from .timing_regions import PLAY_GAMES, ROOT_BATCH, WRITE_RECORDS
 
 
 @dataclass(frozen=True)
@@ -63,6 +71,7 @@ def run_batch(
     black_kind: str = "random",
     iterations: int | None = None,
     temperature: float | None = None,
+    timing: bool = TIMING_ON_BY_DEFAULT,
 ) -> BatchSummary:
     """Play `num_games` matches between the two chosen machine kinds, writing one
     game-record file per match into `output_dir` (created if needed), and return
@@ -82,7 +91,66 @@ def run_batch(
     `random` module that `RandomCtfPlayer.select_ply`'s `RandomEngine` draws
     from, and (for a neural seat) `torch` for the network's initial weights — the
     three independent randomness sources a batch pulls from.
+
+    With `timing`, the batch measures itself: the breakdown is printed and
+    written to `timings.json` beside the game records, alongside the settings and
+    environment that produced it (a later batch into the same directory writes
+    `timings-2` rather than replacing it). Playing a batch is the cheapest way to ask
+    where time goes at a given search budget, so this is the knob-turning
+    entry point — a training run measures the same regions at greater expense.
     """
+    with timing_run(ROOT_BATCH, enabled=timing) as session:
+        summary = _play_batch(
+            num_games,
+            output_dir,
+            seed=seed,
+            white_kind=white_kind,
+            black_kind=black_kind,
+            iterations=iterations,
+            temperature=temperature,
+        )
+
+    if session is not None:
+        settings = {
+            "games": num_games,
+            "white": white_kind,
+            "black": black_kind,
+            "iterations": iterations,
+            "temperature": temperature,
+            "seed": seed,
+            "output_dir": str(output_dir),
+        }
+        # The batch's own tallies head the text record, so it reads as a whole
+        # report rather than a tree with no context. They are printed after the
+        # breakdown by `main`, not here.
+        #
+        # An output directory gets reused far more casually than a training run's
+        # (which is timestamped and its own), and the record sitting there may be
+        # a baseline someone is keeping — so a second batch writes alongside the
+        # first rather than over it.
+        report_timings(
+            session,
+            directory=output_dir,
+            kind=ROOT_BATCH,
+            settings=settings,
+            preamble=summary.format().splitlines(),
+            overwrite=False,
+        )
+
+    return summary
+
+
+def _play_batch(
+    num_games: int,
+    output_dir: Path,
+    *,
+    seed: int | None,
+    white_kind: str,
+    black_kind: str,
+    iterations: int | None,
+    temperature: float | None,
+) -> BatchSummary:
+    """The batch itself: seat the players, play the games, write the records."""
     if num_games < 1:
         raise ValueError("num_games must be at least 1")
     for kind in (white_kind, black_kind):
@@ -124,7 +192,11 @@ def run_batch(
         game_logging=CtfGameLogging(),
         games_per_pairing=num_games,
     )
-    result = tournament.run()
+    # All the games happen inside this one call — the shared runner owns the
+    # loop — so `play-games` covers the batch, and per-game structure surfaces
+    # through the placement callback the runner makes once per game.
+    with region(PLAY_GAMES):
+        result = tournament.run()
 
     white_wins = 0
     black_wins = 0
@@ -133,26 +205,27 @@ def run_batch(
     reason_counts: Counter[str] = Counter()
 
     width = len(str(num_games))
-    for game_number, record in enumerate(result.records, start=1):
-        game_result = record.result
-        # Absolute outcome: 1 => side 1 (the first mover, White) won, -1 => Black.
-        if game_result.outcome == 1:
-            white_wins += 1
-        elif game_result.outcome == -1:
-            black_wins += 1
-        else:
-            draws += 1
-        ply_counts.append(len(game_result.game_log))
-        reason_counts[game_result.result_reason] += 1
+    with region(WRITE_RECORDS):
+        for game_number, record in enumerate(result.records, start=1):
+            game_result = record.result
+            # Absolute outcome: 1 => side 1 (the first mover, White) won, -1 => Black.
+            if game_result.outcome == 1:
+                white_wins += 1
+            elif game_result.outcome == -1:
+                black_wins += 1
+            else:
+                draws += 1
+            ply_counts.append(len(game_result.game_log))
+            reason_counts[game_result.result_reason] += 1
 
-        text = write_record(
-            game_result,
-            white_name=record.players[1],
-            black_name=record.players[-1],
-            round_number=str(game_number),
-        )
-        record_path = output_dir / f"game_{game_number:0{width}d}.ctfgame"
-        record_path.write_text(text, encoding="utf-8")
+            text = write_record(
+                game_result,
+                white_name=record.players[1],
+                black_name=record.players[-1],
+                round_number=str(game_number),
+            )
+            record_path = output_dir / f"game_{game_number:0{width}d}.ctfgame"
+            record_path.write_text(text, encoding="utf-8")
 
     return BatchSummary(
         games_played=num_games,
@@ -214,6 +287,16 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=None,
         help="ply-selection temperature for neural players (default: engine default)",
     )
+    parser.add_argument(
+        "--timing",
+        action=argparse.BooleanOptionalAction,
+        default=TIMING_ON_BY_DEFAULT,
+        help="measure where the batch spends its time: print the breakdown and "
+        f"write it to {TIMING_RECORD_STEM}.json/.txt in the output directory "
+        f"(default: {'on' if TIMING_ON_BY_DEFAULT else 'off'}); a later batch "
+        f"into the same directory writes {TIMING_RECORD_STEM}-2 and so on, "
+        "leaving earlier records intact",
+    )
     return parser.parse_args(argv)
 
 
@@ -227,6 +310,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         black_kind=args.black,
         iterations=args.iterations,
         temperature=args.temperature,
+        timing=args.timing,
     )
     print(summary.format())
 

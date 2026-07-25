@@ -4,12 +4,15 @@ import torch
 import torch.nn.functional as F
 from torch import Tensor
 
+from ...instrumentation.timing import timed
 from ...ply import parse_ply
 from ...position import CtfPosition
+from ...timing_regions import POLICY_LOSS, POLICY_TRANSFORM
 from .ctf_nn_evaluator import policy_logit_location_for_ply, rotate_ply
 from .tensor_layout import ACTION_SPACE_SHAPE
 
 
+@timed(POLICY_TRANSFORM)
 def transform_policy_to_white_perspective(position: CtfPosition, policy: dict[str, float]) -> dict[str, float]:
     if position.active_player_id == 1:
         return policy
@@ -24,6 +27,7 @@ def transform_policy_to_white_perspective(position: CtfPosition, policy: dict[st
     return rotated_policy
 
 
+@timed(POLICY_LOSS)
 def ctf_policy_loss(
     policy_logits: Tensor, target_policies: Sequence[Mapping[str, float]]
 ) -> Tensor:

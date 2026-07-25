@@ -21,11 +21,9 @@ from __future__ import annotations
 
 import json
 import random
-import subprocess
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime
-from importlib import metadata
 from pathlib import Path
 
 import torch
@@ -38,12 +36,36 @@ from game_engine_learning.checkpoints import (
 from game_engine_learning.training_loop import EpochLoss
 from torch.optim import Adam
 
+from ...instrumentation.timing import TimingSession, region
+from ...run_environment import distribution_version, git_commit
+from ...timing_record import (
+    TIMING_ON_BY_DEFAULT,
+    format_timing_summary,
+    timing_run,
+    write_timing_record,
+)
+from ...timing_regions import (
+    BUILD_OPTIMIZER,
+    GENERATION,
+    ROOT_TRAINING,
+    SAVE_CHECKPOINT,
+)
 from .ctf_checkpoint import DEFAULT_RUNS_DIR, load_network, save_checkpoint
 from .ctf_crn import DEFAULT_FEATURE_COUNT, DEFAULT_RESIDUAL_BLOCK_COUNT, CtfCrn
 from .ctf_position_factory import CtfPositionFactory
 from .ctf_training import train_one_generation
 
 RUN_CONFIG_FILENAME = "run-config.json"
+
+TIMING_RESUME_FILENAME_TEMPLATE = "timings-resume-{index}.json"
+"""Where a resumed run's timings land.
+
+A resume trains different generations under the same config, so its costs are a
+separate measurement rather than an amendment to the first one — and the
+original record must survive, since it is the baseline a later comparison uses.
+The index matches the run config's own resume list, so a record and the resume
+that produced it are identifiable from either side.
+"""
 
 # Progress callback: (generation number, that generation's per-epoch loss history).
 ProgressCallback = Callable[[int, list[EpochLoss]], None]
@@ -80,6 +102,7 @@ def train_generations(
     config: TrainingConfig,
     base_dir: Path = DEFAULT_RUNS_DIR,
     progress: ProgressCallback | None = None,
+    timing: bool = TIMING_ON_BY_DEFAULT,
 ) -> Path:
     """Run `config.generations` generations and return the run directory.
 
@@ -88,6 +111,10 @@ def train_generations(
     number of generations trained so far — the anchor a resume continues from.
     `progress`, if given, is called after each generation with that generation's
     loss history, so a caller can report the trend live.
+
+    With `timing`, the run measures itself and leaves a `timings.json` beside its
+    checkpoints — the breakdown together with the hyperparameters that produced
+    it, so the file stands on its own when compared against a later run.
     """
     if config.generations < 1:
         raise ValueError(f"generations must be at least 1, got {config.generations}")
@@ -103,20 +130,23 @@ def train_generations(
         random.seed(config.seed)
         position_factory = CtfPositionFactory(random.Random(config.seed))
 
-    network = CtfCrn(
-        feature_count=config.feature_count,
-        residual_block_count=config.residual_block_count,
-    )
-    run_dir = new_run_directory(base_dir)
-    _write_run_config(run_dir, config)
-    _run_generations(
-        network,
-        run_dir,
-        config,
-        start_generation=1,
-        position_factory=position_factory,
-        progress=progress,
-    )
+    with timing_run(ROOT_TRAINING, enabled=timing) as session:
+        network = CtfCrn(
+            feature_count=config.feature_count,
+            residual_block_count=config.residual_block_count,
+        )
+        run_dir = new_run_directory(base_dir)
+        _write_run_config(run_dir, config)
+        _run_generations(
+            network,
+            run_dir,
+            config,
+            start_generation=1,
+            position_factory=position_factory,
+            progress=progress,
+        )
+
+    _report_timings(session, run_dir, settings=asdict(config))
     return run_dir
 
 
@@ -124,6 +154,7 @@ def resume_generations(
     added_generations: int,
     base_dir: Path = DEFAULT_RUNS_DIR,
     progress: ProgressCallback | None = None,
+    timing: bool = TIMING_ON_BY_DEFAULT,
 ) -> Path:
     """Resume the most recent run and train `added_generations` more generations
     into the *same* run directory, then return it.
@@ -157,20 +188,31 @@ def resume_generations(
     if not checkpoints:
         raise FileNotFoundError(f"No checkpoint to resume from in {run_dir}")
 
-    latest = checkpoints[-1]
-    network = load_network(latest.path)
-    config = replace(_read_run_config(run_dir), generations=added_generations)
-    _check_architecture_agrees(network, config, latest.path)
+    with timing_run(ROOT_TRAINING, enabled=timing) as session:
+        latest = checkpoints[-1]
+        network = load_network(latest.path)
+        config = replace(_read_run_config(run_dir), generations=added_generations)
+        _check_architecture_agrees(network, config, latest.path)
 
-    _append_resume_record(
-        run_dir, resumed_from=latest.iteration, added_generations=added_generations
-    )
-    _run_generations(
-        network,
+        resume_index = _append_resume_record(
+            run_dir, resumed_from=latest.iteration, added_generations=added_generations
+        )
+        _run_generations(
+            network,
+            run_dir,
+            config,
+            start_generation=latest.iteration + 1,
+            progress=progress,
+        )
+
+    _report_timings(
+        session,
         run_dir,
-        config,
-        start_generation=latest.iteration + 1,
-        progress=progress,
+        settings={
+            **asdict(config),
+            "resumed_from_checkpoint": latest.iteration,
+        },
+        filename=TIMING_RESUME_FILENAME_TEMPLATE.format(index=resume_index),
     )
     return run_dir
 
@@ -194,20 +236,52 @@ def _run_generations(
     """
     for offset in range(config.generations):
         generation = start_generation + offset
-        optimizer = Adam(network.parameters(), lr=config.learning_rate)
-        history = train_one_generation(
-            network,
-            optimizer,
-            n_games=config.games_per_generation,
-            epochs=config.epochs_per_generation,
-            batch_size=config.batch_size,
-            self_play_iterations=config.self_play_iterations,
-            self_play_temperature=config.self_play_temperature,
-            position_factory=position_factory,
-        )
-        save_checkpoint(network, checkpoint_path(run_dir, generation))
+        # Every generation records into the same `generation` node: the report is
+        # cumulative, so its call count is how many generations ran and its mean
+        # is what one costs.
+        with region(GENERATION):
+            with region(BUILD_OPTIMIZER):
+                optimizer = Adam(network.parameters(), lr=config.learning_rate)
+            history = train_one_generation(
+                network,
+                optimizer,
+                n_games=config.games_per_generation,
+                epochs=config.epochs_per_generation,
+                batch_size=config.batch_size,
+                self_play_iterations=config.self_play_iterations,
+                self_play_temperature=config.self_play_temperature,
+                position_factory=position_factory,
+            )
+            with region(SAVE_CHECKPOINT):
+                save_checkpoint(network, checkpoint_path(run_dir, generation))
         if progress is not None:
             progress(generation, history)
+
+
+def _report_timings(
+    session: TimingSession | None,
+    run_dir: Path,
+    *,
+    settings: dict[str, object],
+    filename: str | None = None,
+) -> None:
+    """Write and print the run's breakdown, if it was measured at all.
+
+    The hyperparameters go into the timing record as well as `run-config.json`:
+    the record is what gets carried elsewhere and compared against a later run,
+    and a breakdown separated from the settings that produced it is not worth
+    much.
+    """
+    if session is None:
+        return
+    path = write_timing_record(
+        session,
+        directory=run_dir,
+        kind=ROOT_TRAINING,
+        settings=settings,
+        filename=filename,
+    )
+    print(f"\n{format_timing_summary(session)}\n\nTimings written to {path}")
 
 
 def _check_architecture_agrees(
@@ -239,11 +313,11 @@ def _write_run_config(run_dir: Path, config: TrainingConfig) -> None:
         "created": datetime.now().isoformat(timespec="seconds"),
         "config": asdict(config),
         "versions": {
-            "game_engine_core": _distribution_version("game-engine-core"),
-            "capture_the_flag": _distribution_version("capture-the-flag"),
+            "game_engine_core": distribution_version("game-engine-core"),
+            "capture_the_flag": distribution_version("capture-the-flag"),
             "torch": torch.__version__,
         },
-        "git_commit": _git_commit(),
+        "git_commit": git_commit(),
     }
     path = run_dir / RUN_CONFIG_FILENAME
     path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
@@ -259,45 +333,25 @@ def _read_run_config(run_dir: Path) -> TrainingConfig:
 
 def _append_resume_record(
     run_dir: Path, *, resumed_from: int, added_generations: int
-) -> None:
-    """Note this resume in the run's record. The original config is left intact
-    and each resume appends an entry — when it happened, which checkpoint it
-    continued from, how many generations it added, and the commit it ran against —
-    so the record still reproduces the run as a whole across any number of
-    resumes."""
+) -> int:
+    """Note this resume in the run's record and return its 1-based index.
+
+    The original config is left intact and each resume appends an entry — when it
+    happened, which checkpoint it continued from, how many generations it added,
+    and the commit it ran against — so the record still reproduces the run as a
+    whole across any number of resumes. The index is what a resume's timing
+    record is named after, tying the two together.
+    """
     path = run_dir / RUN_CONFIG_FILENAME
     record = json.loads(path.read_text(encoding="utf-8"))
-    record.setdefault("resumes", []).append(
+    resumes = record.setdefault("resumes", [])
+    resumes.append(
         {
             "resumed": datetime.now().isoformat(timespec="seconds"),
             "resumed_from_checkpoint": resumed_from,
             "added_generations": added_generations,
-            "git_commit": _git_commit(),
+            "git_commit": git_commit(),
         }
     )
     path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
-
-
-def _distribution_version(name: str) -> str | None:
-    """The installed version of a distribution, or None if it is not installed
-    (e.g. running from a source tree that was never `pip install`-ed)."""
-    try:
-        return metadata.version(name)
-    except metadata.PackageNotFoundError:
-        return None
-
-
-def _git_commit() -> str | None:
-    """This repo's short commit hash, or None if git is unavailable or the run is
-    not inside a working tree — the record is best-effort, never fatal."""
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=5,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    return result.stdout.strip() or None
+    return len(resumes)

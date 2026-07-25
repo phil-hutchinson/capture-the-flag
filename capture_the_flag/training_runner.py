@@ -31,6 +31,7 @@ from .engines.neural_network.ctf_training_run import (
     resume_generations,
     train_generations,
 )
+from .timing_record import TIMING_ON_BY_DEFAULT, TIMING_RECORD_FILENAME
 
 _DEFAULTS = TrainingConfig()
 
@@ -141,6 +142,15 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help=f"base directory for run directories (default: ./{DEFAULT_RUNS_DIR})",
     )
     parser.add_argument(
+        "--timing",
+        action=argparse.BooleanOptionalAction,
+        default=TIMING_ON_BY_DEFAULT,
+        help="measure where the run spends its time: print the breakdown and "
+        f"write it, with the run's hyperparameters, to {TIMING_RECORD_FILENAME} "
+        f"in the run directory (default: {'on' if TIMING_ON_BY_DEFAULT else 'off'}); "
+        "a resume writes its own record and leaves the original intact",
+    )
+    parser.add_argument(
         "--resume",
         action="store_true",
         help="resume the most recent run under the output directory: reload its "
@@ -166,7 +176,10 @@ def main(argv: Sequence[str] | None = None) -> None:
                 file=sys.stderr,
             )
         run_dir = resume_generations(
-            args.generations, base_dir=args.output_dir, progress=_print_progress
+            args.generations,
+            base_dir=args.output_dir,
+            progress=_print_progress,
+            timing=args.timing,
         )
         print(
             f"\nDone — resumed and added {args.generations} generations. "
@@ -182,7 +195,9 @@ def main(argv: Sequence[str] | None = None) -> None:
         if getattr(args, dest) is not None
     }
     config = replace(_DEFAULTS, generations=args.generations, **overrides)
-    run_dir = train_generations(config, base_dir=args.output_dir, progress=_print_progress)
+    run_dir = train_generations(
+        config, base_dir=args.output_dir, progress=_print_progress, timing=args.timing
+    )
     print(f"\nDone — {config.generations} generations. Checkpoints in {run_dir}")
 
 

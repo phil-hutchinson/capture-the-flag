@@ -53,12 +53,18 @@ def write_timing_record(
     directory: Path,
     kind: str,
     settings: Mapping[str, object],
+    filename: str | None = None,
 ) -> Path:
-    """Write `directory/timings.json` for a finished session and return its path.
+    """Write a finished session's record into `directory` and return its path.
 
     `settings` is whatever the entry point was asked to do — the batch's game
     count and search budget, the training run's hyperparameters — recorded
     verbatim so the numbers below it can be read in context.
+
+    `filename` defaults to `timings.json`; callers override it where one
+    directory accumulates more than one measurement (a resumed training run adds
+    to a run directory that already holds the original run's record, which must
+    not be overwritten — it is the baseline).
     """
     record = {
         "created": datetime.now().isoformat(timespec="seconds"),
@@ -68,7 +74,7 @@ def write_timing_record(
         "timings": report_to_dict(build_report(session.root)),
     }
     directory.mkdir(parents=True, exist_ok=True)
-    path = directory / TIMING_RECORD_FILENAME
+    path = directory / (filename or TIMING_RECORD_FILENAME)
     path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
     return path
 

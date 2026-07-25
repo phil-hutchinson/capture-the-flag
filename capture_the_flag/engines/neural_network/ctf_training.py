@@ -19,7 +19,9 @@ from collections.abc import Callable
 from game_engine_learning.training_loop import EpochLoss, TrainingLoop
 from torch.optim import Optimizer
 
+from ...instrumentation.timing import region
 from ...position import CtfPosition
+from ...timing_regions import SELF_PLAY, TRAIN
 from .ctf_crn import CtfCrn
 from .ctf_engine_factory import CtfEngineFactory
 from .ctf_nn_evaluator import CtfNNEvaluator
@@ -64,7 +66,12 @@ def train_one_generation(
         engine_factory=engine_factory,
         position_factory=position_factory,
     )
-    samples = collector.collect(n_games)
+    # The generation's two halves, timed separately: producing the data is
+    # expected to dwarf learning from it, and the report is where that stops
+    # being an expectation.
+    with region(SELF_PLAY):
+        samples = collector.collect(n_games)
 
     loop = TrainingLoop(network, optimizer, ctf_policy_loss)
-    return loop.train(samples, epochs=epochs, batch_size=batch_size)
+    with region(TRAIN):
+        return loop.train(samples, epochs=epochs, batch_size=batch_size)

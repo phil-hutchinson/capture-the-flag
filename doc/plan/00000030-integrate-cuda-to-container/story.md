@@ -45,9 +45,9 @@ a performance push:
   failure mode is a hard `RuntimeError` at the first device mismatch, not a
   silent wrong answer, so it will surface immediately — but debugging it cold, in
   the middle of a performance investigation, is a bad use of the investigation.
-  `.local/policy-loss-target-device-gpu.md` documents one such site that was
-  found and deliberately deferred; it is an example of the class, not the whole
-  of it, and this story owns finding the rest.
+  Story 00000009's peer review found one such site and deliberately deferred it
+  to GPU enablement; it is an example of the class, not the whole of it, and this
+  story owns finding the rest.
 - **Whether the GPU helps is genuinely open.** Self-play evaluates one position
   at a time; a batch-of-one forward pass through a small convolutional trunk may
   well be *slower* on a GPU than on a CPU once transfer overhead is counted.
@@ -142,7 +142,7 @@ The known crossings, each of which needs an owner:
   and this story does not change it.
 - **The policy loss.** `ctf_policy_loss` allocates its dense target with
   `torch.zeros(...)` and no device, then multiplies it against the logits. This
-  is the site written up in `.local/policy-loss-target-device-gpu.md`; the fix is
+  is the site story 00000009's peer review deferred to GPU enablement; the fix is
   known and belongs here.
 - **The value loss.** The shared loop's default MSE compares the model's
   predictions against a CPU-built target tensor. If predictions are on the GPU,
@@ -236,10 +236,10 @@ What we want:
 
 - **Consumes** story 00000029's run record and environment facts, which already
   have a place for the device and the GPU name.
-- **Resolves** `.local/policy-loss-target-device-gpu.md` — raised as issue #6 in
-  story 00000009's peer review, and deferred there explicitly until GPU
-  enablement. That note should be retired or updated to point here once this
-  lands.
+- **Resolves** the deferred policy-loss device mismatch — issue 6 in
+  `doc/plan/00000009-phase-2-ai-self-play-training/peer-review.md`, deferred there
+  explicitly until GPU enablement. That row should be updated to point here once
+  this lands.
 - **Unblocks, but does not perform, the throughput work.** The deferred phase-2
   strength-measurement work is gated on self-play throughput. A GPU is one of the
   candidate levers; this story makes the lever reachable and leaves pulling it,

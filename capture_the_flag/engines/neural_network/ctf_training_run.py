@@ -40,9 +40,9 @@ from ...instrumentation.timing import TimingSession, region
 from ...run_environment import distribution_version, git_commit
 from ...timing_record import (
     TIMING_ON_BY_DEFAULT,
-    format_timing_summary,
+    TIMING_RECORD_STEM,
+    report_timings,
     timing_run,
-    write_timing_record,
 )
 from ...timing_regions import (
     BUILD_OPTIMIZER,
@@ -57,8 +57,8 @@ from .ctf_training import train_one_generation
 
 RUN_CONFIG_FILENAME = "run-config.json"
 
-TIMING_RESUME_FILENAME_TEMPLATE = "timings-resume-{index}.json"
-"""Where a resumed run's timings land.
+TIMING_RESUME_STEM_TEMPLATE = "timings-resume-{index}"
+"""Where a resumed run's timings land — the stem its `.json`/`.txt` pair shares.
 
 A resume trains different generations under the same config, so its costs are a
 separate measurement rather than an amendment to the first one — and the
@@ -137,7 +137,7 @@ def train_generations(
         )
         run_dir = new_run_directory(base_dir)
         _write_run_config(run_dir, config)
-        _run_generations(
+        reported = _run_generations(
             network,
             run_dir,
             config,
@@ -146,7 +146,7 @@ def train_generations(
             progress=progress,
         )
 
-    _report_timings(session, run_dir, settings=asdict(config))
+    _report_timings(session, run_dir, settings=asdict(config), preamble=reported)
     return run_dir
 
 
@@ -197,7 +197,7 @@ def resume_generations(
         resume_index = _append_resume_record(
             run_dir, resumed_from=latest.iteration, added_generations=added_generations
         )
-        _run_generations(
+        reported = _run_generations(
             network,
             run_dir,
             config,
@@ -212,9 +212,25 @@ def resume_generations(
             **asdict(config),
             "resumed_from_checkpoint": latest.iteration,
         },
-        filename=TIMING_RESUME_FILENAME_TEMPLATE.format(index=resume_index),
+        stem=TIMING_RESUME_STEM_TEMPLATE.format(index=resume_index),
+        preamble=reported,
     )
     return run_dir
+
+
+def format_generation_progress(generation: int, history: list[EpochLoss]) -> str:
+    """One generation's loss summary: the within-generation trend and the final
+    split.
+
+    Shared so the line a run prints live and the line its timing record keeps are
+    the same line — a report that disagreed with the terminal would be worse than
+    one that omitted it.
+    """
+    first, last = history[0], history[-1]
+    return (
+        f"generation {generation:>3}: total loss {first.total:.4f} -> {last.total:.4f}"
+        f"  (value {last.value:.4f}, policy {last.policy:.4f})"
+    )
 
 
 def _run_generations(
@@ -225,15 +241,20 @@ def _run_generations(
     start_generation: int,
     position_factory: CtfPositionFactory | None = None,
     progress: ProgressCallback | None,
-) -> None:
+) -> list[str]:
     """Train `config.generations` generations into `run_dir`, labelling the first
     of them `start_generation` (1 for a fresh run, `latest_checkpoint + 1` for a
-    resume).
+    resume), and return what the run had to report per generation.
 
     Each generation builds a fresh optimizer, trains `network` in place, and saves
     it under the checkpoint convention — so the checkpoint iteration is the total
     number of generations trained so far, and a resume can continue from it.
+
+    The returned lines are the same loss summaries a caller's `progress` callback
+    prints (both come from `format_generation_progress`), collected so the run's
+    timing record can carry them and read as the whole story of the run.
     """
+    reported: list[str] = []
     for offset in range(config.generations):
         generation = start_generation + offset
         # Every generation records into the same `generation` node: the report is
@@ -254,8 +275,10 @@ def _run_generations(
             )
             with region(SAVE_CHECKPOINT):
                 save_checkpoint(network, checkpoint_path(run_dir, generation))
+        reported.append(format_generation_progress(generation, history))
         if progress is not None:
             progress(generation, history)
+    return reported
 
 
 def _report_timings(
@@ -263,7 +286,8 @@ def _report_timings(
     run_dir: Path,
     *,
     settings: dict[str, object],
-    filename: str | None = None,
+    stem: str = TIMING_RECORD_STEM,
+    preamble: list[str],
 ) -> None:
     """Write and print the run's breakdown, if it was measured at all.
 
@@ -274,14 +298,14 @@ def _report_timings(
     """
     if session is None:
         return
-    path = write_timing_record(
+    report_timings(
         session,
         directory=run_dir,
         kind=ROOT_TRAINING,
         settings=settings,
-        filename=filename,
+        stem=stem,
+        preamble=preamble,
     )
-    print(f"\n{format_timing_summary(session)}\n\nTimings written to {path}")
 
 
 def _check_architecture_agrees(

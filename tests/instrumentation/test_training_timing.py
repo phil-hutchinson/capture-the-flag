@@ -11,12 +11,15 @@ from pathlib import Path
 import pytest
 
 from capture_the_flag.engines.neural_network.ctf_training_run import (
-    TIMING_RESUME_FILENAME_TEMPLATE,
+    TIMING_RESUME_STEM_TEMPLATE,
     TrainingConfig,
     resume_generations,
     train_generations,
 )
-from capture_the_flag.timing_record import TIMING_RECORD_FILENAME
+from capture_the_flag.timing_record import (
+    TIMING_RECORD_FILENAME,
+    TIMING_TEXT_FILENAME,
+)
 from capture_the_flag.timing_regions import (
     GENERATION,
     ROOT_TRAINING,
@@ -90,6 +93,23 @@ def test_the_search_boundary_is_visible_inside_self_play(tmp_path) -> None:
 
 
 @pytest.mark.slow
+def test_the_text_record_carries_the_runs_generation_lines(tmp_path) -> None:
+    """A training run's text companion reads as the whole story of the run: what
+    each generation's loss did, then where the time went."""
+    run_dir = train_generations(TINY_RUN, base_dir=tmp_path, timing=True)
+
+    text = (run_dir / TIMING_TEXT_FILENAME).read_text(encoding="utf-8")
+    lines = text.splitlines()
+
+    assert lines[0].startswith("generation   1: total loss")
+    assert lines[1].startswith("generation   2: total loss")
+    assert text.index("generation   1") < text.index("region")
+    # The breakdown is there too, with the run's own regions in it.
+    assert f"\n  {GENERATION}" in text
+    assert f"\n    {SELF_PLAY}" in text
+
+
+@pytest.mark.slow
 def test_a_resume_writes_its_own_record_and_leaves_the_original(tmp_path) -> None:
     run_dir = train_generations(TINY_RUN, base_dir=tmp_path, timing=True)
     original = read_record(run_dir)
@@ -97,9 +117,16 @@ def test_a_resume_writes_its_own_record_and_leaves_the_original(tmp_path) -> Non
     resume_generations(1, base_dir=tmp_path, timing=True)
 
     assert read_record(run_dir) == original, "the baseline record was overwritten"
-    resumed = read_record(run_dir, TIMING_RESUME_FILENAME_TEMPLATE.format(index=1))
+    resumed = read_record(run_dir, f"{TIMING_RESUME_STEM_TEMPLATE.format(index=1)}.json")
     assert resumed["settings"]["resumed_from_checkpoint"] == 2
     assert node(resumed["timings"], GENERATION)["calls"] == 1
+
+    # Both companions, under the resume's own stem, beside the untouched originals.
+    stem = TIMING_RESUME_STEM_TEMPLATE.format(index=1)
+    assert (run_dir / f"{stem}.txt").read_text(encoding="utf-8").startswith(
+        "generation   3: total loss"
+    )
+    assert (run_dir / TIMING_TEXT_FILENAME).exists()
 
 
 @pytest.mark.slow
@@ -107,4 +134,5 @@ def test_an_unmeasured_run_writes_no_record(tmp_path) -> None:
     run_dir = train_generations(TINY_RUN, base_dir=tmp_path, timing=False)
 
     assert not (run_dir / TIMING_RECORD_FILENAME).exists()
+    assert not (run_dir / TIMING_TEXT_FILENAME).exists()
     assert (run_dir / "run-config.json").exists()

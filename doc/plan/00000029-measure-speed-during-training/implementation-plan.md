@@ -229,3 +229,28 @@ Depends on: all prior steps (the surfaces being documented must exist).
 
 Verification (manual): read the resulting `README.md` diff (or the "no change
 needed" conclusion) and confirm it matches what the branch actually added.
+
+## Step 11 — The readable companion file (added after Step 10)
+
+Write the console breakdown to disk as well, as a `timings.txt` beside each
+`timings.json`. The JSON is what a later comparison is computed from; the text
+is what a person reads, and the aligned tree already printed at the end of a run
+turns out to be the form that reads best — so it should not be something a
+developer has to scroll back through a terminal to recover.
+
+The two files are companions with one stem, so a resumed training run's pair
+stays as identifiable as its JSON already is. The text file carries whatever the
+run reported about itself alongside the tree — a training run's per-generation
+loss lines, a batch's outcome summary — so the file stands on its own without
+the terminal it came from. Formatting is not duplicated: the text written and
+the text printed come from one rendering, so they cannot drift.
+
+Depends on: Steps 6 and 7 (both entry points write records; this adds a second
+file to each). Sequenced after the README step because it was requested after
+it — the README's description of the record needs a matching touch-up.
+
+Verification (manual): run a short timed batch and a short timed training run,
+and confirm each output directory holds a `timings.txt` whose contents match
+what the run printed, with the training file also carrying its generation loss
+lines; confirm a resume writes its own `.txt` alongside its own `.json` and
+leaves both originals intact.

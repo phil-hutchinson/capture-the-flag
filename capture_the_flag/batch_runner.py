@@ -22,10 +22,9 @@ from .player import MACHINE_PLAYER_KINDS, PlayerContext, make_player
 from .record import write_record
 from .timing_record import (
     TIMING_ON_BY_DEFAULT,
-    TIMING_RECORD_FILENAME,
-    format_timing_summary,
+    TIMING_RECORD_STEM,
+    report_timings,
     timing_run,
-    write_timing_record,
 )
 from .timing_regions import PLAY_GAMES, ROOT_BATCH, WRITE_RECORDS
 
@@ -120,10 +119,16 @@ def run_batch(
             "seed": seed,
             "output_dir": str(output_dir),
         }
-        path = write_timing_record(
-            session, directory=output_dir, kind=ROOT_BATCH, settings=settings
+        # The batch's own tallies head the text record, so it reads as a whole
+        # report rather than a tree with no context. They are printed after the
+        # breakdown by `main`, not here.
+        report_timings(
+            session,
+            directory=output_dir,
+            kind=ROOT_BATCH,
+            settings=settings,
+            preamble=summary.format().splitlines(),
         )
-        print(f"\n{format_timing_summary(session)}\n\nTimings written to {path}")
 
     return summary
 
@@ -280,7 +285,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         action=argparse.BooleanOptionalAction,
         default=TIMING_ON_BY_DEFAULT,
         help="measure where the batch spends its time: print the breakdown and "
-        f"write it to {TIMING_RECORD_FILENAME} in the output directory "
+        f"write it to {TIMING_RECORD_STEM}.json/.txt in the output directory "
         f"(default: {'on' if TIMING_ON_BY_DEFAULT else 'off'})",
     )
     return parser.parse_args(argv)

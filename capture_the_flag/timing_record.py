@@ -23,12 +23,17 @@ from .run_environment import environment_facts
 
 TIMING_RECORD_FILENAME = "timings.json"
 
-TIMING_ON_BY_DEFAULT = False
+TIMING_ON_BY_DEFAULT = True
 """Whether entry points measure themselves unless told otherwise.
 
-The single switch the story's overhead measurement decides: if instrumentation
-proves cheap enough to leave on permanently, this becomes True and every run
-leaves a record. Until that measurement exists, runs opt in.
+On, because measuring proved to cost about 0.2% of a run — small enough that
+requiring a flag would mostly produce interesting runs nobody thought to
+measure. `--no-timing` on either runner opts out, leaving the always-installed
+wrappers at roughly 0.06%.
+
+The evidence, the recipe that produced it, and the conditions that would call
+for revisiting it are in
+`doc/plan/00000029-measure-speed-during-training/measurement-recipe.md`.
 """
 
 

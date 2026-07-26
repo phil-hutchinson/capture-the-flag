@@ -19,9 +19,16 @@ from importlib import metadata
 from pathlib import Path
 from types import ModuleType
 
+from .device import ResolvedDevice
 
-def environment_facts() -> dict[str, object]:
-    """The full environment record written alongside a run's timings."""
+
+def environment_facts(resolved_device: ResolvedDevice) -> dict[str, object]:
+    """The full environment record written alongside a run's timings.
+
+    `resolved_device` is what the run actually resolved to (see `device.py`),
+    not what the machine merely has available — a CPU-forced run in the CUDA
+    container must report `cpu`, not `cuda`.
+    """
     return {
         "git_commit": git_commit(),
         "versions": {
@@ -30,7 +37,7 @@ def environment_facts() -> dict[str, object]:
             "capture_the_flag": distribution_version("capture-the-flag"),
             "torch": _torch_version(),
         },
-        "machine": _machine_facts(),
+        "machine": _machine_facts(resolved_device),
     }
 
 
@@ -65,14 +72,14 @@ def git_commit() -> str | None:
     return result.stdout.strip() or None
 
 
-def _machine_facts() -> dict[str, object]:
+def _machine_facts(resolved_device: ResolvedDevice) -> dict[str, object]:
     """Compute-shape facts, in rough order of how much they move timings."""
     facts: dict[str, object] = {
         "platform": platform.platform(),
         "processor": _processor_name(),
         "cpu_count": os.cpu_count(),
     }
-    facts.update(_torch_compute_facts())
+    facts.update(_torch_compute_facts(resolved_device))
     return facts
 
 
@@ -97,8 +104,13 @@ def _torch_version() -> str | None:
     return None if torch is None else str(torch.__version__)
 
 
-def _torch_compute_facts() -> dict[str, object]:
+def _torch_compute_facts(resolved_device: ResolvedDevice) -> dict[str, object]:
     """The device and thread budget torch will actually use.
+
+    The device and precision come from `resolved_device` rather than an
+    availability check: `torch.cuda.is_available()` says what the machine
+    *could* do, not what this run resolved to, and the two differ exactly when
+    a run forces CPU inside the CUDA container.
 
     Thread counts are recorded because they are the usual explanation for two
     runs of identical code disagreeing on wall clock — a container with a
@@ -107,13 +119,13 @@ def _torch_compute_facts() -> dict[str, object]:
     torch = _import_torch()
     if torch is None:
         return {}
-    device = "cuda" if torch.cuda.is_available() else "cpu"
     facts: dict[str, object] = {
-        "torch_device": device,
+        "torch_device": resolved_device.device.type,
+        "torch_tf32_allowed": resolved_device.tf32_allowed,
         "torch_threads": torch.get_num_threads(),
         "torch_interop_threads": torch.get_num_interop_threads(),
     }
-    if device == "cuda":
+    if resolved_device.is_cuda:
         facts["cuda_device_name"] = torch.cuda.get_device_name(0)
     return facts
 

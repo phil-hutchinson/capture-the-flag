@@ -15,6 +15,7 @@ from pathlib import Path
 
 from game_engine_core.tournament.tournament import Tournament
 
+from .device import resolve_device
 from .game_logging import CtfGameLogging
 from .instrumentation.timing import region
 from .match import build_initial_position
@@ -133,6 +134,10 @@ def run_batch(
             directory=output_dir,
             kind=ROOT_BATCH,
             settings=settings,
+            # No --device option here yet (that lands with the other
+            # runners), so the batch reports whatever the container resolves
+            # to on its own rather than a forced choice.
+            resolved_device=resolve_device(),
             preamble=summary.format().splitlines(),
             overwrite=False,
         )

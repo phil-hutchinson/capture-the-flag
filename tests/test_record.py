@@ -12,8 +12,6 @@ from capture_the_flag.player import RandomCtfPlayer
 from capture_the_flag.record import (
     ACTIVE_EDITION,
     EDITIONS,
-    RULESET_NAME,
-    RULESET_VERSION,
     Edition,
     RuleFlag,
     RulesetConfiguration,
@@ -25,7 +23,7 @@ from capture_the_flag.record import (
 )
 
 _RESULT_TAGS = {1: "1-0", -1: "0-1", 0: "1/2-1/2"}
-_RULESET_TAG = f'[Ruleset "{RULESET_VERSION}:{RULESET_NAME}"]'
+_RULESET_TAG = f'[Ruleset "{ACTIVE_EDITION}"]'
 
 # Hypothetical flags and a hypothetical later edition. The published registry is
 # empty (this story builds the machinery and defines no flag), so resolution,
@@ -121,13 +119,14 @@ def test_write_record_omits_tags_individually():
 
 
 def test_write_record_always_includes_ruleset_tag():
-    # The Ruleset tag is mandatory even when no roster tags are supplied, so a
-    # reader can always tell which ruleset (variant and version) a game was
-    # played under.
+    # The Ruleset tag is mandatory even when no roster tags are supplied, so the
+    # rules a stored game was played under are recoverable from the record alone.
     match_result = _play(5)
     record = write_record(match_result.game_result)
     assert _RULESET_TAG in record
-    assert _RULESET_TAG == '[Ruleset "1.2:PRE-RELEASE"]'  # current version:name
+    # The full edition id, never a bare ruleset name: the name is a pointer that
+    # moves, so it would not pin anything.
+    assert _RULESET_TAG == '[Ruleset "1-2:PRE-RELEASE"]'
 
 
 def test_write_record_result_reflects_absolute_outcome():

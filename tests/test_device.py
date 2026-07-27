@@ -75,10 +75,12 @@ def test_explicit_cuda_raises_a_named_error_when_unavailable(monkeypatch) -> Non
     with pytest.raises(DeviceUnavailableError) as failure:
         resolve_device(DEVICE_CUDA)
 
-    # The message has to say what to do next, not just what went wrong.
+    # The message has to say what to do next, not just what went wrong — and
+    # without naming a `--device` flag, which no entry point offers yet.
     message = str(failure.value)
     assert ".devcontainer/cuda" in message
-    assert f"--device {DEVICE_CPU}" in message
+    assert DEVICE_CPU in message
+    assert "--device" not in message
 
 
 def test_unknown_request_is_a_value_error_naming_the_choices() -> None:

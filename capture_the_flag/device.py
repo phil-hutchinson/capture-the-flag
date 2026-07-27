@@ -48,6 +48,8 @@ DEVICE_CHOICES = (DEVICE_AUTO, DEVICE_CPU, DEVICE_CUDA)
 
 `auto` first because it is the default and the one that needs no explanation;
 the two explicit choices exist to force a device for comparison and bisection.
+No entry point offers them yet — that arrives with the story that makes the
+pipeline device-aware — so nothing user-facing may name a `--device` flag.
 Non-CUDA accelerators are deliberately absent — a single CUDA device is the whole
 target, and an accelerator we cannot test is worse than one we do not offer.
 """
@@ -127,8 +129,8 @@ def _resolve_request(request: str) -> torch.device:
                 f"(installed torch: {torch.__version__}). The default dev "
                 "container installs CPU-only wheels and passes no device "
                 "through; reopen the repository in the CUDA configuration "
-                "(.devcontainer/cuda) to run on a GPU, or pass "
-                f"--device {DEVICE_CPU} to run here deliberately."
+                "(.devcontainer/cuda) to run on a GPU, or request "
+                f"{DEVICE_CPU!r} to run here deliberately."
             )
         return torch.device(DEVICE_CUDA)
     raise ValueError(

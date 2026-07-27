@@ -139,5 +139,7 @@ what would call for revisiting them are in
 ## Development
 
 The repo ships a VS Code Dev Container that provisions the full environment
-automatically. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, the toolchain,
-and conventions.
+automatically, plus an optional GPU-capable variant that installs CUDA torch
+wheels and passes a host GPU through (nothing here runs on a GPU yet — it makes
+one reachable for the work that will). See [CONTRIBUTING.md](CONTRIBUTING.md) for
+setup, the toolchain, and conventions.

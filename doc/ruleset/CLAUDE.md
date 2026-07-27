@@ -10,6 +10,17 @@ design-facing material out of it: version metadata, provisional/tunable values,
 naming history, and cross-references belong in
 [`technical-notes.md`](technical-notes.md), not in the rulebook.
 
+**Exception — Appendices A and B.** The Variants and Rulesets appendices in
+`rules.md` deliberately carry edition ids and variant settings, which is
+metadata by the rule above. They live in the rulebook because a player has to be
+able to answer "which rules is this game using, and what are its settings?" from
+the rulebook alone. The exception is those two appendices and nothing else:
+their permanence promises are player-facing, while the reasoning behind an
+edition, the record and checkpoint stamping, and the policy on what forces a
+major bump stay in `technical-notes.md`. Proposed-but-unpublished variants stay
+out of `rules.md` entirely — they belong in
+[`proposed-variants.md`](proposed-variants.md).
+
 ## Rule: ruleset changes require a changelog entry
 
 **Any change to `rules.md` must be accompanied by an entry in

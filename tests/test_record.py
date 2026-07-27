@@ -186,8 +186,15 @@ def test_active_edition_distribution_matches_the_army_roster():
     # The edition spells its distribution out rather than reading ARMY_ROSTER, so
     # that a later roster change cannot retroactively alter what a published
     # edition (and every record stamped with it) meant. This is the check that
-    # keeps the deliberate duplication honest: the engine plays ARMY_ROSTER, so a
-    # divergence would mean records stamped 1-2 were played under something else.
+    # keeps the deliberate duplication honest: placement validation enforces
+    # ARMY_ROSTER on every game, so a divergence would mean records stamped with
+    # the active edition were played under something else.
+    #
+    # If this fails because the roster changed: that is a rules change, and the
+    # fix is to update rules.md and publish a *new* edition, not to edit the
+    # existing edition's distribution to match. See doc/ruleset/CLAUDE.md, "The
+    # document leads; the code follows" — this assertion cannot tell those two
+    # apart, so making it green is not evidence of having done the right one.
     assert EDITIONS[ACTIVE_EDITION].distribution == ARMY_ROSTER
 
 

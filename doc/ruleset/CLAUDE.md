@@ -34,6 +34,32 @@ to it, note the superseded edition in the Historical table, and update
 game record and every checkpoint, so a stale value silently mis-tags everything
 written after the change.
 
+### The document leads; the code follows
+
+Some rules facts are necessarily duplicated in code, because code cannot read
+`rules.md`. The army composition is the clearest case, living in three places:
+
+| Where | What it is |
+|---|---|
+| `rules.md` §2.2, and the row in Appendix B | **the definition** |
+| `pieces.py` (`PieceType.army_count` → `ARMY_ROSTER`) | the engine's copy, enforced on every placement |
+| the edition table in `record.py` | the copy each record and checkpoint is stamped from |
+
+**Always change the document first, then bring the copies to it.** A change that
+starts in code and is then written up backwards into `rules.md` is how a code
+constant quietly becomes the real ruleset. `rules.md` governs: where it and the
+code disagree, the code is the bug, whichever was edited first.
+
+**A failing distribution test is not a prompt to edit the edition table.**
+`tests/test_record.py` asserts the active edition's distribution equals
+`ARMY_ROSTER`, so changing the roster fails it. That failure means the army
+composition changed, which is a rules change, which publishes a **new edition**
+— the previous one keeps the distribution it was published with, because records
+and checkpoints stamped with it were played under exactly that. Editing the
+existing edition's row to match the new roster would make the test pass and
+retroactively falsify every artifact carrying that id. The test cannot tell those
+two apart; this rule is what does.
+
 **When the change is a clarification** — better wording for a rule that already
 worked that way — the edition does not move. It still needs a changelog entry, so
 that consumers tracking the changelog can see the text changed and re-read it.

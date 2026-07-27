@@ -68,12 +68,21 @@ class Edition:
     """An immutable ruleset edition: `<major>-<minor>:<Ruleset>` resolving to a
     piece distribution plus explicit flag values.
 
-    `distribution` is spelled out rather than read from `pieces.ARMY_ROSTER`,
-    because an edition that silently followed the live roster would not be
-    immutable — a later roster change would retroactively alter what a published
-    edition means, and every record stamped with it. `tests/test_record.py`
-    asserts the active edition agrees with the roster, so the duplication is a
-    checked one.
+    **This table is a copy, not the definition.** An edition is defined by
+    `doc/ruleset/rules.md` Appendix B, whose row for it is the published,
+    authoritative statement of what it means; the distribution in turn comes from
+    Section 2.2. This is the engine's own copy of the part it must act on, and if
+    the two ever disagree the document governs and the code is wrong.
+
+    `distribution` is spelled out here rather than read from
+    `pieces.ARMY_ROSTER` because an edition that silently followed the live
+    roster would not be immutable — a later roster change would retroactively
+    alter what a published edition means, and every record stamped with it.
+    `tests/test_record.py` asserts the active edition agrees with the roster, so
+    the duplication is a checked one. Note what that check does *not* establish:
+    it catches divergence, but cannot tell a roster change that should have
+    published a new edition from one that may edit this entry. Only the process
+    in `doc/ruleset/CLAUDE.md` distinguishes those.
 
     `flag_values` holds the values *this edition* sets, which is not the same as
     the flags' own defaults: a later edition may set a flag whose registry

@@ -4,7 +4,9 @@
 
 The repository ships a [VS Code Dev Container](.devcontainer/) as the supported
 development environment. With Docker and the VS Code **Dev Containers** extension
-installed, open the repository and choose **Reopen in Container**. The container
+installed, open the repository and choose **Reopen in Container**, taking the
+default configuration (see [Choosing a container](#choosing-a-container-cpu-or-cuda)
+for the GPU-capable alternative). The container
 provisions everything on first build: Python 3.12, the project installed editable
 with the pinned `game-engine-core` dependency (which pulls in torch/numpy via its
 learning extra), and the type-checking/linting/testing toolchain — no manual setup
@@ -15,6 +17,49 @@ container-wide in `.devcontainer/devcontainer.env` — one `KEY=VALUE` per line.
 get started, rename (or copy) [`devcontainer.env.example`](.devcontainer/devcontainer.env.example)
 to `devcontainer.env`, edit it, and rebuild the container. The file is gitignored
 and created empty on first container start if absent, so it is entirely optional.
+
+### Choosing a container: CPU or CUDA
+
+Two configurations are offered when reopening the repository in a container:
+
+| Configuration | When to use it |
+|---|---|
+| **capture-the-flag** (default) | Everything. Installs CPU-only torch wheels and passes no device through. |
+| **capture-the-flag (CUDA)** | Only when a GPU is wanted. Installs GPU-capable wheels of the same torch version and passes the host GPU through. |
+
+CPU is the default deliberately: the CUDA stack is several gigabytes of wheels
+baked into the image, and ordinary work should not pay for it. The two share one
+[`Dockerfile`](.devcontainer/Dockerfile) and differ only in the `TORCH_INDEX_URL`
+build argument and the `--gpus all` run argument, so they cannot drift apart.
+
+**What the CUDA configuration does not do.** It makes a GPU *reachable* —
+`torch.cuda.is_available()` is true inside it — but nothing in this repository
+places a network or a tensor on it. Self-play, training, and played games all
+still compute on the CPU, and a run's `timings.json` correctly records
+`"torch_device": "cpu"` there. Making the pipeline device-aware waits on device
+support in `game-engine-core`, whose training loop and evaluator hand the network
+tensors without a device argument. So opening the CUDA container to make training
+faster will not make it faster. Use it to develop and test against real hardware.
+
+**Host prerequisites.** An NVIDIA GPU with a current driver, and a Docker
+installation with GPU support (the NVIDIA container toolkit; Docker Desktop's
+WSL2 backend provides this once the Windows-side NVIDIA driver is installed —
+there is no separate driver to install inside WSL). Confirm before building by
+running `nvidia-smi` **on the host**, not in a container; it should list the GPU.
+The `--gpus all` run argument makes GPU support a hard requirement of this
+configuration rather than an optimization, so expect it to fail at container
+start on a host without it rather than to come up GPU-less.
+
+Verify the container once it is up:
+
+```bash
+python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda.is_available())"
+```
+
+The CUDA container reports a `+cuXXX` build, a CUDA version, and `True`; the
+default container reports a `+cpu` build, `None`, and `False`. The torch
+*version* must match in both — the configurations differ by build, not by
+version, or no comparison between them means anything.
 
 ### Type checking and linting
 

@@ -36,6 +36,7 @@ from game_engine_learning.checkpoints import (
 from game_engine_learning.training_loop import EpochLoss
 from torch.optim import Adam
 
+from ...device import ResolvedDevice, pipeline_device
 from ...instrumentation.timing import TimingSession, region
 from ...run_environment import distribution_version, git_commit
 from ...timing_record import (
@@ -132,6 +133,8 @@ def train_generations(
         random.seed(config.seed)
         position_factory = CtfPositionFactory(random.Random(config.seed))
 
+    resolved_device = pipeline_device()
+
     with timing_run(ROOT_TRAINING, enabled=timing) as session:
         network = CtfCrn(
             feature_count=config.feature_count,
@@ -147,10 +150,14 @@ def train_generations(
             start_generation=1,
             position_factory=position_factory,
             progress=progress,
-            record_timings=_timing_recorder(session, run_dir, settings=settings),
+            record_timings=_timing_recorder(
+                session, run_dir, settings=settings, resolved_device=resolved_device
+            ),
         )
 
-    _report_timings(session, run_dir, settings=settings, preamble=reported)
+    _report_timings(
+        session, run_dir, settings=settings, resolved_device=resolved_device, preamble=reported
+    )
     return run_dir
 
 
@@ -192,6 +199,8 @@ def resume_generations(
     if not checkpoints:
         raise FileNotFoundError(f"No checkpoint to resume from in {run_dir}")
 
+    resolved_device = pipeline_device()
+
     with timing_run(ROOT_TRAINING, enabled=timing) as session:
         latest = checkpoints[-1]
         network = load_network(latest.path)
@@ -210,11 +219,18 @@ def resume_generations(
             start_generation=latest.iteration + 1,
             progress=progress,
             record_timings=_timing_recorder(
-                session, run_dir, settings=settings, stem=stem
+                session, run_dir, settings=settings, stem=stem, resolved_device=resolved_device
             ),
         )
 
-    _report_timings(session, run_dir, settings=settings, stem=stem, preamble=reported)
+    _report_timings(
+        session,
+        run_dir,
+        settings=settings,
+        stem=stem,
+        resolved_device=resolved_device,
+        preamble=reported,
+    )
     return run_dir
 
 
@@ -296,6 +312,7 @@ def _timing_recorder(
     run_dir: Path,
     *,
     settings: dict[str, object],
+    resolved_device: ResolvedDevice,
     stem: str = TIMING_RECORD_STEM,
 ) -> Callable[[list[str]], None] | None:
     """A callable that rewrites the run's record from the timings so far, or
@@ -313,7 +330,13 @@ def _timing_recorder(
 
     def record(reported: list[str]) -> None:
         _report_timings(
-            session, run_dir, settings=settings, stem=stem, preamble=reported, echo=False
+            session,
+            run_dir,
+            settings=settings,
+            stem=stem,
+            resolved_device=resolved_device,
+            preamble=reported,
+            echo=False,
         )
 
     return record
@@ -324,6 +347,7 @@ def _report_timings(
     run_dir: Path,
     *,
     settings: dict[str, object],
+    resolved_device: ResolvedDevice,
     stem: str = TIMING_RECORD_STEM,
     preamble: list[str],
     echo: bool = True,
@@ -342,6 +366,7 @@ def _report_timings(
         directory=run_dir,
         kind=ROOT_TRAINING,
         settings=settings,
+        resolved_device=resolved_device,
         stem=stem,
         preamble=preamble,
         echo=echo,

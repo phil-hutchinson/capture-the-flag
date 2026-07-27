@@ -34,13 +34,25 @@ RUN mkdir -p /home/vscode/.claude && chown vscode:vscode /home/vscode/.claude
 # system config (/etc/gitconfig) so it applies to every user in the image.
 RUN git config --system --add safe.directory '*'
 
+# Which torch build to install. This is the *only* difference between the two
+# dev container configurations: .devcontainer/devcontainer.json takes the
+# default below (CPU wheels — small image, no host GPU required) and
+# .devcontainer/cuda/devcontainer.json overrides it with a CUDA index. The CPU
+# default is deliberate: the CUDA stack is multi-GB, so ordinary work should not
+# pay for it.
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
+
 # Bake the heavy torch/numpy dependencies (pulled in transitively by
 # game-engine-core's `learning` extra) into an image layer so rebuilds hit the
 # Docker cache instead of re-downloading them. The project's own editable
 # install — and the pinned game-engine-core dependency it pulls from GitHub —
 # happens in postCreateCommand, since that needs the workspace mount and
-# network, neither of which exist at image build time. CPU wheels: the
-# container has no GPU passthrough, and the default Linux wheels pull in the
-# multi-GB CUDA stack.
-RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu "torch>=2.0" \
+# network, neither of which exist at image build time.
+#
+# The torch version is pinned here, not passed as a build argument, so the two
+# configurations cannot drift apart: they must differ by *build* (CPU vs CUDA)
+# and never by version, or any difference measured between them is
+# unattributable. Bump this pin deliberately in a commit of its own, and only to
+# a version published on both indexes.
+RUN pip install --no-cache-dir --index-url "${TORCH_INDEX_URL}" torch==2.13.0 \
     && pip install --no-cache-dir numpy

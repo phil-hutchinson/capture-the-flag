@@ -19,6 +19,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
+from .device import ResolvedDevice
 from .instrumentation.report import (
     RegionReport,
     build_report,
@@ -75,6 +76,7 @@ def report_timings(
     directory: Path,
     kind: str,
     settings: Mapping[str, object],
+    resolved_device: ResolvedDevice,
     stem: str = TIMING_RECORD_STEM,
     preamble: Sequence[str] = (),
     echo: bool = True,
@@ -90,6 +92,10 @@ def report_timings(
     `settings` is whatever the entry point was asked to do — the batch's game
     count and search budget, the training run's hyperparameters — recorded
     verbatim so the numbers below it can be read in context.
+
+    `resolved_device` is the device this run actually used (see `device.py`),
+    recorded in the environment facts rather than re-derived from what the
+    machine merely has available.
 
     `stem` names the pair. Callers override it where one directory accumulates
     more than one measurement (a resumed training run adds to a run directory
@@ -120,7 +126,11 @@ def report_timings(
     directory.mkdir(parents=True, exist_ok=True)
     json_path = directory / f"{stem}.json"
     json_path.write_text(
-        json.dumps(_record(report, kind=kind, settings=settings), indent=2) + "\n",
+        json.dumps(
+            _record(report, kind=kind, settings=settings, resolved_device=resolved_device),
+            indent=2,
+        )
+        + "\n",
         encoding="utf-8",
     )
     text_path = directory / f"{stem}.txt"
@@ -149,13 +159,17 @@ def _stem_taken(directory: Path, stem: str) -> bool:
 
 
 def _record(
-    report: RegionReport, *, kind: str, settings: Mapping[str, object]
+    report: RegionReport,
+    *,
+    kind: str,
+    settings: Mapping[str, object],
+    resolved_device: ResolvedDevice,
 ) -> dict[str, object]:
     """The machine-readable record: what was run, where, and what it cost."""
     return {
         "created": datetime.now().isoformat(timespec="seconds"),
         "kind": kind,
         "settings": dict(settings),
-        "environment": environment_facts(),
+        "environment": environment_facts(resolved_device),
         "timings": report_to_dict(report),
     }

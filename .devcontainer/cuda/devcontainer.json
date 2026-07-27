@@ -1,12 +1,22 @@
 {
-    "name": "capture-the-flag",
-    // The default configuration, and the one to use unless a GPU is wanted: it
-    // takes the Dockerfile's default TORCH_INDEX_URL (CPU wheels) and passes no
-    // device through. .devcontainer/cuda/devcontainer.json is the GPU-capable
-    // alternative — same Dockerfile, CUDA wheels, --gpus all — and is offered
-    // alongside this one when reopening the repository in a container.
+    "name": "capture-the-flag (CUDA)",
+    // Same Dockerfile as the CPU configuration — the two must not drift, so
+    // there is one image definition and the only difference is the build
+    // argument below. The build context is .devcontainer (the Dockerfile's own
+    // directory, matching the CPU configuration): the Dockerfile COPYs nothing,
+    // and pointing the context at the repository root would ship the whole
+    // workspace — including training artifacts — to the daemon on every build.
     "build": {
-        "dockerfile": "Dockerfile"
+        "dockerfile": "../Dockerfile",
+        "context": "..",
+        "args": {
+            // GPU-capable wheels of the same torch version the CPU
+            // configuration installs. cu126 rather than a newer index: it is
+            // the widest driver compatibility that still covers this
+            // developer's card, and torch's CUDA minor-version compatibility
+            // means a cu126 build runs on any CUDA 12.x-capable driver.
+            "TORCH_INDEX_URL": "https://download.pytorch.org/whl/cu126"
+        }
     },
     "features": {
         "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
@@ -26,9 +36,17 @@
     },
     // Personal, machine-local environment (e.g. TZ=America/Vancouver) goes in
     // .devcontainer/devcontainer.env — gitignored, KEY=VALUE lines, applied
-    // container-wide. devcontainer.env.example is the template to rename.
+    // container-wide. devcontainer.env.example is the template to rename. Note
+    // the path is relative to the workspace folder, not to this file: both
+    // configurations share the one env file.
+    //
+    // --gpus all is what this configuration exists for. It hands the host GPU
+    // to the container; under Docker Desktop's WSL2 backend the NVIDIA
+    // container runtime also injects /dev/dxg and the WSL driver libraries,
+    // which is what makes torch.cuda.is_available() true inside.
     "runArgs": [
-        "--env-file", ".devcontainer/devcontainer.env"
+        "--env-file", ".devcontainer/devcontainer.env",
+        "--gpus", "all"
     ],
     // Docker fails on a missing --env-file, so ensure it exists before the
     // container starts. Runs on the host: `touch` covers sh, `type NUL >>`
@@ -42,7 +60,9 @@
     //    the container is the isolation boundary. This pulls the pinned
     //    game-engine-core dependency (with its learning extra, torch/numpy —
     //    already baked into the image) from GitHub, so it links the workspace
-    //    source and clones one git dependency — fast on rebuild.
+    //    source and clones one git dependency — fast on rebuild. The CUDA wheel
+    //    survives this: game-engine-core asks for torch>=2.0, which the
+    //    installed 2.13.0+cu126 already satisfies, so pip leaves it alone.
     "postCreateCommand": "sudo chown -R vscode:vscode /home/vscode/.claude && pip install --editable '.'",
     "customizations": {
         "vscode": {

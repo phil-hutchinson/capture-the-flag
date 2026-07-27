@@ -38,6 +38,11 @@ from torch.optim import Adam
 
 from ...device import ResolvedDevice, pipeline_device
 from ...instrumentation.timing import TimingSession, region
+from ...record import (
+    RulesetConfiguration,
+    active_configuration,
+    configuration_differences,
+)
 from ...run_environment import distribution_version, git_commit
 from ...timing_record import (
     TIMING_ON_BY_DEFAULT,
@@ -51,7 +56,12 @@ from ...timing_regions import (
     ROOT_TRAINING,
     SAVE_CHECKPOINT,
 )
-from .ctf_checkpoint import DEFAULT_RUNS_DIR, load_network, save_checkpoint
+from .ctf_checkpoint import (
+    DEFAULT_RUNS_DIR,
+    checkpoint_configuration,
+    load_network,
+    save_checkpoint,
+)
 from .ctf_crn import DEFAULT_FEATURE_COUNT, DEFAULT_RESIDUAL_BLOCK_COUNT, CtfCrn
 from .ctf_position_factory import CtfPositionFactory
 from .ctf_training import train_one_generation
@@ -176,12 +186,19 @@ def resume_generations(
     `latest_checkpoint + 1` onward. The self-play and training hyperparameters
     come from the run's own `run-config.json`, not from fresh defaults, so the
     added generations are produced the same way as the original ones; only *how
-    many* more to run is chosen at resume time. That includes the architecture,
-    which the run therefore records twice — in the run config and in the
-    checkpoint's own stamp. The checkpoint stamp is what the network is actually
-    rebuilt from (it is the one attached to the weights); the run config is
-    checked against it, and a disagreement means the run directory is
-    inconsistent and is refused rather than silently resolved.
+    many* more to run is chosen at resume time. That includes the architecture and
+    the ruleset configuration, which the run therefore records twice — in the run
+    config and in the checkpoint's own stamp. The checkpoint stamp is what the
+    network is actually rebuilt from and continued under (it is the one attached
+    to the weights); the run config is checked against it, and a disagreement
+    means the run directory is inconsistent and is refused rather than silently
+    resolved.
+
+    The ruleset comes from the stamp rather than from current defaults for the
+    same reason the architecture does: a run trained with a flag on continues with
+    that flag on even if the current default is off. What is refused is the case
+    where the running code cannot implement the stamped configuration at all,
+    which `load_network` has already rejected by the time the cross-check runs.
 
     No reseeding happens here: the seed governed the original network init and
     initial run, which are already in the past by the time a resume loads the
@@ -206,6 +223,9 @@ def resume_generations(
         network = load_network(latest.path)
         config = replace(_read_run_config(run_dir), generations=added_generations)
         _check_architecture_agrees(network, config, latest.path)
+        _check_ruleset_agrees(
+            checkpoint_configuration(latest.path), _read_run_ruleset(run_dir), latest.path
+        )
 
         resume_index = _append_resume_record(
             run_dir, resumed_from=latest.iteration, added_generations=added_generations
@@ -395,12 +415,47 @@ def _check_architecture_agrees(
         )
 
 
+def _check_ruleset_agrees(
+    stamped: RulesetConfiguration, recorded: RulesetConfiguration, checkpoint: Path
+) -> None:
+    """Cross-check a resumed run's two independent ruleset records.
+
+    `stamped` comes from the checkpoint's own stamp and `recorded` from the run's
+    `run-config.json`; the same run wrote both and they cannot legitimately
+    differ. If they do, the run directory has been edited or files from different
+    runs have been mixed, and continuing would add generations under rules that
+    do not describe the network being trained.
+
+    The division is the one `_check_architecture_agrees` already draws: the stamp
+    attached to the weights is what the run continues under, and the run config is
+    checked against it rather than the other way round.
+    """
+    differences = configuration_differences(
+        recorded, stamped, left_label=RUN_CONFIG_FILENAME, right_label=str(checkpoint)
+    )
+    if differences:
+        raise ValueError(
+            "The run directory is inconsistent: "
+            f"{'; '.join(differences)}. Resume from a run whose config and "
+            "checkpoints agree on the rules they were produced under."
+        )
+
+
 def _write_run_config(run_dir: Path, config: TrainingConfig) -> None:
-    """Write the reproducibility record: the config, the environment it ran
-    against (dependency versions and this repo's commit), and the start time."""
+    """Write the reproducibility record: the config, the rules the run was played
+    under, the environment it ran against (dependency versions and this repo's
+    commit), and the start time.
+
+    The ruleset belongs here for the same reason the hyperparameters and seed do:
+    a record that reproduces everything about a run *except* which rules its
+    games were played under does not reproduce the run. It is recorded twice — in
+    this file and in each checkpoint's own stamp — exactly as the architecture is,
+    and `_check_ruleset_agrees` is what keeps the two honest.
+    """
     record = {
         "created": datetime.now().isoformat(timespec="seconds"),
         "config": asdict(config),
+        "ruleset": active_configuration().as_stamp(),
         "versions": {
             "game_engine_core": distribution_version("game-engine-core"),
             "capture_the_flag": distribution_version("capture-the-flag"),
@@ -418,6 +473,27 @@ def _read_run_config(run_dir: Path) -> TrainingConfig:
     of falling back to fresh defaults."""
     record = json.loads((run_dir / RUN_CONFIG_FILENAME).read_text(encoding="utf-8"))
     return TrainingConfig(**record["config"])
+
+
+def _read_run_ruleset(run_dir: Path) -> RulesetConfiguration:
+    """The ruleset configuration the run's `run-config.json` records.
+
+    A run directory written before ruleset stamping has no such key. That is the
+    same refusal `checkpoint_configuration` makes, and for the same reason: the
+    rules the run was played under are unknown, and assuming the current ones
+    would be asserting something unknown.
+    """
+    path = run_dir / RUN_CONFIG_FILENAME
+    record = json.loads(path.read_text(encoding="utf-8"))
+    if "ruleset" not in record:
+        raise ValueError(
+            f"{path} records no ruleset, so it predates ruleset stamping and the "
+            "rules its games were played under are unknown."
+        )
+    try:
+        return RulesetConfiguration.from_stamp(record["ruleset"])
+    except ValueError as error:
+        raise ValueError(f"{path}'s ruleset record is malformed: {error}") from error
 
 
 def _append_resume_record(

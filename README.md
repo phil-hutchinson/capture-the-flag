@@ -47,9 +47,11 @@ python -m capture_the_flag.batch_runner -n 100 -o games
 directory; `--seed` seeds the batch for reproducible runs. `--white`/`--black`
 choose each seat's kind — `random` or `neural` (the learned engine); a neural
 seat's search is tuned with `--iterations`/`--temperature`. Each record names the
-result and how the game ended and renders moves in the ruleset's combat
-notation, and the run prints an outcome split, an ending-category breakdown, and
-game-length statistics. Record files follow the format documented in
+result and how the game ended, stamps the ruleset edition the game was played
+under (`1-2:PRE-RELEASE`) so a stored game is self-describing about its rules,
+and renders moves in the ruleset's combat notation; the run prints an outcome
+split, an ending-category breakdown, and game-length statistics. Record files
+follow the format documented in
 [`doc/ruleset/technical-notes.md`](doc/ruleset/technical-notes.md), and the batch
 also writes a `timings.json`/`timings.txt` breakdown of where its time went (see
 [Measuring where the time goes](#measuring-where-the-time-goes)).
@@ -103,6 +105,13 @@ reloads the most recent run's latest checkpoint and trains `--generations`
 more into the same run, reusing that run's recorded hyperparameters — the
 architecture included, so a resumed run rebuilds the network at the size it
 was started at.
+
+Every checkpoint is stamped with the ruleset edition its weights were trained
+under, and a resume continues under that stamp rather than under current
+defaults — a network is only valid for the rules it was trained on. A checkpoint
+whose stamp this code cannot implement, or which has no stamp at all (anything
+saved before stamping existed), is refused rather than loaded silently, so such
+runs have to be started again from scratch.
 
 ## Measuring where the time goes
 

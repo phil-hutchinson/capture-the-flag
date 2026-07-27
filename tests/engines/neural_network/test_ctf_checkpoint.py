@@ -7,9 +7,11 @@ files in iteration order. These are the two things the training loop and the
 (later) resume path rely on.
 
 The stamps a checkpoint carries are tested here too, and they are tested as the
-asymmetric pair they are: an engine-spec mismatch is rejected, while a differing
+asymmetric set they are: an engine-spec mismatch is rejected, a differing
 architecture is *reconstructed* — the network comes back at the width and depth
-the file records rather than at whatever the current defaults are.
+the file records rather than at whatever the current defaults are — and the
+ruleset configuration is adopted when this code can implement it and rejected
+when it cannot, including when it is absent entirely.
 """
 
 from pathlib import Path
@@ -19,6 +21,7 @@ import torch
 from game_engine_learning.checkpoints import checkpoint_path, discover_checkpoints
 
 from capture_the_flag.engines.neural_network.ctf_checkpoint import (
+    checkpoint_configuration,
     load_network,
     load_neural_player,
     save_checkpoint,
@@ -30,6 +33,7 @@ from capture_the_flag.engines.neural_network.ctf_position_factory import (
 )
 from capture_the_flag.engines.neural_network.neural_ctf_player import NeuralCtfPlayer
 from capture_the_flag.engines.neural_network.tensor_layout import ENGINE_SPEC_NAME
+from capture_the_flag.record import ACTIVE_EDITION, active_configuration
 from tests.engines.neural_network.small_networks import small_network
 
 
@@ -181,3 +185,98 @@ def test_load_network_rejects_a_malformed_architecture_stamp(tmp_path: Path):
 
     with pytest.raises(ValueError, match="malformed"):
         load_network(path)
+
+
+def _architecture_of(network: CtfCrn) -> dict[str, int]:
+    return {
+        "feature_count": network.feature_count,
+        "residual_block_count": network.residual_block_count,
+    }
+
+
+def _checkpoint_without_ruleset(network: CtfCrn) -> dict[str, object]:
+    """A checkpoint correct in every respect except that it predates ruleset
+    stamping — the shape every file under `training-runs/` had before this
+    story."""
+    return {
+        "spec": ENGINE_SPEC_NAME,
+        "architecture": _architecture_of(network),
+        "state_dict": network.state_dict(),
+    }
+
+
+def test_saved_checkpoint_is_stamped_with_the_ruleset_configuration(tmp_path: Path):
+    path = checkpoint_path(tmp_path, 0)
+    save_checkpoint(small_network(), path)
+
+    raw = torch.load(path, map_location="cpu", weights_only=True)
+
+    # Structured, not concatenated: comparison over the parts is what produces a
+    # rejection message naming the offending flag.
+    assert raw["ruleset"] == {"edition": ACTIVE_EDITION, "flags": {}}
+
+
+def test_checkpoint_configuration_reads_back_what_was_stamped(tmp_path: Path):
+    path = checkpoint_path(tmp_path, 0)
+    save_checkpoint(small_network(), path)
+
+    assert checkpoint_configuration(path) == active_configuration()
+
+
+def test_load_network_rejects_a_checkpoint_from_before_ruleset_stamping(tmp_path: Path):
+    # A network is only valid for the rules it was trained under, and an unstamped
+    # checkpoint cannot say what those were. Defaulting it would assert something
+    # unknown, so it is refused — the same call the absent-architecture case makes.
+    path = checkpoint_path(tmp_path, 0)
+    torch.save(_checkpoint_without_ruleset(small_network()), path)
+
+    with pytest.raises(ValueError, match="ruleset stamp"):
+        load_network(path)
+
+
+def test_checkpoint_configuration_rejects_a_checkpoint_from_before_stamping(
+    tmp_path: Path,
+):
+    path = checkpoint_path(tmp_path, 0)
+    torch.save(_checkpoint_without_ruleset(small_network()), path)
+
+    with pytest.raises(ValueError, match="ruleset stamp"):
+        checkpoint_configuration(path)
+
+
+def test_load_network_rejects_a_malformed_ruleset_stamp(tmp_path: Path):
+    # The rendered string rather than the structured form: readable to a human,
+    # unusable as a stamp, and it must fail by name rather than half-parse.
+    path = checkpoint_path(tmp_path, 0)
+    network = small_network()
+    torch.save(
+        {**_checkpoint_without_ruleset(network), "ruleset": ACTIVE_EDITION}, path
+    )
+
+    with pytest.raises(ValueError, match="ruleset stamp is malformed"):
+        load_network(path)
+
+
+def test_load_network_rejects_a_configuration_this_code_cannot_implement(
+    tmp_path: Path,
+):
+    # A checkpoint from a variant branch, arriving at a build that has no such
+    # flag. ENGINE_SPEC_NAME cannot catch this — a rules change leaves the tensor
+    # shape untouched — so without the ruleset stamp these weights would load
+    # cleanly and evaluate under rules they were never trained for.
+    path = checkpoint_path(tmp_path, 0)
+    network = small_network()
+    torch.save(
+        {
+            **_checkpoint_without_ruleset(network),
+            "ruleset": {
+                "edition": ACTIVE_EDITION,
+                "flags": {"MOVABLE_TOWERS": "on"},
+            },
+        },
+        path,
+    )
+
+    with pytest.raises(ValueError, match="MOVABLE_TOWERS") as rejection:
+        load_network(path)
+    assert "no such flag" in str(rejection.value)

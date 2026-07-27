@@ -69,6 +69,32 @@ if every game legal under the old wording is still legal under the new one and
 resolves the same way, it is a clarification. If not, it is a rules change and
 needs a flag or a new edition.
 
+#### Flags over army composition
+
+A flag may vary anything the rules state, army composition included:
+`MILITIA_COUNT = 3 | 4 | 5`, defaulting to the current 3, is a well-formed flag —
+enum-valued, behavior-preserving by default, and testable on a branch without
+publishing an edition per attempt. That is the intended way to try a composition
+change, and it is worth noting that the machinery does not need to grow to allow
+it.
+
+**One thing to settle when the first such flag lands.** An edition already states
+a distribution, so a composition flag would give two things a claim on the army.
+The intended resolution — recorded now so the first one does not improvise an
+answer — is the same one every other flag follows: the **edition's distribution
+is the baseline, and the flag deviates from it**. A configuration's resolved
+army is its edition's distribution with any composition flags applied on top,
+exactly as a resolved flag value is the edition's value unless the configuration
+deviates. Nothing else is consistent with an edition being immutable while a flag
+is a deviation *from* one.
+
+Absent an edition change, a composition flag is also the sharpest case for the
+checkpoint pin: the learned evaluator normalizes its per-rank quantity features
+by `army_count`, so changing a count changes what those inputs *mean* while
+leaving the tensor shape — and therefore `ENGINE_SPEC_NAME` — untouched. A
+network trained at one composition would load silently into another. The ruleset
+stamp is what refuses it.
+
 ### What forces a major bump
 
 A major bump is a break in the **notation**, not in the rules — it is what the

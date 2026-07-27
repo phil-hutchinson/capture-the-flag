@@ -13,20 +13,6 @@ from capture_the_flag.device import (
 from tests.gpu import requires_cuda
 
 
-@pytest.fixture(autouse=True)
-def restore_tf32_flags():
-    """Resolution pins process-global precision flags, so put them back.
-
-    Nothing else in the suite reads them, but a test that deliberately turns TF32
-    *on* to prove pinning works must not leave it on for whatever runs next.
-    """
-    matmul = torch.backends.cuda.matmul.allow_tf32
-    cudnn = torch.backends.cudnn.allow_tf32
-    yield
-    torch.backends.cuda.matmul.allow_tf32 = matmul
-    torch.backends.cudnn.allow_tf32 = cudnn
-
-
 def test_auto_resolves_to_cpu_when_cuda_is_unavailable(monkeypatch) -> None:
     monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
 
@@ -37,8 +23,11 @@ def test_auto_resolves_to_cpu_when_cuda_is_unavailable(monkeypatch) -> None:
 
 
 def test_auto_is_the_default_request(monkeypatch) -> None:
-    # The entry points pass nothing when the developer says nothing, so the
-    # no-argument call has to be the one that takes what the container offers.
+    # No production caller relies on this yet — every run record goes through
+    # `pipeline_device`. It is pinned because the entry points the
+    # pipeline-integration story adds will pass nothing when the developer says
+    # nothing, and the no-argument call is what has to take what the container
+    # offers when they do.
     monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
 
     assert resolve_device() == resolve_device(DEVICE_AUTO)
@@ -94,9 +83,10 @@ def test_unknown_request_is_a_value_error_naming_the_choices() -> None:
 
 
 def test_every_offered_choice_is_accepted() -> None:
-    # DEVICE_CHOICES is what the entry points offer as their `--device` values,
-    # so a choice this module would reject as unknown is a wiring bug, not a
-    # user error. An unavailable CUDA is a different failure and is allowed here.
+    # DEVICE_CHOICES is the set the pipeline-integration story's entry points
+    # will offer as their `--device` values, so a choice this module would reject
+    # as unknown is a wiring bug waiting to happen rather than a user error. An
+    # unavailable CUDA is a different failure and is allowed here.
     for choice in DEVICE_CHOICES:
         try:
             resolve_device(choice)

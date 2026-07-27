@@ -46,9 +46,9 @@ installation with GPU support (the NVIDIA container toolkit; Docker Desktop's
 WSL2 backend provides this once the Windows-side NVIDIA driver is installed —
 there is no separate driver to install inside WSL). Confirm before building by
 running `nvidia-smi` **on the host**, not in a container; it should list the GPU.
-Without that support Docker refuses to start the container outright, with a
-`could not select device driver` error — it does not silently start one without a
-GPU, so a failure here is unambiguous.
+The `--gpus all` run argument makes GPU support a hard requirement of this
+configuration rather than an optimization, so expect it to fail at container
+start on a host without it rather than to come up GPU-less.
 
 Verify the container once it is up:
 

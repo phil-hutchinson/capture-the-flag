@@ -133,8 +133,14 @@ def _torch_compute_facts(resolved_device: ResolvedDevice) -> dict[str, object]:
 def _import_torch() -> ModuleType | None:
     """torch if it is importable, else None.
 
-    Imported lazily: a random-vs-random batch has no reason to pay torch's
-    import cost just to write down its environment.
+    This once deferred torch's import cost so a random-vs-random batch would not
+    pay it merely to write down its environment. It no longer does: the module
+    takes a resolved device, and `device.py` imports torch at module scope, so
+    anything reaching these facts has already paid. The lookup stays because it
+    keeps the best-effort discipline these facts are gathered under — a missing
+    fact yields `None`, never a failed run — which is worth preserving even
+    though torch is a hard dependency and the fallback is unreachable in
+    practice.
     """
     return sys.modules.get("torch") or _import_torch_module()
 

@@ -60,7 +60,7 @@ class DeviceUnavailableError(RuntimeError):
 
     Named and distinct from the `ValueError` an unrecognized request raises: this
     one means "you asked for something real that this machine does not have,"
-    which is a environment problem, not a typo.
+    which is an environment problem, not a typo.
     """
 
 

@@ -100,6 +100,13 @@ def run_batch(
     where time goes at a given search budget, so this is the knob-turning
     entry point — a training run measures the same regions at greater expense.
     """
+    # Before the games, not beside the record they end up in: resolving pins the
+    # process-global precision flags, so doing it afterwards would let the batch
+    # play under whatever torch inherited and then record what was pinned once it
+    # was over. Outside the `timing` branch for the same reason — precision is a
+    # property of the run, not of whether the run was measured.
+    resolved_device = pipeline_device()
+
     with timing_run(ROOT_BATCH, enabled=timing) as session:
         summary = _play_batch(
             num_games,
@@ -134,7 +141,7 @@ def run_batch(
             directory=output_dir,
             kind=ROOT_BATCH,
             settings=settings,
-            resolved_device=pipeline_device(),
+            resolved_device=resolved_device,
             preamble=summary.format().splitlines(),
             overwrite=False,
         )

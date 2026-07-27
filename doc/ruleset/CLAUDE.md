@@ -24,12 +24,27 @@ out of `rules.md` entirely — they belong in
 ## Rule: ruleset changes require a changelog entry
 
 **Any change to `rules.md` must be accompanied by an entry in
-[`changelog.md`](changelog.md)** (newest first) recording the ruleset version, the
-story number, and the date, plus a short summary of what changed. Bump the version
-in `changelog.md`, `technical-notes.md`, and the `RULESET_VERSION` constant in
-`capture_the_flag/record.py` when the rules change — the constant stamps the
-ruleset version into every game record, so a stale value silently mis-tags all
-records written after the change.
+[`changelog.md`](changelog.md)** (newest first) recording the edition, the story
+number, and the date, plus a short summary of what changed.
+
+**When the change alters how the game is played**, it also publishes a new
+edition: add its row to `rules.md` Appendix B, move that ruleset's Active pointer
+to it, note the superseded edition in the Historical table, and update
+`ACTIVE_EDITION` in `capture_the_flag/record.py`. That table is what stamps every
+game record and every checkpoint, so a stale value silently mis-tags everything
+written after the change.
+
+**When the change is a clarification** — better wording for a rule that already
+worked that way — the edition does not move. It still needs a changelog entry, so
+that consumers tracking the changelog can see the text changed and re-read it.
+The test for which case you are in is behavioral: if every game legal under the
+old wording is still legal under the new one and resolves the same way, it is a
+clarification.
+
+New *behavior* is normally added as a rule flag with a
+behavior-preserving default rather than as an edit to the core rules text — see
+[`technical-notes.md`](technical-notes.md), "How a rules change lands", and
+[`proposed-variants.md`](proposed-variants.md) for where a variant starts out.
 
 **Why this is mandatory:** the rules are consumed outside this repository — in
 particular, a separate front-end player application depends on them and tracks the

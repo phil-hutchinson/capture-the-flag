@@ -6,26 +6,146 @@ design-facing annotation lives here instead. Nothing in this file changes how th
 game is played; it records metadata, provisional values, and cross-references to
 the rest of the project.
 
-## Versioning and source of truth
+## Rulesets, editions, and flags
 
-- **Current version:** 1.2 — bumped by Story 00000018 on 2026-07-14. See
-  [`changelog.md`](changelog.md) for the full history.
+- **Active edition:** `1-2:PRE-RELEASE`. The full list, active and historical,
+  is [`rules.md`](rules.md) Appendix B; the revision history is
+  [`changelog.md`](changelog.md).
 - `rules.md` is the **single source of truth** for the ruleset: the engine
   implementation, tests, evaluators, and any external consumer are checked against
   it. If code and `rules.md` disagree, that is a bug, and `rules.md` is the
   reference.
-- The revision history lives in [`changelog.md`](changelog.md). Any change to
-  `rules.md` must add a changelog entry and bump the version (see
-  [`CLAUDE.md`](CLAUDE.md)).
+- A **ruleset** is a mutable name (PRE-RELEASE); an **edition**
+  (`<major>-<minor>:<Ruleset>`) is an immutable pairing of that name with a piece
+  distribution and explicit flag values; a **rule flag** is an enum-valued
+  parameter whose default is always the behavior that predated it. The root
+  [`CLAUDE.md`](../../CLAUDE.md) carries the definitions; `rules.md` says
+  *variant* where this file says *flag*, for the same player-audience reason it
+  says *move* where this file says *ply*.
 - The rules are also consumed by a separate front-end player application, which
-  tracks the changelog to know when and how to update — another reason the version
-  and changelog are load-bearing, not decorative.
-- **Latest version only.** This repository implements and supports **only the
-  latest ruleset version.** Records are always written under the current version
-  (stamped in the record's `Ruleset` tag, below), and no code is maintained for
-  reading, replaying, or otherwise interpreting games recorded under earlier rule
-  versions. When the version is bumped, the record writer's `RULESET_VERSION`
-  constant (`capture_the_flag/record.py`) must be bumped with it.
+  tracks the changelog to know when and how to update — a reason the edition
+  registry and changelog are load-bearing, not decorative.
+
+### What is guaranteed, and to whom
+
+The old policy — *latest version only, nothing else supported* — is retired. It
+protected nothing pre-release while making rule experimentation expensive: every
+tweak spawned a near-duplicate frozen version. Two guarantees replace it, at
+different strengths:
+
+- **View-only replay is guaranteed for all records, forever.** A record can be
+  read, its position block rendered, and its move sequence stepped through by
+  notation-schema stability alone — no rules knowledge required. This holds for
+  every record ever written, under any edition, and survives every minor bump.
+- **Validated replay is guaranteed for published editions.** Confirming that each
+  move in a record was *legal*, and that the outcomes it marks are the ones the
+  rules produce, requires implementing that edition. That is guaranteed for
+  editions published in Appendix B, which is why editions are immutable and are
+  never removed from the table once published.
+
+The distinction is what lets rules change without breaking the front-end
+application, whose contract is review, not validation.
+
+### How a rules change lands
+
+**Rule changes land as flags with preserving defaults**, not as edits to the core
+rules text. A variant is proposed in
+[`proposed-variants.md`](proposed-variants.md), implemented behind a flag whose
+default is the current behavior, and graduated to `rules.md` Appendix A when its
+branch merges. Because the default preserves existing behavior, adding a flag is
+a no-op for every existing edition and every existing record.
+
+This changes what a **minor bump** means: it marks *registry growth* — a new
+edition pairing the ruleset with different flag values — not a semantic break.
+Publishing a new edition means adding a row to Appendix B, moving the ruleset's
+Active pointer to it, adding a changelog entry, and updating `ACTIVE_EDITION` in
+[`capture_the_flag/record.py`](../../capture_the_flag/record.py), whose edition
+table is what stamps every record and every checkpoint. A stale value silently
+mis-tags everything written after the change.
+
+Editing the core rules text directly is still correct for a **clarification** —
+better wording, a worked example, a resolved ambiguity. The test is behavioral:
+if every game legal under the old wording is still legal under the new one and
+resolves the same way, it is a clarification. If not, it is a rules change and
+needs a flag or a new edition.
+
+### What forces a major bump
+
+A major bump is a break in the **notation**, not in the rules — it is what the
+front-end application cannot absorb, so it is worth stating exactly.
+
+The notation marks survival on exactly the two squares of a ply (source and
+destination). Within that envelope, the tape can express anything:
+
+- any combat outcome, including new ones — who survives is marked per square;
+- any piece distribution, including new ranks or symbols;
+- any source→destination movement rule, however exotic the path.
+
+None of those force a major bump. These do, because the tape has nowhere to put
+them:
+
+- **A third-square side effect** — a ply that changes a square other than its
+  source and destination (an area attack, a piece pushed to a third square, a
+  bystander removed).
+- **A multi-piece ply** — one ply moving two pieces (castling-like, or a
+  formation advancing together).
+- **A board-size change** — the position block is a fixed 12×12 grid and the
+  coordinate frame is baked into every ply string.
+
+Any of those needs a new notation, a new major, and a coordinated front-end
+change. Writing this down is what keeps a later story from breaking the
+review-only contract by accident.
+
+### Where a configuration is stamped
+
+One representation serves every artifact: **an edition id plus the flags that
+deviate from it**. It is written three places, in two forms.
+
+| Artifact | Form | Purpose |
+|---|---|---|
+| Game record, `Ruleset` tag | rendered string | states the rules a stored game was played under |
+| Checkpoint, `ruleset` key | nested mapping | pins the rules a network's weights were trained under |
+| `run-config.json`, `ruleset` key | nested mapping | reproduces the rules a training run was conducted under |
+
+The string form exists only because a record file is a text medium; everywhere
+else the configuration is structured, following the precedent the architecture
+stamp already set. Structure is what makes a rejection legible — "flag
+`MOVABLE_TOWERS`: stamp says `on`, running code has no such flag" rather than two
+opaque strings differing somewhere — and it removes any need for canonical
+ordering when comparing.
+
+**A checkpoint's stamp is a stricter statement than a compatible-rulesets list.**
+Such a list is the *set* of rulesets an I/O contract can serve, many-to-one; a
+checkpoint's tag is the single *point* in that set its weights actually occupy. A
+network is only valid for the rules it was trained under, and the engine spec
+stamp (`ENGINE_SPEC_NAME`) does not cover this — it names the tensor *shape*
+contract, so a rules-only change leaves it untouched and the weights would load
+cleanly into a network evaluating under rules they never saw.
+
+On load, a checkpoint whose configuration the running code can implement is
+**adopted**: a resumed run continues under the stamped configuration rather than
+under current defaults, so a run trained with a flag on resumes with it on even
+if the default has since changed. Rejection is reserved for a configuration the
+running code cannot implement at all, and for one that is missing — an unstamped
+artifact cannot say what it was trained under, and defaulting it would assert
+something unknown.
+
+### Known gap: nothing checks that play matches the stamp
+
+**The stamp is asserted, not measured.** Nothing verifies that the rules the
+engine actually played match the edition and flags it stamped into a record or a
+checkpoint. If the engine's implementation drifts from `rules.md`, or a flag is
+read in one code path and ignored in another, the artifacts will say so anyway.
+
+One narrow part of this *is* checked: the active edition's piece distribution is
+asserted against `pieces.ARMY_ROSTER` in `tests/test_record.py`, so the roster
+cannot drift from what the edition claims. Flag values have no equivalent check.
+
+This is accepted for now rather than closed, because closing it means building a
+record *reader* — a parser and replay-validation path — which this repository
+deliberately does not have: it produces records for the front-end application and
+never consumes them. The natural mitigation is a corpus of kept records replayed
+as regression tests, deferred to a later story.
 
 ## Terminology: "move" in the rules, "ply" everywhere else
 
@@ -85,13 +205,20 @@ reuses PGN's Seven Tag Roster plus `ResultReason` and `Ruleset` tags: `Event`,
 `Result`, `ResultReason`, and `Ruleset` are always written; the roster tags
 (`Event`…`Black`) are optional/best-effort.
 
-`Ruleset` records **which ruleset the game was played under**, in the form
-`VERSION:NAME` — e.g. `1.2:PRE-RELEASE`. `VERSION` is the `rules.md` version from
-the changelog; `NAME` identifies the ruleset, currently `PRE-RELEASE` (the game
-is pre-release and the rules are still being shaped). Because this repository
-supports only the latest version (see *Versioning and source of truth* above),
-every record it writes carries the current version; the tag exists so a reader
-can still tell which rules a stored game was played under. `Result` uses PGN's
+`Ruleset` records **which rules the game was played under**: the edition id,
+followed by one `FLAG=value` token per flag deviating from that edition, space
+separated — e.g. `1-2:PRE-RELEASE` (no deviations) or
+`1-2:PRE-RELEASE MOVABLE_TOWERS=on`. Deviating flags are ordered alphabetically
+by flag id, so a configuration always renders as the same string. Neither an
+edition id nor a flag id or label contains a space, so the tokens split
+unambiguously.
+
+The edition id is always written in full and never abbreviated to a bare ruleset
+name, which would only name a moving pointer. Flags at their resolved value are
+**omitted**: an absent flag means the edition's value for it, falling back to the
+flag's own default only for an edition published before the flag existed. Since
+every default preserves the behavior that predated its flag, an omission can
+never hide a rule the reader does not know about. `Result` uses PGN's
 values: `1-0` (White wins), `0-1` (Black wins), `1/2-1/2` (draw), `*`
 (ongoing/unknown). `ResultReason` is free text (e.g. `Flag Captured`,
 `Inactivity`, `No Legal Move`), sourced from the terminal position's outcome
@@ -174,7 +301,10 @@ captures, not to win on the clock.
 ### Provisional values
 
 The limit of **50 plies** is a first-playable starting value, expected to be tuned
-once games are played. Changing it is a ruleset change (changelog + version bump).
+once games are played. Changing it is a rules change, so under the model above it
+is a natural first candidate for a flag: an enum over candidate limits, defaulting
+to the current 50, which is exactly the kind of tuning that used to require a
+version bump per attempt.
 
 ## The Fair Play Rule (Section 7)
 

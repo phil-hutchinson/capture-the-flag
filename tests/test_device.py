@@ -7,6 +7,7 @@ from capture_the_flag.device import (
     DEVICE_CPU,
     DEVICE_CUDA,
     DeviceUnavailableError,
+    pipeline_device,
     resolve_device,
 )
 from tests.gpu import requires_cuda
@@ -99,6 +100,22 @@ def test_every_offered_choice_is_accepted() -> None:
             resolve_device(choice)
         except DeviceUnavailableError:
             pass
+
+
+@pytest.mark.parametrize("cuda_available", [False, True], ids=["no_gpu", "gpu"])
+def test_the_pipeline_device_is_cpu_even_where_a_gpu_is_reachable(
+    monkeypatch, cuda_available: bool
+) -> None:
+    # Nothing in this repository puts a tensor on a GPU yet, so a run started in
+    # the CUDA container still computes on the CPU. Resolving `auto` for the run
+    # record would name a device that ran nothing — the same misreporting the
+    # record was changed to end, pointed the other way.
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: cuda_available)
+
+    resolved = pipeline_device()
+
+    assert resolved.device == torch.device(DEVICE_CPU)
+    assert not resolved.is_cuda
 
 
 def test_resolution_pins_tf32_off_and_reports_it() -> None:

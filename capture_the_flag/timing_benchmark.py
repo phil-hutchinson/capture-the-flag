@@ -43,7 +43,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .batch_runner import run_batch
-from .device import resolve_device
+from .device import pipeline_device
 from .run_environment import environment_facts
 
 BENCHMARK_SEED = 20260724
@@ -217,9 +217,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     if args.repeats < 1:
         raise ValueError(f"repeats must be at least 1, got {args.repeats}")
 
-    # This benchmark has no --device option yet (that lands with the other
-    # runners), so it reports whatever the container resolves to on its own.
-    machine = environment_facts(resolve_device())["machine"]
+    machine = environment_facts(pipeline_device())["machine"]
     print(
         f"workload: {args.games} neural-vs-neural games, {args.iterations} "
         f"search iterations/ply, seed {BENCHMARK_SEED}\n"

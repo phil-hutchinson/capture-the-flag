@@ -36,7 +36,7 @@ from game_engine_learning.checkpoints import (
 from game_engine_learning.training_loop import EpochLoss
 from torch.optim import Adam
 
-from ...device import ResolvedDevice, resolve_device
+from ...device import ResolvedDevice, pipeline_device
 from ...instrumentation.timing import TimingSession, region
 from ...run_environment import distribution_version, git_commit
 from ...timing_record import (
@@ -133,9 +133,7 @@ def train_generations(
         random.seed(config.seed)
         position_factory = CtfPositionFactory(random.Random(config.seed))
 
-    # No --device option here yet (that lands with the other runners), so the
-    # run reports whatever the container resolves to on its own.
-    resolved_device = resolve_device()
+    resolved_device = pipeline_device()
 
     with timing_run(ROOT_TRAINING, enabled=timing) as session:
         network = CtfCrn(
@@ -201,9 +199,7 @@ def resume_generations(
     if not checkpoints:
         raise FileNotFoundError(f"No checkpoint to resume from in {run_dir}")
 
-    # No --device option here yet (that lands with the other runners), so the
-    # run reports whatever the container resolves to on its own.
-    resolved_device = resolve_device()
+    resolved_device = pipeline_device()
 
     with timing_run(ROOT_TRAINING, enabled=timing) as session:
         latest = checkpoints[-1]

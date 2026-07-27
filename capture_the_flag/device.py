@@ -97,6 +97,24 @@ def resolve_device(request: str = DEVICE_AUTO) -> ResolvedDevice:
     return ResolvedDevice(device=device, tf32_allowed=tf32_allowed)
 
 
+def pipeline_device() -> ResolvedDevice:
+    """The device this repository's pipeline actually runs on: the CPU, always.
+
+    `resolve_device` answers what a run *could* use; this answers what the code as
+    written *does* use. Nothing here places a network or a tensor on a GPU — that
+    waits on device support in the shared engine — so a run started in the CUDA
+    container still computes on the CPU, and its record has to say so. Reporting
+    the `auto` resolution instead would recreate, pointed the other way, exactly
+    the misreporting this module was written to end: a record naming a GPU that
+    ran nothing.
+
+    Every run record resolves its device through here, so the stories that make
+    the pipeline device-aware have one call to replace with the run's real choice
+    rather than four scattered assumptions to find.
+    """
+    return resolve_device(DEVICE_CPU)
+
+
 def _resolve_request(request: str) -> torch.device:
     if request == DEVICE_AUTO:
         return torch.device(DEVICE_CUDA if torch.cuda.is_available() else DEVICE_CPU)

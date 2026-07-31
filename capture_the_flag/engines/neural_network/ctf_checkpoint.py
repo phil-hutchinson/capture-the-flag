@@ -39,7 +39,9 @@ Its three outcomes on load mirror the reasoning above, one per case:
 - **present and implementable** — *adopted*, so a resumed run continues under the
   configuration it was trained under rather than under current defaults, exactly
   as the architecture already is. A checkpoint trained with a flag on resumes
-  with that flag on even if the current default is off.
+  with that flag on even if the current default is off, and the checkpoints that
+  resume goes on to write carry the adopted configuration rather than the active
+  one — that is what `save_checkpoint`'s `configuration` argument is for.
 - **present and not implementable** — rejected, naming the flag. This is the case
   where the running code cannot be the code that trained these weights.
 
@@ -65,7 +67,9 @@ schedule, revisit this.
 from __future__ import annotations
 
 import random
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import torch
 
@@ -97,16 +101,28 @@ _FEATURE_COUNT_KEY = "feature_count"
 _RESIDUAL_BLOCK_COUNT_KEY = "residual_block_count"
 
 
-def save_checkpoint(network: CtfCrn, path: Path) -> None:
+def save_checkpoint(
+    network: CtfCrn, path: Path, *, configuration: RulesetConfiguration | None = None
+) -> None:
     """Write `network`'s weights to `path` (weights only, no optimizer state),
     stamped with the engine spec (`ENGINE_SPEC_NAME`) they were produced under,
     the architecture `network` was built at, and the ruleset configuration they
     were trained under.
 
+    `configuration` is that last stamp, defaulting to `active_configuration()` —
+    what a run starting fresh is training under. A resumed run passes the
+    configuration it adopted from the checkpoint it continued from instead, so
+    the generations it appends carry the rules they were actually trained under
+    rather than whatever the current active edition happens to be. Defaulting it
+    here rather than requiring it keeps every caller that genuinely is training
+    under current rules unchanged.
+
     Build `path` with `game_engine_learning.checkpoints.checkpoint_path` so the
     file lands in a run directory under the shared naming convention. The parent
     directory is created if it does not already exist.
     """
+    if configuration is None:
+        configuration = active_configuration()
     path.parent.mkdir(parents=True, exist_ok=True)
     checkpoint = {
         _CHECKPOINT_SPEC_KEY: ENGINE_SPEC_NAME,
@@ -114,7 +130,7 @@ def save_checkpoint(network: CtfCrn, path: Path) -> None:
             _FEATURE_COUNT_KEY: network.feature_count,
             _RESIDUAL_BLOCK_COUNT_KEY: network.residual_block_count,
         },
-        _CHECKPOINT_RULESET_KEY: active_configuration().as_stamp(),
+        _CHECKPOINT_RULESET_KEY: configuration.as_stamp(),
         _CHECKPOINT_STATE_DICT_KEY: network.state_dict(),
     }
     torch.save(checkpoint, path)
@@ -133,18 +149,39 @@ def checkpoint_configuration(path: Path) -> RulesetConfiguration:
     `load_network` returning exactly what its name says, and a second read of a
     ~15MB file is nothing beside the generation of self-play that follows it.
     """
+    return _stamped_configuration(_loaded_checkpoint(path), path)
+
+
+def _loaded_checkpoint(path: Path) -> dict[str, Any]:
+    """Load `path` and confirm it has a checkpoint's overall shape.
+
+    Shared by both entry points so that a structurally broken file is diagnosed
+    the same way whichever one reads it: reached through `load_network` the next
+    thing checked is the spec stamp and through `checkpoint_configuration` the
+    ruleset stamp, and without this a file that is not a mapping at all would be
+    reported as missing whichever stamp its reader happened to want.
+    """
     checkpoint = torch.load(path, map_location="cpu", weights_only=True)
-    return _stamped_configuration(checkpoint, path)
+    if not isinstance(checkpoint, dict):
+        raise ValueError(
+            f"{path} is not a checkpoint: expected a mapping of stamps and "
+            f"weights, got {type(checkpoint).__name__}."
+        )
+    return checkpoint
 
 
-def _stamped_configuration(checkpoint: object, path: Path) -> RulesetConfiguration:
+def _stamped_configuration(
+    checkpoint: Mapping[str, object], path: Path
+) -> RulesetConfiguration:
     """Read, validate, and adopt the ruleset stamp of an already-loaded checkpoint.
 
     The adopted configuration is the checkpoint's own, not the active one: a
     resume continues under the rules its weights were trained under, and the
-    active configuration is only what a *fresh* run starts from.
+    active configuration is only what a *fresh* run starts from. `save_checkpoint`
+    takes it back as its `configuration` argument, which is what carries the
+    adoption through to the generations a resume appends.
     """
-    if not isinstance(checkpoint, dict) or _CHECKPOINT_RULESET_KEY not in checkpoint:
+    if _CHECKPOINT_RULESET_KEY not in checkpoint:
         raise ValueError(
             f"{path} has no ruleset stamp, so it predates ruleset stamping and the "
             "rules its weights were trained under are unknown. A network is only "
@@ -186,8 +223,8 @@ def load_network(path: Path) -> CtfCrn:
     under rules they were never trained for. Use `checkpoint_configuration` to
     read the stamped configuration itself.
     """
-    checkpoint = torch.load(path, map_location="cpu", weights_only=True)
-    if not isinstance(checkpoint, dict) or _CHECKPOINT_SPEC_KEY not in checkpoint:
+    checkpoint = _loaded_checkpoint(path)
+    if _CHECKPOINT_SPEC_KEY not in checkpoint:
         raise ValueError(
             f"{path} has no engine-spec stamp, so it predates spec stamping and "
             f"cannot be verified against the current {ENGINE_SPEC_NAME!r} input "

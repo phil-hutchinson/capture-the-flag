@@ -94,6 +94,22 @@ class Edition:
     distribution: Mapping[PieceType, int]
     flag_values: Mapping[str, str]
 
+    def __hash__(self) -> int:
+        """Hash the mapping fields by content, since the generated `__hash__` a
+        frozen dataclass would supply raises on a `dict` field.
+
+        `frozenset` rather than a sorted tuple because neither key type is
+        required to be orderable, and equality of two mappings is exactly
+        equality of their item sets.
+        """
+        return hash(
+            (
+                self.edition_id,
+                frozenset(self.distribution.items()),
+                frozenset(self.flag_values.items()),
+            )
+        )
+
 
 ACTIVE_EDITION = "1-2:PRE-RELEASE"
 """The edition this code implements, and therefore the one it stamps.
@@ -126,6 +142,10 @@ EDITIONS: dict[str, Edition] = {
 Editions are never removed from this table and never redefined; an edition the
 active pointer has moved off is *historical*, not gone (`rules.md` Appendix B).
 Retaining it is what lets a stamped artifact still name something meaningful.
+
+Membership is therefore *not* implementability: this code plays `ACTIVE_EDITION`
+and nothing else, and a historical entry is a label it can recognise, not a
+ruleset it can run. `unsupported_aspects` draws that line.
 """
 
 
@@ -142,6 +162,12 @@ class RulesetConfiguration:
     already implements. A compatibility check therefore only has to run over the
     flags explicitly listed.
 
+    Omission is a property of the *value*, not a convention producers are trusted
+    to follow: a configuration listing a flag at exactly its resolved value means
+    the same thing as one omitting it, but would render differently and compare
+    unequal. `canonicalize` is what removes that difference, and `from_stamp`
+    applies it to everything read from an artifact this code did not write.
+
     **The edition is always present, even with no flags listed.** A configuration
     meaning "all edition values" and an artifact written before stamping existed
     would otherwise be indistinguishable — both carry no flag information — yet
@@ -151,6 +177,13 @@ class RulesetConfiguration:
 
     edition: str
     flags: Mapping[str, str] = field(default_factory=dict)
+
+    def __hash__(self) -> int:
+        """Hash by content, as `Edition` does and for the same reason: the
+        `__hash__` a frozen dataclass generates would raise on the `dict` this
+        field holds in practice, at the point of use rather than of construction.
+        """
+        return hash((self.edition, frozenset(self.flags.items())))
 
     def render(self) -> str:
         """Render for a text medium (the record's `Ruleset` tag).
@@ -184,6 +217,12 @@ class RulesetConfiguration:
         present but unreadable is no better than an absent one and deserves the
         same named failure rather than a `KeyError` or a silently wrong
         configuration. Callers add their own context (which file) to the message.
+
+        The result is canonical (see `canonicalize`). This is the entry point for
+        artifacts this code did not write, so it is where a non-canonical listing
+        — a flag written out at its resolved value — has to be normalised, before
+        it can render differently from, or compare unequal to, the configuration
+        that means the same thing.
         """
         if not isinstance(raw, Mapping) or "edition" not in raw or "flags" not in raw:
             raise ValueError(
@@ -197,7 +236,7 @@ class RulesetConfiguration:
             for flag_id, value in flags.items()
         ):
             raise ValueError(f"'flags' must map flag ids to value labels, got {flags!r}")
-        return cls(edition=edition, flags=dict(flags))
+        return canonicalize(cls(edition=edition, flags=dict(flags)))
 
 
 def active_configuration() -> RulesetConfiguration:
@@ -242,22 +281,76 @@ def resolve_flag(
     return rule_flags[flag_id].default
 
 
+def canonicalize(
+    configuration: RulesetConfiguration,
+    *,
+    rule_flags: Mapping[str, RuleFlag] | None = None,
+    editions: Mapping[str, Edition] | None = None,
+) -> RulesetConfiguration:
+    """`configuration` with every flag listed at its resolved value dropped.
+
+    A configuration is meant to list only deviations (see
+    `RulesetConfiguration`), but a stamp is only as canonical as whatever wrote
+    it. A flag written out at the value it would resolve to anyway says nothing,
+    yet makes the configuration render differently from and compare unequal to
+    the one that means the same thing — enough to have
+    `configuration_differences` report a disagreement between two records that
+    agree, and refuse a legitimate resume.
+
+    A flag this code cannot resolve at all — unknown here, and unset by the
+    edition — is kept rather than dropped, so `unsupported_aspects` still sees it
+    and can name it. An unknown edition leaves the configuration untouched
+    entirely: with no values to resolve against, dropping anything risks dropping
+    a real deviation.
+
+    `rule_flags` and `editions` are injectable for the reason `resolve_flag`'s
+    are: the published registry is empty, so canonicality can only be exercised
+    against hypothetical flags.
+    """
+    rule_flags = RULE_FLAGS if rule_flags is None else rule_flags
+    editions = EDITIONS if editions is None else editions
+    edition = editions.get(configuration.edition)
+    if edition is None:
+        return configuration
+    deviations = {}
+    for flag_id, value in configuration.flags.items():
+        flag = rule_flags.get(flag_id)
+        resolved = edition.flag_values.get(
+            flag_id, None if flag is None else flag.default
+        )
+        if value != resolved:
+            deviations[flag_id] = value
+    return RulesetConfiguration(edition=configuration.edition, flags=deviations)
+
+
 def unsupported_aspects(
     configuration: RulesetConfiguration,
     *,
     rule_flags: Mapping[str, RuleFlag] | None = None,
     editions: Mapping[str, Edition] | None = None,
+    active_edition: str = ACTIVE_EDITION,
 ) -> list[str]:
     """What about `configuration` the running code cannot implement, phrased for
     an error message; empty when it can implement all of it.
 
     Three ways a stamped configuration can be beyond this code: it names an
-    edition that is not in the table, it lists a flag that does not exist here at
-    all, or it lists a value label the flag does not have. The distinction
-    matters to whoever reads the failure — "no such flag" says the artifact comes
-    from a variant this build does not carry, while "no such value" says the
-    variant is here but has moved on — so each is reported in its own words
-    rather than as a bare inequality.
+    edition this code does not implement, it lists a flag that does not exist
+    here at all, or it lists a value label the flag does not have. The
+    distinction matters to whoever reads the failure — "no such flag" says the
+    artifact comes from a variant this build does not carry, while "no such
+    value" says the variant is here but has moved on — so each is reported in its
+    own words rather than as a bare inequality.
+
+    **Implemented is not the same as known.** A build implements exactly one
+    edition, `ACTIVE_EDITION`; `EDITIONS` retains the ones the active pointer has
+    moved off, which is what lets a stamped artifact still name something
+    meaningful, but those are precisely the editions this code cannot play — a
+    new edition was published because the rules changed. So a historical edition
+    is rejected just as an unknown one is, only with a message that says which it
+    was: naming an edition this build never heard of and naming one it has
+    superseded are different situations for whoever has to act on the failure.
+    Validated replay of a historical edition means checking out the build that
+    implemented it (see `doc/ruleset/technical-notes.md`).
 
     Only the flags the configuration explicitly lists are checked. Everything it
     omits resolves to behavior this code implements by construction (see
@@ -266,9 +359,15 @@ def unsupported_aspects(
     rule_flags = RULE_FLAGS if rule_flags is None else rule_flags
     editions = EDITIONS if editions is None else editions
     aspects = []
-    if configuration.edition not in editions:
+    if configuration.edition != active_edition:
+        known = (
+            "a historical edition"
+            if configuration.edition in editions
+            else "not an edition this code knows"
+        )
         aspects.append(
-            f"edition {configuration.edition!r} is not an edition this code knows"
+            f"edition {configuration.edition!r} is {known}; this code implements "
+            f"{active_edition!r}"
         )
     for flag_id in sorted(configuration.flags):
         value = configuration.flags[flag_id]

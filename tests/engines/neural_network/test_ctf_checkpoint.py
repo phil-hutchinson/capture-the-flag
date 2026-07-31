@@ -33,7 +33,11 @@ from capture_the_flag.engines.neural_network.ctf_position_factory import (
 )
 from capture_the_flag.engines.neural_network.neural_ctf_player import NeuralCtfPlayer
 from capture_the_flag.engines.neural_network.tensor_layout import ENGINE_SPEC_NAME
-from capture_the_flag.record import ACTIVE_EDITION, active_configuration
+from capture_the_flag.record import (
+    ACTIVE_EDITION,
+    RulesetConfiguration,
+    active_configuration,
+)
 from tests.engines.neural_network.small_networks import small_network
 
 
@@ -221,6 +225,37 @@ def test_checkpoint_configuration_reads_back_what_was_stamped(tmp_path: Path):
     save_checkpoint(small_network(), path)
 
     assert checkpoint_configuration(path) == active_configuration()
+
+
+def test_a_supplied_configuration_is_stamped_instead_of_the_active_one(tmp_path: Path):
+    # What a resume passes: the configuration it adopted from the checkpoint it
+    # continued from. Without this the generations a resume appends would be
+    # stamped with the current active edition — re-tagging weights that were
+    # trained under something else, which is the mis-tagging the stamp exists to
+    # prevent.
+    adopted = RulesetConfiguration("1-3:PRE-RELEASE", {"MOVABLE_TOWERS": "on"})
+    path = checkpoint_path(tmp_path, 0)
+
+    save_checkpoint(small_network(), path, configuration=adopted)
+
+    raw = torch.load(path, map_location="cpu", weights_only=True)
+    assert raw["ruleset"] == adopted.as_stamp()
+
+
+def test_a_file_that_is_not_a_checkpoint_is_diagnosed_the_same_either_way(
+    tmp_path: Path,
+):
+    # Both entry points load the same file, so a structurally broken one must not
+    # be reported as missing whichever stamp its reader happened to want first.
+    path = checkpoint_path(tmp_path, 0)
+    torch.save([1, 2, 3], path)
+
+    with pytest.raises(ValueError, match="not a checkpoint") as from_load:
+        load_network(path)
+    with pytest.raises(ValueError, match="not a checkpoint") as from_configuration:
+        checkpoint_configuration(path)
+
+    assert str(from_load.value) == str(from_configuration.value)
 
 
 def test_load_network_rejects_a_checkpoint_from_before_ruleset_stamping(tmp_path: Path):

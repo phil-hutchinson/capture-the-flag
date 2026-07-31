@@ -43,6 +43,17 @@ different strengths:
   editions published in Appendix B, which is why editions are immutable and are
   never removed from the table once published.
 
+The second guarantee is about the *edition* staying implementable, not about any
+one build implementing every edition. **A build implements exactly one edition:
+`ACTIVE_EDITION`.** The edition table retains the historical ones so that a
+stamped artifact still names something meaningful and so the row it names is
+still there to be read — not because the running code can play them. Validating a
+record written under a historical edition therefore means checking out the build
+that implemented it. This is also why a checkpoint stamped with a historical
+edition is *rejected* rather than accepted on the strength of the table
+containing its id: a new edition exists because the rules changed, so a run
+resuming from it would train on under rules its weights never saw.
+
 The distinction is what lets rules change without breaking the front-end
 application, whose contract is review, not validation.
 
@@ -151,10 +162,19 @@ cleanly into a network evaluating under rules they never saw.
 On load, a checkpoint whose configuration the running code can implement is
 **adopted**: a resumed run continues under the stamped configuration rather than
 under current defaults, so a run trained with a flag on resumes with it on even
-if the default has since changed. Rejection is reserved for a configuration the
-running code cannot implement at all, and for one that is missing — an unstamped
-artifact cannot say what it was trained under, and defaulting it would assert
-something unknown.
+if the default has since changed. Adoption reaches the artifacts, not just the
+decision to proceed — the checkpoints a resume appends are stamped with the
+configuration it adopted, so a run's later generations are never re-tagged with
+an edition they were not trained under. Rejection is reserved for a configuration
+the running code cannot implement at all (which includes a *historical* edition,
+per the guarantee above), and for one that is missing — an unstamped artifact
+cannot say what it was trained under, and defaulting it would assert something
+unknown.
+
+A configuration is also **canonicalized when read**: a stamp that lists a flag at
+the value it would resolve to anyway is normalised to one that omits it. The two
+mean the same thing, but only the canonical one renders as the same string and
+compares equal, and this code reads stamps it did not write.
 
 ### Known gap: nothing checks that play matches the stamp
 

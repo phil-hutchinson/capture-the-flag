@@ -79,7 +79,7 @@ publishes a new edition and moves the ruleset's pointer to it. Immutability
 attaches to the published label, not to a frozen copy of rules text or engine
 code.
 
-The separator for editions is a **dash, not a dot** (`1-2:`, never `1.2:`): the 
+The separator for editions is a **dash, not a dot** (`1-2:`, never `1.2:`): the
 id is a compound label rather than a decimal, and a dot invites decimal ordering,
 under which minor 10 would sort before minor 2.
 

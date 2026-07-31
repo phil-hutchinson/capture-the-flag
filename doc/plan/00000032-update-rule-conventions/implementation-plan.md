@@ -96,8 +96,11 @@ Depends on: Step 1 (uses the three terms as defined there). Steps 3–6 stamp th
 edition id this step publishes, and Step 7's policy rewrite points at these
 appendices as the place rule changes now land.
 
-Verification (manual): read `rules.md` Sections 1–7 and confirm they are
-unchanged — this step adds appendices and touches no core rule. Then confirm
+Verification (manual): read `rules.md` Sections 1–6 and confirm they are
+unchanged — this step adds appendices and touches no core rule. Section 7 (the
+glossary) gains *Ruleset*, *Edition*, and *Variant*, without which the appendices
+would use terms the rulebook never defines; confirm that is the only change to
+it, and that `changelog.md` says the same. Then confirm
 Appendix B's Active row gives the distribution 3 each of ranks 1–6, 6 Towers,
 1 Flag (matching `rules.md` Section 2.2), that Appendix A and Historical are
 present-but-empty rather than absent, and that `proposed-variants.md` is
@@ -262,6 +265,19 @@ Rewrite the policy in `doc/ruleset/technical-notes.md` and `doc/ruleset/CLAUDE.m
 - Add a `changelog.md` entry recording the convention change, the story number,
   and the date, stating explicitly that the minor is not bumped because no rule
   changed.
+- **State that the document leads and the code follows.** The army composition is
+  necessarily duplicated in three places (`rules.md` §2.2 and its Appendix B row,
+  `pieces.py`, and the edition table), so `doc/ruleset/CLAUDE.md` names which of
+  them is the definition and rules out the specific wrong move the duplication
+  invites: editing the edition table to make the distribution test pass, which
+  would retroactively falsify every artifact stamped with that edition.
+- **Record how a composition flag composes with an edition's distribution** in
+  `technical-notes.md`: the edition's distribution is the baseline and the flag
+  deviates from it. This settles a question the story left out of scope
+  (*defining* a flag) rather than answering it — no flag is defined here — but
+  the two-claims-on-the-army problem is created by this story's model, and
+  leaving the first implementer to improvise an answer is how an edition stops
+  being immutable.
 
 Depends on: Steps 3–6 (it names the constants and stamps they introduce) and
 Step 2 (it points at the appendices as where rule changes now land).

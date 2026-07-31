@@ -16,6 +16,7 @@ from capture_the_flag.record import (
     RuleFlag,
     RulesetConfiguration,
     active_configuration,
+    canonicalize,
     configuration_differences,
     resolve_flag,
     unsupported_aspects,
@@ -306,6 +307,95 @@ def test_unsupported_aspects_names_an_unknown_edition():
     configuration = RulesetConfiguration("9-9:BERSERKER")
     (aspect,) = unsupported_aspects(configuration)
     assert "9-9:BERSERKER" in aspect
+    assert ACTIVE_EDITION in aspect
+
+
+def test_unsupported_aspects_rejects_a_historical_edition_it_knows():
+    # Table membership is not implementability: EDITIONS retains the editions the
+    # active pointer has moved off, and those are precisely the ones this code
+    # cannot play — a new edition gets published because the rules changed. A
+    # checkpoint stamped with a superseded edition must be refused, not trained on.
+    configuration = RulesetConfiguration(_LATER_EDITION_ID)
+    (aspect,) = unsupported_aspects(
+        configuration, rule_flags=_FLAGS, editions=_TABLE, active_edition=ACTIVE_EDITION
+    )
+    assert "historical" in aspect
+    # Both ids: which edition the artifact claims, and which one this build plays.
+    assert _LATER_EDITION_ID in aspect
+    assert ACTIVE_EDITION in aspect
+
+
+def test_unsupported_aspects_distinguishes_historical_from_unheard_of():
+    # Different situations for whoever acts on the failure — check out the build
+    # that implemented it, versus find out where this artifact came from — so they
+    # must not read the same.
+    historical = unsupported_aspects(
+        RulesetConfiguration(_LATER_EDITION_ID),
+        editions=_TABLE,
+        active_edition=ACTIVE_EDITION,
+    )
+    unknown = unsupported_aspects(
+        RulesetConfiguration("9-9:BERSERKER"),
+        editions=_TABLE,
+        active_edition=ACTIVE_EDITION,
+    )
+    assert "historical" in historical[0]
+    assert "historical" not in unknown[0]
+
+
+def test_canonicalize_drops_a_flag_written_out_at_its_resolved_value():
+    # `off` is what MOVABLE_TOWERS resolves to under the active edition (which
+    # predates the flag), so listing it says nothing — but an uncanonical listing
+    # renders differently and compares unequal to the configuration that means the
+    # same thing, which would make a legitimate resume look like a disagreement.
+    listed = RulesetConfiguration(ACTIVE_EDITION, {"MOVABLE_TOWERS": "off"})
+    assert canonicalize(listed, rule_flags=_FLAGS, editions=_TABLE) == active_configuration()
+
+    # And under an edition that sets the flag itself, it is the *edition's* value
+    # that is redundant, not the flag's default.
+    listed = RulesetConfiguration(_LATER_EDITION_ID, {"MOVABLE_TOWERS": "on"})
+    assert canonicalize(listed, rule_flags=_FLAGS, editions=_TABLE) == RulesetConfiguration(
+        _LATER_EDITION_ID
+    )
+
+
+def test_canonicalize_keeps_a_genuine_deviation():
+    deviating = RulesetConfiguration(_LATER_EDITION_ID, {"MOVABLE_TOWERS": "off"})
+    assert canonicalize(deviating, rule_flags=_FLAGS, editions=_TABLE) == deviating
+
+
+def test_canonicalize_keeps_what_it_cannot_resolve():
+    # An unknown flag has no resolved value to compare against, and must survive
+    # for `unsupported_aspects` to name it; an unknown edition leaves everything
+    # alone, since dropping against values this code does not have could drop a
+    # real deviation.
+    unknown_flag = RulesetConfiguration(ACTIVE_EDITION, {"DIAGONAL_ATTACK": "no"})
+    assert canonicalize(unknown_flag, rule_flags={}, editions=_TABLE) == unknown_flag
+
+    unknown_edition = RulesetConfiguration("9-9:BERSERKER", {"MOVABLE_TOWERS": "off"})
+    assert canonicalize(unknown_edition, rule_flags=_FLAGS, editions=_TABLE) == unknown_edition
+
+
+def test_from_stamp_canonicalizes_what_it_reads(monkeypatch):
+    # `from_stamp` reads artifacts this code did not write, so it is where a
+    # non-canonical stamp has to be normalised. Patched rather than injected
+    # because a stamp arrives with no place to pass a registry through.
+    monkeypatch.setattr("capture_the_flag.record.RULE_FLAGS", _FLAGS)
+    stamp = {"edition": ACTIVE_EDITION, "flags": {"MOVABLE_TOWERS": "off"}}
+
+    configuration = RulesetConfiguration.from_stamp(stamp)
+
+    assert configuration == active_configuration()
+    assert configuration.render() == ACTIVE_EDITION
+
+
+def test_a_configuration_and_an_edition_can_be_hashed():
+    # Both are frozen, which reads as hashable — but they hold mappings, so the
+    # hash a frozen dataclass generates would raise at the point of use.
+    configuration = RulesetConfiguration(ACTIVE_EDITION, {"MOVABLE_TOWERS": "on"})
+    assert len({configuration, RulesetConfiguration(ACTIVE_EDITION, {"MOVABLE_TOWERS": "on"})}) == 1
+    assert {active_configuration(): "fresh"}[RulesetConfiguration(ACTIVE_EDITION)] == "fresh"
+    assert len({EDITIONS[ACTIVE_EDITION], _TABLE[_LATER_EDITION_ID]}) == 2
 
 
 def test_unsupported_aspects_ignores_flags_the_configuration_omits():

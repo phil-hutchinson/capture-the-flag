@@ -12,11 +12,13 @@ default one would make an already-slow test slower still.
 import json
 
 import pytest
+import torch
 from game_engine_learning.checkpoints import (
     checkpoint_path,
     discover_checkpoints,
     new_run_directory,
 )
+from game_engine_learning.training_loop import EpochLoss
 
 from capture_the_flag.engines.neural_network.ctf_checkpoint import save_checkpoint
 from capture_the_flag.engines.neural_network.ctf_crn import CtfCrn
@@ -27,7 +29,12 @@ from capture_the_flag.engines.neural_network.ctf_training_run import (
     resume_generations,
     train_generations,
 )
-from capture_the_flag.record import ACTIVE_EDITION, active_configuration
+from capture_the_flag.record import (
+    ACTIVE_EDITION,
+    RuleFlag,
+    RulesetConfiguration,
+    active_configuration,
+)
 from tests.engines.neural_network.small_networks import (
     SMALL_FEATURE_COUNT,
     SMALL_RESIDUAL_BLOCK_COUNT,
@@ -152,12 +159,17 @@ def test_resume_rejects_a_run_whose_config_and_checkpoint_disagree(tmp_path):
         resume_generations(1, base_dir=tmp_path)
 
 
-def _assembled_run(tmp_path):
+def _assembled_run(tmp_path, configuration=None):
     """A run directory with a config and one checkpoint, built without training.
 
     The ruleset failures below are all about recorded metadata, not about
     anything the generations loop computes, so assembling the directory directly
     keeps them out of the `slow` suite.
+
+    `configuration`, if given, is what both records carry — standing in for a run
+    conducted under something other than the current active configuration, which
+    is the only way to tell adoption from re-stamping while one edition and no
+    flags are published.
     """
     run_dir = new_run_directory(tmp_path)
     config = TrainingConfig(
@@ -165,12 +177,15 @@ def _assembled_run(tmp_path):
         residual_block_count=SMALL_RESIDUAL_BLOCK_COUNT,
     )
     _write_run_config(run_dir, config)
+    if configuration is not None:
+        _rewrite_run_config(run_dir, ruleset=configuration.as_stamp())
     save_checkpoint(
         CtfCrn(
             feature_count=SMALL_FEATURE_COUNT,
             residual_block_count=SMALL_RESIDUAL_BLOCK_COUNT,
         ),
         checkpoint_path(run_dir, 1),
+        configuration=configuration,
     )
     return run_dir
 
@@ -222,6 +237,36 @@ def test_resume_rejects_a_run_config_from_before_ruleset_stamping(tmp_path):
 
     with pytest.raises(ValueError, match="no ruleset"):
         resume_generations(1, base_dir=tmp_path)
+
+
+def test_resume_stamps_its_own_checkpoints_with_the_configuration_it_adopted(
+    tmp_path, monkeypatch
+):
+    # The stamp is adopted, not merely verified: a resume continues under the
+    # configuration its weights were trained under, so the generations it appends
+    # must carry that configuration and not the current active one. With a single
+    # published edition and an empty flag registry the two coincide, which is why
+    # this test has to supply a flag — the failure it guards against only becomes
+    # reachable once a second variant exists, and by then it is silent.
+    monkeypatch.setattr(
+        "capture_the_flag.record.RULE_FLAGS",
+        {"MOVABLE_TOWERS": RuleFlag(flag_id="MOVABLE_TOWERS", values=("off", "on"), default="off")},
+    )
+    trained_under = RulesetConfiguration(ACTIVE_EDITION, {"MOVABLE_TOWERS": "on"})
+    run_dir = _assembled_run(tmp_path, configuration=trained_under)
+    # Self-play and gradient descent are not what is under test, and running them
+    # would put this in the `slow` suite; the stub keeps the resume path itself
+    # real, checkpoint stamping included.
+    monkeypatch.setattr(
+        "capture_the_flag.engines.neural_network.ctf_training_run.train_one_generation",
+        lambda *args, **kwargs: [EpochLoss(value=0.5, policy=0.5)],
+    )
+
+    resume_generations(1, base_dir=tmp_path, timing=False)
+
+    appended = torch.load(checkpoint_path(run_dir, 2), map_location="cpu", weights_only=True)
+    assert appended["ruleset"] == trained_under.as_stamp()
+    assert appended["ruleset"] != active_configuration().as_stamp()
 
 
 def test_resume_rejects_a_malformed_ruleset_record(tmp_path):

@@ -143,6 +143,40 @@ uses one. This constrains playing rather than reading: a record carries the boar
 it was played on, and may start from a mid-game position that never had a
 placement phase to be valid or invalid.
 
+#### Diagonal attacks and lakes — a decision reserved for future layouts
+
+`rules.md` states that a **lake corner does not block a diagonal attack**: a piece
+may attack diagonally past the corner of a lake, and only the attacked square
+itself must not be a lake. That case is live on both published boards — on Battle,
+a piece on A6 attacking B5 passes the corner of the lake at B6.
+
+A second case exists that `rules.md` deliberately does **not** address: a diagonal
+whose **two flanking squares are both lakes**, source and destination open. Call
+it the *squeeze*, as against the *skirt* above.
+
+**The decision, recorded in advance: the squeeze is not allowed.** Lakes are
+barriers, impassable by every other means, and a diagonal slipping between two of
+them would sneak a piece through a wall. Permitting it because a diagonal step has
+no intermediate square to clear would be a defensible rule in isolation, but it
+would make the lakes' barrier property depend on the direction of travel, which is
+not what a lake is for.
+
+**Why this is not in `rules.md`.** The squeeze is **unreachable on both published
+layouts**, so stating it there would burden the player-facing rules with a
+hypothetical. Both flanking squares being lakes requires rows *r* and *r+1* to be
+lake rows *and* columns *c* and *c+1* to be lake columns; with 2 × 2 lake blocks
+all aligned to the same two rows, that forces the source and destination squares
+to be lakes as well, so no legal attack can exist there. Any layout that breaks
+that alignment makes it reachable — offset blocks touching corner to corner,
+single-square lakes placed diagonally, or more than two lake rows.
+
+Because no position can currently distinguish the two answers, this note changes
+nothing about how either published edition is played, which is why it belongs in
+this file. **When a `BOARD_LAYOUT` value that makes the squeeze reachable is first
+published, this stops being true**: `rules.md` gains a sentence stating the rule,
+and the changelog records it as a clarification rather than a rules change, since
+this note settled it first.
+
 ### What forces a major bump
 
 A major bump is a break in the **notation**, not in the rules — it is what the

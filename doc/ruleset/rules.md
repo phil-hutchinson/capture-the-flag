@@ -97,13 +97,15 @@ This forms two separate 2 × 2 lakes.
 #### Both boards
 
 `O` = open, `L` = lake. On either board the lakes leave single-column lanes at
-the two far edges and a double-column lane through the interior.
+the two far edges and double-column lanes through the interior — two such lanes
+on Battle, one on Skirmish.
 
 **Lake squares are impassable to every piece:** no piece may end a move on, or
 move through, a lake (see [Movement](#42-movement)).
 
-A home zone is always larger than the army that fills it, so a player always has
-a choice of which squares to occupy (see [Section 3](#3-setup--phase-1-placement)).
+On both boards a home zone holds more squares than the army placed in it, so a
+player has a choice of which squares to occupy (see
+[Section 3](#3-setup--phase-1-placement)).
 
 ### 2.2 The pieces
 
@@ -226,11 +228,11 @@ attacking piece are removed.
 
 #### Diagonal attacks
 
-A piece may attack a piece standing on any of its **four immediate diagonal
-squares**, moving onto that square exactly as it would for an orthogonal attack.
-Combat then resolves by the ordinary rules above: rank, equal rank, and the
-formation bonus all apply unchanged, and none of them depends on the direction
-the attack came from.
+A piece may attack a piece standing on any of its **immediate diagonal squares**
+(up to four, fewer at board edges), moving onto that square exactly as it would
+for an orthogonal attack. Combat then resolves by the ordinary rules above: rank,
+equal rank, and the formation bonus all apply unchanged, and none of them depends
+on the direction the attack came from.
 
 Three restrictions apply:
 
@@ -246,6 +248,12 @@ Three restrictions apply:
 
 The most important consequence: **the Flag can only ever be captured from an
 orthogonally adjacent square** (see [Section 5.1](#51-win--flag-capture)).
+
+**A lake corner does not block a diagonal attack.** A piece may attack
+diagonally past the corner of a lake — on the Battle board, for instance, a piece
+on A6 may attack a piece on B5 even though B6 is a lake. What matters is that the
+square being attacked is not itself a lake, and a square holding a piece never
+is.
 
 Sacrificial attacks of both kinds (below) are permitted diagonally, subject to
 the same restrictions — a complete or partial sacrifice against a numbered piece
@@ -447,9 +455,9 @@ Both armies are listed in full in [Section 2.2](#22-the-pieces).
 
 `BOARD_LAYOUT` and `ARMY_COMPOSITION` are set independently, so it is possible to
 name a combination that **cannot be played**: an army must fit in its home zone,
-one piece per square, with squares to spare. `standard_battle` on `standard_64`
-asks 25 pieces to occupy 24 squares and is therefore **not a valid setting for
-play**. The published rulesets in Appendix B always pair them validly.
+one piece per square. `standard_battle` on `standard_64` asks 25 pieces to occupy
+24 squares and is therefore **not a valid setting for play**. The published
+rulesets in Appendix B always pair them validly.
 
 This restriction is about *playing* a game. It does not apply to reading a
 recorded one: a record shows the board it was played on, and a record may begin

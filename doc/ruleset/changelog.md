@@ -37,6 +37,11 @@ published at once and `PRE-RELEASE` is retired.
   the unencumbered bonus never interacts, since a piece with an enemy on its
   diagonal is encumbered by definition. **The notation is unaffected** — a
   diagonal attack is a source and a destination like any other ply.
+  A **lake corner does not block a diagonal attack**: only the attacked square
+  itself must not be a lake. (The converse case — a diagonal squeezing between
+  *two* lakes — cannot arise on either published board and is not addressed in
+  the rules; [`technical-notes.md`](technical-notes.md) records the decision for
+  any future layout that makes it reachable.)
 - **Two rulesets are published and maintained in parallel.** `2-0:BATTLE` is the
   12 × 12 board and 25-piece army carried forward from `1-2:PRE-RELEASE`;
   `2-0:SKIRMISH` is a new 8 × 8 board with a 16-piece army (3 each of ranks 1–4,

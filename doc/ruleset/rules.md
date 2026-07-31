@@ -246,3 +246,89 @@ moves that make no genuine attempt at progress.
 - **Sacrificial attack** — an attack in which the attacking piece does not
   survive. **Complete:** attacker removed, defender survives. **Partial:**
   attacker and defender both removed (a trade you initiate).
+- **Ruleset** — a named body of rules, such as PRE-RELEASE. A ruleset name always
+  means whichever edition of it is currently active (Appendix B).
+- **Edition** — a specific, permanent version of a ruleset, written
+  `<major>-<minor>:<Ruleset>` — for example `1-2:PRE-RELEASE`. An edition fixes
+  the army composition and every variant setting, so naming one names exactly
+  what was played.
+- **Variant** — an optional rule setting that can be switched away from its
+  standard value. Published variants are listed in Appendix A.
+
+---
+
+## Appendix A — Variants
+
+A **variant** is a single named rule setting with two or more named values, one
+of which is its **default**. Everything in Sections 1–7 describes the game with
+every variant at its default, so a game played "by the rules" needs no reference
+to this appendix at all.
+
+**There are no published variants yet.** Sections 1–7 are the whole game. This
+appendix exists so that the first one has a defined place to land, and so the
+promises below are on record before there is anything to apply them to.
+
+Three promises govern this appendix:
+
+1. **A variant's default is always the rule that came before it.** Introducing a
+   variant never changes how the game is played by default, and never changes
+   what any earlier edition or any recorded game meant. Turning a variant away
+   from its default is always a deliberate choice.
+2. **Names are permanent.** Once a variant and its values are published here,
+   those names are never reused for different behavior and never redefined. A
+   rule change that would alter what a published name means gets a new name
+   instead.
+3. **This appendix only grows, and entries only get clearer.** Entries are added
+   and never removed. Their wording may be revised freely — a clearer sentence, a
+   worked example, an ambiguity resolved — but a revision may never change the
+   substance of a published variant. The test: if every game legal under the old
+   wording is still legal under the new one and resolves the same way, it is a
+   clarification and welcome. If not, it is a different variant, and it gets its
+   own name rather than replacing this one.
+
+Each entry, when there are entries, gives the variant's identifier, its
+available values, which value is the default, and what each value does in play.
+
+Variants that are still being considered are *not* listed here — they live in
+[`proposed-variants.md`](proposed-variants.md), which carries no promises at all
+and may change or disappear at any time. A variant reaches this appendix only
+once it is actually implemented in the game.
+
+---
+
+## Appendix B — Rulesets
+
+An **edition** is the permanent, exact answer to "which rules was this game
+played under": an army composition plus a value for every variant. A **ruleset
+name** points at whichever of its editions is current, and that pointer moves
+when a new edition is published. Every game record and every trained engine
+records its edition, so the rules behind a stored game are always recoverable.
+
+The two tables below share the same fields. **Active** lists the current edition
+of every ruleset on offer; **Historical** lists editions no longer pointed at.
+Editions in both tables are equally permanent — retiring an edition does not
+change what it meant, it only stops it from being the one currently played.
+
+### Active
+
+| Edition | Army composition | Variant values | Status |
+|---|---|---|---|
+| `1-2:PRE-RELEASE` | 3 each of ranks 1–6, 6 Towers, 1 Flag (Section 2.2) | all defaults | active |
+
+`PRE-RELEASE` is the current ruleset: the game is pre-release and the rules are
+still being shaped, so its edition is bumped as needed. At release it will be
+retired in favour of a stable ruleset name, which then takes its place in this
+table.
+
+### Historical
+
+| Edition | Army composition | Variant values | Status |
+|---|---|---|---|
+| *(none yet)* | | | |
+
+The **Status** column carries one of two reasons an edition left the Active
+table:
+
+- **superseded** — a newer edition of the same ruleset exists, and the ruleset
+  name now points at that one.
+- **retired** — the ruleset name itself is no longer offered.

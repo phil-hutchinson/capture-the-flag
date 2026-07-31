@@ -47,12 +47,18 @@ from .player import (
 )
 from .ply import CtfPly, parse_ply
 from .position import CtfPosition
-from .record import write_record
+from .record import (
+    ACTIVE_EDITION,
+    RulesetConfiguration,
+    active_configuration,
+    write_record,
+)
 from .rendering import parse_position_block, render_position_block
 from .side import Side
 from .transitions import apply_ply
 
 __all__ = [
+    "ACTIVE_EDITION",
     "ARMY_ROSTER",
     "ARMY_SIZE",
     "BLACK_HOME_SQUARES",
@@ -76,8 +82,10 @@ __all__ = [
     "PlacementFileError",
     "PlayerContext",
     "RandomCtfPlayer",
+    "RulesetConfiguration",
     "Side",
     "Square",
+    "active_configuration",
     "apply_ply",
     "assemble_position",
     "build_initial_position",

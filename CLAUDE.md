@@ -67,3 +67,28 @@ this same concept throughout. This is the *only* document where "move" is the
 preferred term; everywhere else (code, tests, plans, design docs) use "ply." When
 editing `rules.md`, keep it in "move" terminology and do not "correct" it to
 "ply."
+
+**Ruleset** — a mutable name for a body of rules: Standard, Berserker,
+PRE-RELEASE. A ruleset name is a pointer, not a definition — it always resolves
+to whichever edition is currently active for it, and that pointer moves.
+
+**Edition** — an immutable identifier of the form `<major>-<minor>:<Ruleset>`
+(e.g. `1-2:PRE-RELEASE`), resolving to a piece distribution plus explicit rule
+flag values. Once published, an edition never changes meaning; a rules change
+publishes a new edition and moves the ruleset's pointer to it. Immutability
+attaches to the published label, not to a frozen copy of rules text or engine
+code.
+
+The separator for editions is a **dash, not a dot** (`1-2:`, never `1.2:`): the
+id is a compound label rather than a decimal, and a dot invites decimal ordering,
+under which minor 10 would sort before minor 2.
+
+**Rule flag** — an enum-valued rules parameter naming one point of rule
+variation (e.g. `TOWER_MOVEMENT = on | off`). Always an enum even when currently
+binary, so a third value can be added later without a type change. A flag's
+default is always the standard behavior that predated the flag, so introducing
+one alters no existing edition and no existing record. Published flag names and
+value labels are permanent and never redefined — new behavior gets a new label.
+
+A **resolved configuration** names an edition plus only the flags that deviate
+from it; a flag absent from that list carries the edition's value for it.

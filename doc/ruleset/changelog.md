@@ -1,12 +1,47 @@
 # Capture the Flag — Ruleset Changelog
 
 Revision history for [`rules.md`](rules.md), newest first. Each entry records the
-ruleset **version**, the **story** that introduced the change, and the **date**,
-followed by a summary of what changed.
+**edition**, the **story** that introduced the change, and the **date**, followed
+by a summary of what changed.
 
 **Any change to `rules.md` must add an entry here** (see [`CLAUDE.md`](CLAUDE.md)).
 External consumers — in particular a separate front-end player application — track
 this changelog to know when and how to update.
+
+Entries before 2026-07-26 predate editions and are labelled with the ruleset
+*version* they carried at the time (`1.2`, dotted). Those versions map to
+editions of the same number under `PRE-RELEASE`: version `1.2` is edition
+`1-2:PRE-RELEASE`.
+
+---
+
+## Edition 1-2:PRE-RELEASE — Story 00000032 — 2026-07-26
+
+**No rule changed.** This entry records a change to the *conventions* around the
+rules, which consumers of this changelog need to know about even though play is
+unaffected. The edition stays at minor 2, carrying the former version 1.2
+forward: there is no semantic change for a new minor to mark.
+
+- **Rulesets, editions, and flags replace the single version number.** A
+  *ruleset* is a mutable name (`PRE-RELEASE`); an *edition* — `1-2:PRE-RELEASE`,
+  dashed — is an immutable pairing of that name with a piece distribution and
+  explicit variant settings; a *rule flag* (called a *variant* in `rules.md`) is
+  an enum-valued rule setting whose default always preserves the behavior that
+  predated it.
+- **Two new appendices in `rules.md`.** Appendix A (Variants) is append-only and
+  currently empty; Appendix B (Rulesets) carries the Active and Historical
+  edition tables. Sections 1–6 are unchanged; Section 7's glossary gains
+  *Ruleset*, *Edition*, and *Variant*.
+- **`doc/ruleset/proposed-variants.md` is new** — a mutable sandbox that carries
+  no promises. A variant graduates from it to Appendix A only when its
+  implementing branch merges.
+- **The `Ruleset` record tag changes form**, from `1.2:PRE-RELEASE` to
+  `1-2:PRE-RELEASE` plus any deviating flags. Dashes, and the full edition id
+  rather than a bare ruleset name.
+- **"Latest version only" is retired.** Replaced by two guarantees: view-only
+  replay for all records by notation-schema stability alone, and validated replay
+  for published editions. See [`technical-notes.md`](technical-notes.md), which
+  also now states exactly what forces a major (notation) bump.
 
 ---
 

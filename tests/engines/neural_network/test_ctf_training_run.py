@@ -12,11 +12,13 @@ default one would make an already-slow test slower still.
 import json
 
 import pytest
+import torch
 from game_engine_learning.checkpoints import (
     checkpoint_path,
     discover_checkpoints,
     new_run_directory,
 )
+from game_engine_learning.training_loop import EpochLoss
 
 from capture_the_flag.engines.neural_network.ctf_checkpoint import save_checkpoint
 from capture_the_flag.engines.neural_network.ctf_crn import CtfCrn
@@ -26,6 +28,12 @@ from capture_the_flag.engines.neural_network.ctf_training_run import (
     _write_run_config,
     resume_generations,
     train_generations,
+)
+from capture_the_flag.record import (
+    ACTIVE_EDITION,
+    RuleFlag,
+    RulesetConfiguration,
+    active_configuration,
 )
 from tests.engines.neural_network.small_networks import (
     SMALL_FEATURE_COUNT,
@@ -148,4 +156,124 @@ def test_resume_rejects_a_run_whose_config_and_checkpoint_disagree(tmp_path):
     )
 
     with pytest.raises(ValueError, match="inconsistent"):
+        resume_generations(1, base_dir=tmp_path)
+
+
+def _assembled_run(tmp_path, configuration=None):
+    """A run directory with a config and one checkpoint, built without training.
+
+    The ruleset failures below are all about recorded metadata, not about
+    anything the generations loop computes, so assembling the directory directly
+    keeps them out of the `slow` suite.
+
+    `configuration`, if given, is what both records carry — standing in for a run
+    conducted under something other than the current active configuration, which
+    is the only way to tell adoption from re-stamping while one edition and no
+    flags are published.
+    """
+    run_dir = new_run_directory(tmp_path)
+    config = TrainingConfig(
+        feature_count=SMALL_FEATURE_COUNT,
+        residual_block_count=SMALL_RESIDUAL_BLOCK_COUNT,
+    )
+    _write_run_config(run_dir, config)
+    if configuration is not None:
+        _rewrite_run_config(run_dir, ruleset=configuration.as_stamp())
+    save_checkpoint(
+        CtfCrn(
+            feature_count=SMALL_FEATURE_COUNT,
+            residual_block_count=SMALL_RESIDUAL_BLOCK_COUNT,
+        ),
+        checkpoint_path(run_dir, 1),
+        configuration=configuration,
+    )
+    return run_dir
+
+
+def _rewrite_run_config(run_dir, **changes):
+    path = run_dir / RUN_CONFIG_FILENAME
+    record = json.loads(path.read_text(encoding="utf-8"))
+    record.update(changes)
+    path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+
+
+def test_run_config_records_the_ruleset_the_run_was_played_under(tmp_path):
+    # A record that reproduces the hyperparameters, the architecture, and the seed
+    # but not the rules does not reproduce the run.
+    run_dir = _assembled_run(tmp_path)
+
+    record = json.loads((run_dir / RUN_CONFIG_FILENAME).read_text(encoding="utf-8"))
+
+    assert record["ruleset"] == active_configuration().as_stamp()
+
+
+def test_resume_rejects_a_run_whose_config_and_checkpoint_disagree_on_the_ruleset(
+    tmp_path,
+):
+    # The same refusal the architecture cross-check makes, for the same reason:
+    # one run wrote both records, so a difference means the directory has been
+    # edited or files from two runs have been mixed.
+    run_dir = _assembled_run(tmp_path)
+    _rewrite_run_config(run_dir, ruleset={"edition": "1-3:PRE-RELEASE", "flags": {}})
+
+    with pytest.raises(ValueError, match="inconsistent") as rejection:
+        resume_generations(1, base_dir=tmp_path)
+    message = str(rejection.value)
+    # Both values, each attributed to its source — a bare "they differ" would not
+    # tell the developer which file to look at.
+    assert "1-3:PRE-RELEASE" in message
+    assert ACTIVE_EDITION in message
+    assert RUN_CONFIG_FILENAME in message
+
+
+def test_resume_rejects_a_run_config_from_before_ruleset_stamping(tmp_path):
+    # No ruleset key at all: the rules the run's games were played under are
+    # unknown, and assuming the current ones would assert something unknown.
+    run_dir = _assembled_run(tmp_path)
+    path = run_dir / RUN_CONFIG_FILENAME
+    record = json.loads(path.read_text(encoding="utf-8"))
+    del record["ruleset"]
+    path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="no ruleset"):
+        resume_generations(1, base_dir=tmp_path)
+
+
+def test_resume_stamps_its_own_checkpoints_with_the_configuration_it_adopted(
+    tmp_path, monkeypatch
+):
+    # The stamp is adopted, not merely verified: a resume continues under the
+    # configuration its weights were trained under, so the generations it appends
+    # must carry that configuration and not the current active one. With a single
+    # published edition and an empty flag registry the two coincide, which is why
+    # this test has to supply a flag — the failure it guards against only becomes
+    # reachable once a second variant exists, and by then it is silent.
+    monkeypatch.setattr(
+        "capture_the_flag.record.RULE_FLAGS",
+        {"MOVABLE_TOWERS": RuleFlag(flag_id="MOVABLE_TOWERS", values=("off", "on"), default="off")},
+    )
+    trained_under = RulesetConfiguration(ACTIVE_EDITION, {"MOVABLE_TOWERS": "on"})
+    run_dir = _assembled_run(tmp_path, configuration=trained_under)
+    # Self-play and gradient descent are not what is under test, and running them
+    # would put this in the `slow` suite; the stub keeps the resume path itself
+    # real, checkpoint stamping included.
+    monkeypatch.setattr(
+        "capture_the_flag.engines.neural_network.ctf_training_run.train_one_generation",
+        lambda *args, **kwargs: [EpochLoss(value=0.5, policy=0.5)],
+    )
+
+    resume_generations(1, base_dir=tmp_path, timing=False)
+
+    appended = torch.load(checkpoint_path(run_dir, 2), map_location="cpu", weights_only=True)
+    assert appended["ruleset"] == trained_under.as_stamp()
+    assert appended["ruleset"] != active_configuration().as_stamp()
+
+
+def test_resume_rejects_a_malformed_ruleset_record(tmp_path):
+    # Present but unreadable earns the same named failure as absent, rather than
+    # a KeyError from somewhere deeper.
+    run_dir = _assembled_run(tmp_path)
+    _rewrite_run_config(run_dir, ruleset="1-2:PRE-RELEASE")
+
+    with pytest.raises(ValueError, match="malformed"):
         resume_generations(1, base_dir=tmp_path)

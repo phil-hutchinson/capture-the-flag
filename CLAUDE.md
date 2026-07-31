@@ -68,16 +68,34 @@ preferred term; everywhere else (code, tests, plans, design docs) use "ply." Whe
 editing `rules.md`, keep it in "move" terminology and do not "correct" it to
 "ply."
 
-**Ruleset** — a mutable name for a body of rules: Standard, Berserker,
-PRE-RELEASE. A ruleset name is a pointer, not a definition — it always resolves
-to whichever edition is currently active for it, and that pointer moves.
+**Ruleset** — a mutable name for a body of rules: BATTLE, SKIRMISH. A ruleset
+name is a pointer, not a definition — it always resolves to whichever edition is
+currently active for it, and that pointer moves. Two rulesets are live: `BATTLE`
+on the 12 × 12 board and `SKIRMISH` on the 8 × 8 board.
 
 **Edition** — an immutable identifier of the form `<major>-<minor>:<Ruleset>`
-(e.g. `1-2:PRE-RELEASE`), resolving to a piece distribution plus explicit rule
-flag values. Once published, an edition never changes meaning; a rules change
+(e.g. `2-0:SKIRMISH`), naming a **major baseline plus a complete set of rule
+flag values**. Once published, an edition never changes meaning; a rules change
 publishes a new edition and moves the ruleset's pointer to it. Immutability
 attaches to the published label, not to a frozen copy of rules text or engine
 code.
+
+The **major names the baseline rules text; flags parameterize within it.** Two
+editions sharing a major are two points in one flag space and differ only by
+flag values. Two editions with different majors are not comparable that way — a
+major bump republishes the baseline, so behavior can differ with no flag
+distinguishing it (diagonal attack is baseline at major 2 and absent at major 1,
+under no flag). A major is specifically a **notation** break; see
+`doc/ruleset/technical-notes.md`.
+
+Piece distribution is **not** a separate axis of an edition. It is the resolved
+value of a flag (`ARMY_COMPOSITION`) like anything else, so nothing but flags
+ever has a claim on what an edition means.
+
+**Minor is namespaced per ruleset; major is global.** `2-0:BATTLE` and
+`2-0:SKIRMISH` share a major because they share a notation and a baseline, but
+their minors advance independently — `BATTLE` moving to `2-1` leaves `SKIRMISH`
+at `2-0`. A notation break moves every live ruleset to the next major together.
 
 The separator for editions is a **dash, not a dot** (`1-2:`, never `1.2:`): the
 id is a compound label rather than a decimal, and a dot invites decimal ordering,

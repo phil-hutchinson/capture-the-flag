@@ -15,6 +15,58 @@ editions of the same number under `PRE-RELEASE`: version `1.2` is edition
 
 ---
 
+## Editions 2-0:BATTLE and 2-0:SKIRMISH — Story 00000034 — 2026-07-30
+
+**A major bump, and a breaking one.** Consumers must update. Two editions are
+published at once and `PRE-RELEASE` is retired.
+
+- **The notation is now size-parametric.** A board is a rectangular grid whose
+  dimensions are read from the record's position block, rather than a fixed
+  12 × 12 with the coordinate frame baked in. Lake layout is likewise recoverable
+  from the block's `XXX` cells. Columns are lettered from A and rows numbered
+  from 1 as before, supporting up to 26 columns. **This is the breaking change**
+  — any consumer that assumed a 12 × 12 grid must now read the dimensions.
+  The **home-zone row count is not** recoverable from a position block; it comes
+  from the configuration's `BOARD_LAYOUT` value. A review-only viewer does not
+  need it.
+- **Diagonal attack is now baseline.** A piece may attack a movable enemy piece
+  one square diagonally. Diagonal movement without an attack is not allowed, and
+  **Towers and the Flag may not be attacked diagonally** — so the Flag can only
+  ever be captured from an orthogonally adjacent square. Both sacrifice types are
+  permitted diagonally. Rank, equal rank, and the formation bonus apply unchanged;
+  the unencumbered bonus never interacts, since a piece with an enemy on its
+  diagonal is encumbered by definition. **The notation is unaffected** — a
+  diagonal attack is a source and a destination like any other ply.
+  A **lake corner does not block a diagonal attack**: only the attacked square
+  itself must not be a lake. (The converse case — a diagonal squeezing between
+  *two* lakes — cannot arise on either published board and is not addressed in
+  the rules; [`technical-notes.md`](technical-notes.md) records the decision for
+  any future layout that makes it reachable.)
+- **Two rulesets are published and maintained in parallel.** `2-0:BATTLE` is the
+  12 × 12 board and 25-piece army carried forward from `1-2:PRE-RELEASE`;
+  `2-0:SKIRMISH` is a new 8 × 8 board with a 16-piece army (3 each of ranks 1–4,
+  3 Towers, 1 Flag), 3 home rows and 2 lake rows with no neutral buffer. Skirmish
+  is the recommended ruleset for a new player.
+- **`PRE-RELEASE` is retired.** `1-2:PRE-RELEASE` moves to Appendix B's
+  Historical table marked *retired*. Being a major-1 edition it was played without
+  diagonal attacks, under rules text `rules.md` no longer carries.
+- **The first two variants are published** in Appendix A:
+  `BOARD_LAYOUT = standard_144 | standard_64` (default `standard_144`) and
+  `ARMY_COMPOSITION = standard_battle | standard_skirmish` (default
+  `standard_battle`). A `BOARD_LAYOUT` value names a *complete* layout —
+  dimensions, home-zone depth, and lakes. Not every combination is playable: an
+  army must fit its home zone.
+- **An edition is now a major baseline plus a complete set of variant values.**
+  Piece distribution is no longer a separate axis of an edition; it is the
+  `ARMY_COMPOSITION` value. The major names the rules text, so editions at
+  different majors are not comparable by variant values alone. Minor numbers are
+  namespaced per ruleset; majors are global.
+- **Board size no longer forces a major bump.** That was the point of spending
+  this one. Future layouts cost a new `BOARD_LAYOUT` value, not a new major. See
+  [`technical-notes.md`](technical-notes.md) for the revised major-bump list.
+
+---
+
 ## Edition 1-2:PRE-RELEASE — Story 00000032 — 2026-07-26
 
 **No rule changed.** This entry records a change to the *conventions* around the

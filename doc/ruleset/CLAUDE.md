@@ -29,10 +29,17 @@ number, and the date, plus a short summary of what changed.
 
 **When the change alters how the game is played**, it also publishes a new
 edition: add its row to `rules.md` Appendix B, move that ruleset's Active pointer
-to it, note the superseded edition in the Historical table, and update
-`ACTIVE_EDITION` in `capture_the_flag/record.py`. That table is what stamps every
+to it, note the superseded edition in the Historical table, and update the set of
+active editions in `capture_the_flag/record.py`. That table is what stamps every
 game record and every checkpoint, so a stale value silently mis-tags everything
 written after the change.
+
+**There are two active editions** — `2-0:BATTLE` and `2-0:SKIRMISH` — and a
+change that alters play generally has to be considered for both. They share
+`rules.md` in its entirety and differ only in their `BOARD_LAYOUT` and
+`ARMY_COMPOSITION` values, so a rules change that is not about the board or the
+army almost certainly affects both, and publishing a new edition of one but not
+the other should be a deliberate decision rather than an oversight.
 
 ### The document leads; the code follows
 
@@ -41,24 +48,32 @@ Some rules facts are necessarily duplicated in code, because code cannot read
 
 | Where | What it is |
 |---|---|
-| `rules.md` §2.2, and the row in Appendix B | **the definition** |
-| `pieces.py` (`PieceType.army_count` → `ARMY_ROSTER`) | the engine's copy, enforced on every placement |
+| `rules.md` §2.2, Appendix A's `ARMY_COMPOSITION` entry, and the Appendix B rows | **the definition** |
+| the roster in `pieces.py` | the engine's copy, enforced on every placement |
 | the edition table in `record.py` | the copy each record and checkpoint is stamped from |
+
+Board layout now works the same way, with `rules.md` §2.1 and the
+`BOARD_LAYOUT` entry as its definition.
+
+**Both are per-edition since major 2.** The engine's roster and board geometry
+are no longer single constants — there are two active editions with different
+values for each, selected at run time. Code that assumes one board size or one
+army is a bug even if it happens to be right about `BATTLE`.
 
 **Always change the document first, then bring the copies to it.** A change that
 starts in code and is then written up backwards into `rules.md` is how a code
 constant quietly becomes the real ruleset. `rules.md` governs: where it and the
 code disagree, the code is the bug, whichever was edited first.
 
-**A failing distribution test is not a prompt to edit the edition table.**
-`tests/test_record.py` asserts the active edition's distribution equals
-`ARMY_ROSTER`, so changing the roster fails it. That failure means the army
-composition changed, which is a rules change, which publishes a **new edition**
-— the previous one keeps the distribution it was published with, because records
-and checkpoints stamped with it were played under exactly that. Editing the
-existing edition's row to match the new roster would make the test pass and
-retroactively falsify every artifact carrying that id. The test cannot tell those
-two apart; this rule is what does.
+**A failing distribution test is not a prompt to edit the edition table.** The
+record tests assert each active edition's resolved distribution against the
+engine's roster for that edition, so changing a roster fails them. That failure
+means the army composition changed, which is a rules change, which publishes a
+**new edition** — the previous one keeps the distribution it was published with,
+because records and checkpoints stamped with it were played under exactly that.
+Editing the existing edition's row to match the new roster would make the test
+pass and retroactively falsify every artifact carrying that id. The test cannot
+tell those two apart; this rule is what does.
 
 **When the change is a clarification** — better wording for a rule that already
 worked that way — the edition does not move. It still needs a changelog entry, so
@@ -71,6 +86,12 @@ New *behavior* is normally added as a rule flag with a
 behavior-preserving default rather than as an edit to the core rules text — see
 [`technical-notes.md`](technical-notes.md), "How a rules change lands", and
 [`proposed-variants.md`](proposed-variants.md) for where a variant starts out.
+
+**The one exception is a major bump**, which republishes the baseline rules text
+and can therefore carry a behavior change unflagged; diagonal attack landed this
+way at major 2. Do not reach for this to avoid writing a flag. A major bump is
+justified by a **notation** break and nothing else, and behavior only rides one
+that is already happening for that reason.
 
 **Why this is mandatory:** the rules are consumed outside this repository — in
 particular, a separate front-end player application depends on them and tracks the

@@ -27,14 +27,32 @@ coordinates. The side assignment is settled before placement begins, and
 other than the first move it carries no inherent advantage
 (see [Section 3](#3-setup--phase-1-placement)).
 
+### Two rulesets
+
+Capture the Flag is played in two forms, which share every rule in this document
+and differ only in the board and the army:
+
+- **Battle** — a 12 × 12 board and an army of 25 pieces across six ranks.
+- **Skirmish** — an 8 × 8 board and an army of 16 pieces across four ranks.
+
+Both are described in full in [Section 2](#2-components). Neither is a variation
+on the other, and everything in Sections 3–7 applies identically to both.
+
+**If you are learning the game, start with Skirmish.** The smaller board and the
+shorter rank order make it quicker to play and easier to hold in your head, and
+nothing you learn there has to be unlearned for Battle.
+
 ---
 
 ## 2. Components
 
 ### 2.1 The board
 
-The board is a **12 × 12 grid**. Reading from one player's side to the other, the
-rows are arranged as:
+Both boards are square, divided into two home zones separated by lake rows.
+
+#### Battle — 12 × 12
+
+Reading from one player's side to the other, the rows are arranged as:
 
 | Rows | Region |
 |---|---|
@@ -44,24 +62,57 @@ rows are arranged as:
 | 1 | Neutral buffer (empty) |
 | 4 | Player B home zone |
 
-Each home zone is 4 rows × 12 columns = **48 squares**, exactly enough for one
-army.
+Each home zone is 4 rows × 12 columns = **48 squares**.
 
-**Lakes.** Within the two lake rows, the columns follow this pattern (left to
-right across all 12 columns):
+Within the two lake rows, the columns follow this pattern (left to right across
+all 12 columns):
 
 ```
 O L L O O L L O O L L O
 ```
 
-`O` = open, `L` = lake. This forms three separate 2 × 2 lakes, leaving
-single-column lanes at the two far edges and double-column lanes through the
-interior. Lake squares are impassable to every piece: no piece may end a move on,
-or move through, a lake (see [Movement](#42-movement)).
+This forms three separate 2 × 2 lakes.
+
+#### Skirmish — 8 × 8
+
+| Rows | Region |
+|---|---|
+| 3 | Player A home zone |
+| 2 | Lakes |
+| 3 | Player B home zone |
+
+Each home zone is 3 rows × 8 columns = **24 squares**. There are **no neutral
+buffer rows**: each home zone sits directly against the lakes, so the two armies
+begin closer together than on the Battle board.
+
+Within the two lake rows, the columns follow this pattern (left to right across
+all 8 columns):
+
+```
+O L L O O L L O
+```
+
+This forms two separate 2 × 2 lakes.
+
+#### Both boards
+
+`O` = open, `L` = lake. On either board the lakes leave single-column lanes at
+the two far edges and double-column lanes through the interior — two such lanes
+on Battle, one on Skirmish.
+
+**Lake squares are impassable to every piece:** no piece may end a move on, or
+move through, a lake (see [Movement](#42-movement)).
+
+On both boards a home zone holds more squares than the army placed in it, so a
+player has a choice of which squares to occupy (see
+[Section 3](#3-setup--phase-1-placement)).
 
 ### 2.2 The pieces
 
-Each player commands an identical army of **25 pieces**:
+Each player commands an army identical to their opponent's. Its composition
+depends on the ruleset.
+
+#### Battle — 25 pieces
 
 | Rank | Piece | Qty |
 |---|---|---|
@@ -74,16 +125,32 @@ Each player commands an identical army of **25 pieces**:
 | — | Tower | 6 |
 | — | Flag | 1 |
 
-The six numbered pieces form a strict strength order from rank 1 (strongest) to
-rank 6 (weakest). Towers and the Flag cannot move or attack but can be attacked. 
-All pieces follow the same movement and combat rules with no special abilities.
+#### Skirmish — 16 pieces
+
+| Rank | Piece | Qty |
+|---|---|---|
+| 1 | Master-of-Arms | 3 |
+| 2 | Champion | 3 |
+| 3 | Knight | 3 |
+| 4 | Halberdier | 3 |
+| — | Tower | 3 |
+| — | Flag | 1 |
+
+Skirmish uses the top four ranks only; Foot Soldier and Militia do not appear.
+
+#### Both armies
+
+The numbered pieces form a strict strength order, **rank 1 being the strongest**
+and the highest-numbered rank the weakest. Towers and the Flag cannot move or
+attack but can be attacked. All pieces follow the same movement and combat rules
+with no special abilities.
 
 ---
 
 ## 3. Setup — Phase 1: Placement
 
-- Each player arranges their **entire 25-piece army** in their own home zone,
-  **one piece per square, choosing which squares to fill**.
+- Each player arranges their **entire army** (Section 2.2) in their own home
+  zone, **one piece per square, choosing which squares to fill**.
 - Placement is **secret and simultaneous.** Neither player sees the other's
   arrangement until both are finished; the boards are then revealed together.
 - **No two towers may be placed next to each other**, including on a diagonal. 
@@ -110,16 +177,23 @@ Once both armies are revealed, the game proceeds to Phase 2.
 ### 4.2 Movement
 
 - **Baseline.** On a move, a piece steps **one square orthogonally** (up, down,
-  left, or right — never diagonally). It may move into an empty square, or attack
-  an enemy piece by moving onto its square (see [Combat](#43-combat)).
+  left, or right). It may move into an empty square, or attack an enemy piece by
+  moving onto its square (see [Combat](#43-combat)).
+- **Diagonal attacks only.** A piece may also move **one square diagonally, but
+  only to attack a movable enemy piece** — see
+  [Diagonal attacks](#diagonal-attacks). A piece may never move diagonally onto
+  an empty square.
 - **Unencumbered bonus.** A piece is considered unencumbered if there are no
   enemy pieces in any of the eight surrounding squares (orthogonal or 
   diagonal). When a piece is unencumbered, it may **move two squares 
   orthogonally**, at its option. Multi-square moves require a clear path: no 
-  piece of either side may occupy or block the intermediate square.
+  piece of either side may occupy or block the intermediate square. The bonus
+  never applies diagonally: a two-square diagonal move does not exist, and a
+  piece with an enemy on its diagonal is by definition encumbered.
 - **Encumbered movement.** When a piece is encumbered (i.e., an enemy piece 
   occupies any of its eight surrounding squares), it may move only **one square 
-  orthogonally**.
+  orthogonally** — or make a **one-square diagonal attack**, which is only ever
+  available to an encumbered piece in any case.
 - **Immobile pieces.** Towers and the Flag never move.
 - **Lakes and blocking.** No piece may enter or pass through a lake.
 - A piece may never move onto a square occupied by a **friendly** piece.
@@ -152,12 +226,48 @@ a piece one rank higher, rather than losing. (Both pieces are removed.)
 **Towers.** Any piece attacking a tower results in a draw. Both the tower and the
 attacking piece are removed.
 
+#### Diagonal attacks
+
+A piece may attack a piece standing on any of its **immediate diagonal squares**
+(up to four, fewer at board edges), moving onto that square exactly as it would
+for an orthogonal attack. Combat then resolves by the ordinary rules above: rank,
+equal rank, and the formation bonus all apply unchanged, and none of them depends
+on the direction the attack came from.
+
+Three restrictions apply:
+
+- **One square only.** There is no two-square diagonal attack. The unencumbered
+  bonus never extends a diagonal — and a piece with an enemy on its diagonal is
+  encumbered in any case.
+- **Movable targets only.** A diagonal attack may be made only against a piece
+  that is able to move — that is, against a numbered piece. **Towers and the Flag
+  may not be attacked diagonally.** They can still be attacked, but only
+  orthogonally.
+- **No diagonal move without an attack.** A piece may never step diagonally onto
+  an empty square. The diagonal is an attacking direction and nothing else.
+
+The most important consequence: **the Flag can only ever be captured from an
+orthogonally adjacent square** (see [Section 5.1](#51-win--flag-capture)).
+
+**A lake corner does not block a diagonal attack.** A piece may attack
+diagonally past the corner of a lake — on the Battle board, for instance, a piece
+on A6 may attack a piece on B5 even though B6 is a lake. What matters is that the
+square being attacked is not itself a lake, and a square holding a piece never
+is.
+
+Sacrificial attacks of both kinds (below) are permitted diagonally, subject to
+the same restrictions — a complete or partial sacrifice against a numbered piece
+is legal on the diagonal, while a tower attack, which is always a partial
+sacrifice, is not.
+
 #### Sacrificial attacks
 
-Any piece may attack **any** enemy piece, regardless of relative strength —
-attacking a piece you know will beat you is always legal. An attack in which the
-**attacking piece does not survive** is a **sacrificial attack**, and comes in
-two forms that these rules refer to by name:
+Any piece may attack **any** enemy piece it can reach, regardless of relative
+strength — attacking a piece you know will beat you is always legal. (Relative
+strength never restricts an attack. What a piece can *reach* is set by
+[Movement](#42-movement) and by [Diagonal attacks](#diagonal-attacks).) An attack
+in which the **attacking piece does not survive** is a **sacrificial attack**,
+and comes in two forms that these rules refer to by name:
 
 - **Complete sacrifice** — the attacker is removed and the defender survives
   (for example, attacking a stronger piece). You lose your piece and remove nothing.
@@ -171,10 +281,16 @@ Sacrificial attacks are legal and reset the inactivity counter (see [Section 5.3
 ### 4.4 Recording a move
 
 Every square has a unique name for writing moves down on a score sheet:
-columns are lettered **A–L** left to right, and rows are numbered **1–12**,
-where **row 1 is White's back rank** and **row 12 is Black's back rank** —
-regardless of which physical side of the board White sits at. For example,
-**A1** is White's near-left corner and **L12** is Black's far corner.
+columns are **lettered from A, left to right**, and rows are **numbered from 1**,
+where **row 1 is White's back rank** and the highest-numbered row is **Black's
+back rank** — regardless of which physical side of the board White sits at.
+
+| Ruleset | Columns | Rows | White's near-left corner | Black's far corner |
+|---|---|---|---|---|
+| Battle | A–L | 1–12 | A1 | L12 |
+| Skirmish | A–H | 1–8 | A1 | H8 |
+
+The notation is the same on either board; only the range of coordinates differs.
 
 A move is recorded by entering the square that the moving piece started from,
 `-`, and the square it moved to or attacked. In the case of combat, an `x` is
@@ -204,6 +320,10 @@ The game ends the moment any of the following conditions is met.
 
 A player who **captures the opposing Flag** (by moving a piece onto it) wins
 immediately.
+
+The Flag is not a movable piece, so it **cannot be attacked diagonally** (see
+[Diagonal attacks](#diagonal-attacks)). Capturing it always means moving in from
+an **orthogonally adjacent** square.
 
 ### 5.2 Loss — No legal move
 
@@ -243,30 +363,35 @@ moves that make no genuine attempt at progress.
 - **Encumbered** — a piece with at least one enemy piece in one of its eight surrounding squares.
 - **Formation bonus** — a bonus granted to a piece that has a friendly piece of equal rank 
   within one square (orthogonal or diagonal).
+- **Movable piece** — a numbered piece (any rank). Towers and the Flag are not
+  movable pieces. Only movable pieces may be attacked diagonally.
+- **Diagonal attack** — an attack on a movable enemy piece standing one square
+  diagonally away. Diagonal movement is never allowed without an attack, and
+  Towers and the Flag can never be attacked this way (Section 4.3).
 - **Sacrificial attack** — an attack in which the attacking piece does not
   survive. **Complete:** attacker removed, defender survives. **Partial:**
   attacker and defender both removed (a trade you initiate).
-- **Ruleset** — a named body of rules, such as PRE-RELEASE. A ruleset name always
-  means whichever edition of it is currently active (Appendix B).
+- **Ruleset** — a named body of rules, such as Battle or Skirmish. A ruleset name
+  always means whichever edition of it is currently active (Appendix B).
 - **Edition** — a specific, permanent version of a ruleset, written
-  `<major>-<minor>:<Ruleset>` — for example `1-2:PRE-RELEASE`. An edition fixes
-  the army composition and every variant setting, so naming one names exactly
-  what was played.
-- **Variant** — an optional rule setting that can be switched away from its
-  standard value. Published variants are listed in Appendix A.
+  `<major>-<minor>:<Ruleset>` — for example `2-0:SKIRMISH`. An edition fixes a
+  value for **every** variant setting, the board and the army included, so naming
+  one names exactly what was played.
+- **Variant** — a named rule setting that can be switched away from its standard
+  value. Published variants are listed in Appendix A.
 
 ---
 
 ## Appendix A — Variants
 
 A **variant** is a single named rule setting with two or more named values, one
-of which is its **default**. Everything in Sections 1–7 describes the game with
-every variant at its default, so a game played "by the rules" needs no reference
-to this appendix at all.
+of which is its **default**.
 
-**There are no published variants yet.** Sections 1–7 are the whole game. This
-appendix exists so that the first one has a defined place to land, and so the
-promises below are on record before there is anything to apply them to.
+Sections 1–7 describe both published rulesets in full, so you do not need this
+appendix to play either of them. What it provides is the vocabulary that names
+*which* set of rules a given game used — the thing every game record and every
+trained engine stamps itself with — and a defined place for future settings to
+land.
 
 Three promises govern this appendix:
 
@@ -286,45 +411,107 @@ Three promises govern this appendix:
    clarification and welcome. If not, it is a different variant, and it gets its
    own name rather than replacing this one.
 
-Each entry, when there are entries, gives the variant's identifier, its
-available values, which value is the default, and what each value does in play.
+Each entry gives the variant's identifier, its available values, which value is
+the default, and what each value does in play.
 
 Variants that are still being considered are *not* listed here — they live in
 [`proposed-variants.md`](proposed-variants.md), which carries no promises at all
 and may change or disappear at any time. A variant reaches this appendix only
 once it is actually implemented in the game.
 
+### `BOARD_LAYOUT`
+
+**Values:** `standard_144` | `standard_64` — **default `standard_144`**
+
+Selects the board. A value names a **complete layout**, not just a size: the grid
+dimensions, how many rows each home zone occupies, and where the lakes sit.
+
+| Value | Grid | Rows | Home zone | Lakes |
+|---|---|---|---|---|
+| `standard_144` | 12 × 12 | 4 home / 1 buffer / 2 lake / 1 buffer / 4 home | 48 squares | three 2 × 2 |
+| `standard_64` | 8 × 8 | 3 home / 2 lake / 3 home | 24 squares | two 2 × 2 |
+
+Both layouts are described in full in [Section 2.1](#21-the-board):
+`standard_144` is the Battle board, `standard_64` the Skirmish board.
+
+Because a value names the whole layout, a board that differed only in its
+home-zone depth — the same 8 × 8 grid with two home rows instead of three — would
+be a **new value**, not an adjustment to this one.
+
+### `ARMY_COMPOSITION`
+
+**Values:** `standard_battle` | `standard_skirmish` — **default `standard_battle`**
+
+Selects the army each player commands.
+
+| Value | Army | Total |
+|---|---|---|
+| `standard_battle` | 3 each of ranks 1–6, 6 Towers, 1 Flag | 25 |
+| `standard_skirmish` | 3 each of ranks 1–4, 3 Towers, 1 Flag | 16 |
+
+Both armies are listed in full in [Section 2.2](#22-the-pieces).
+
+### Combining these two
+
+`BOARD_LAYOUT` and `ARMY_COMPOSITION` are set independently, so it is possible to
+name a combination that **cannot be played**: an army must fit in its home zone,
+one piece per square. `standard_battle` on `standard_64` asks 25 pieces to occupy
+24 squares and is therefore **not a valid setting for play**. The published
+rulesets in Appendix B always pair them validly.
+
+This restriction is about *playing* a game. It does not apply to reading a
+recorded one: a record shows the board it was played on, and a record may begin
+from a position part-way through a game that had no placement phase to be valid
+or invalid.
+
 ---
 
 ## Appendix B — Rulesets
 
 An **edition** is the permanent, exact answer to "which rules was this game
-played under": an army composition plus a value for every variant. A **ruleset
-name** points at whichever of its editions is current, and that pointer moves
-when a new edition is published. Every game record and every trained engine
-records its edition, so the rules behind a stored game are always recoverable.
+played under": a value for every variant, together with the numbered rules text
+those variants apply to. A **ruleset name** points at whichever of its editions
+is current, and that pointer moves when a new edition is published. Every game
+record and every trained engine records its edition, so the rules behind a stored
+game are always recoverable.
 
-The two tables below share the same fields. **Active** lists the current edition
-of every ruleset on offer; **Historical** lists editions no longer pointed at.
+An edition id is written `<major>-<minor>:<Ruleset>`. **The major number names
+the rules text**; the variant values fill in the settings that text leaves open.
+This document is **major 2**, so it describes every edition numbered `2-`.
+Editions at an earlier major were played under earlier rules text, which this
+document no longer contains — their entries remain below so that a stored game
+still names something real.
+
+The two tables share the same fields. **Active** lists the current edition of
+every ruleset on offer; **Historical** lists editions no longer pointed at.
 Editions in both tables are equally permanent — retiring an edition does not
 change what it meant, it only stops it from being the one currently played.
 
 ### Active
 
-| Edition | Army composition | Variant values | Status |
+| Edition | Variant values | In plain terms | Status |
 |---|---|---|---|
-| `1-2:PRE-RELEASE` | 3 each of ranks 1–6, 6 Towers, 1 Flag (Section 2.2) | all defaults | active |
+| `2-0:BATTLE` | `BOARD_LAYOUT=standard_144`, `ARMY_COMPOSITION=standard_battle` | 12 × 12 board; 25-piece army across six ranks | active |
+| `2-0:SKIRMISH` | `BOARD_LAYOUT=standard_64`, `ARMY_COMPOSITION=standard_skirmish` | 8 × 8 board; 16-piece army across four ranks | active |
 
-`PRE-RELEASE` is the current ruleset: the game is pre-release and the rules are
-still being shaped, so its edition is bumped as needed. At release it will be
-retired in favour of a stable ruleset name, which then takes its place in this
-table.
+Both rulesets are offered and maintained together. They share this entire rules
+text and differ only in the two variant values shown. **Skirmish** is the
+recommended starting point for a new player (see
+[Section 1](#two-rulesets)); **Battle** is the larger game.
+
+The "in plain terms" column restates the variant values for readability. The
+variant values are what the edition actually fixes.
 
 ### Historical
 
-| Edition | Army composition | Variant values | Status |
+| Edition | Variant values | In plain terms | Status |
 |---|---|---|---|
-| *(none yet)* | | | |
+| `1-2:PRE-RELEASE` | *(predates both variants; resolves to their defaults)* | 12 × 12 board; 25-piece army across six ranks | retired |
+
+`PRE-RELEASE` was the ruleset used while the game was being shaped before
+release. It was retired when Battle and Skirmish were published. Being a major-1
+edition, it was played **without diagonal attacks** and on the 12 × 12 board
+only — under rules text this document no longer carries.
 
 The **Status** column carries one of two reasons an edition left the Active
 table:

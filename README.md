@@ -1,9 +1,14 @@
 # capture-the-flag
 
 A two-phase, perfect-information battlefield board game with an AI that learns to play
-it. Phase 1 is secret simultaneous placement of 25 pieces per side; phase 2 is
-alternating, fully visible play on a 12x12 board until a flag is captured (or a
+it. Phase 1 is secret simultaneous placement of a full army; phase 2 is
+alternating, fully visible play until a flag is captured (or a
 player is left with no legal move, or an inactivity limit forces a draw).
+
+Two rulesets are published, sharing every rule but the board and the army:
+**Battle** (12x12 board, 25 pieces per side) and **Skirmish** (8x8 board, 16
+pieces), the smaller and faster of the two. See
+[`doc/ruleset/rules.md`](doc/ruleset/rules.md).
 
 The game is built on [game-engine-core](https://github.com/phil-hutchinson/game-engine-core),
 which provides the game-agnostic engine, MCTS/PUCT search, and learning

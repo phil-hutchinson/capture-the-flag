@@ -22,7 +22,7 @@ board or army (the Tower placement rule) join it here.
 
 from dataclasses import dataclass
 
-from .board import BOARD_LAYOUTS, BoardLayout
+from .board import BOARD_LAYOUTS, BoardLayout, Square
 from .pieces import ARMY_COMPOSITIONS, ArmyComposition
 from .record import (
     RulesetConfiguration,
@@ -31,6 +31,30 @@ from .record import (
     resolve_flag,
     unsupported_aspects,
 )
+from .side import Side
+
+SPACING_ONLY = "spacing_only"
+"""`TOWER_PLACEMENT` at its default: the published Tower spacing rule and nothing
+more (`rules.md` Section 3)."""
+
+SPACING_AND_LANES = "spacing_and_lanes"
+"""`TOWER_PLACEMENT` with the lane restriction as well: no Tower on a square
+orthogonally adjacent to a lane square.
+
+The labels live here rather than beside the registry entry in `record.py` because
+this is where the flag is *interpreted* — `record.py` publishes value labels but
+never acts on them, exactly as it publishes `standard_144` without knowing what a
+board is."""
+
+TOWER_PLACEMENTS: frozenset[str] = frozenset({SPACING_ONLY, SPACING_AND_LANES})
+"""Every `TOWER_PLACEMENT` value this build can actually apply.
+
+Membership is *implementability*, not publication — the same distinction
+`board.BOARD_LAYOUTS` and `pieces.ARMY_COMPOSITIONS` draw, and it matters for the
+same reason. A flag resolving to behavior rather than to an object has no lookup
+table to fail against, so without this a published label this code had never
+heard of would fall through to "not `spacing_and_lanes`" and quietly play the
+default."""
 
 
 @dataclass(frozen=True)
@@ -51,6 +75,14 @@ class GameSetup:
     layout: BoardLayout
     composition: ArmyComposition
     configuration: RulesetConfiguration | None = None
+    tower_placement: str = SPACING_ONLY
+    """The resolved `TOWER_PLACEMENT` value — the first flag here that resolves to
+    behavior rather than to an object.
+
+    It belongs on the setup for the reason the board and the army do: placement is
+    the one thing that reads it, and placement already takes a setup. It defaults
+    to `SPACING_ONLY` so a hand-built `GameSetup` plays the published Tower rule
+    and nothing more, which is what the flag's own default says."""
 
     @property
     def stamp(self) -> RulesetConfiguration:
@@ -71,6 +103,25 @@ class GameSetup:
                 f"{self.layout.layout_id}: {self.composition.size} pieces into "
                 f"{home_squares} home squares, one piece per square"
             )
+        if self.tower_placement not in TOWER_PLACEMENTS:
+            raise ValueError(
+                f"this build applies no TOWER_PLACEMENT {self.tower_placement!r}; "
+                f"it implements {', '.join(sorted(repr(v) for v in TOWER_PLACEMENTS))}"
+            )
+
+    def forbidden_tower_squares(self, side: Side) -> frozenset[Square]:
+        """Home squares of `side` where `TOWER_PLACEMENT` forbids a Tower.
+
+        Empty under `spacing_only`, and — because the set is derived from the
+        board rather than listed — empty on any layout whose home zones do not
+        touch the lake rows, which is what makes the flag inert on Battle without
+        Battle being a special case. The spacing rule itself is not expressed here:
+        it constrains Towers relative to *each other* rather than to squares, so it
+        lives with the placement check that can see them all at once.
+        """
+        if self.tower_placement != SPACING_AND_LANES:
+            return frozenset()
+        return self.layout.home_squares(side) & self.layout.lane_adjacent_squares
 
 
 def setup_for_ruleset(ruleset: str) -> GameSetup:
@@ -87,9 +138,12 @@ def resolve_setup(configuration: RulesetConfiguration) -> GameSetup:
     """The board and army `configuration` selects.
 
     This is the one place a stamped configuration becomes something the engine
-    can set a game up with: `BOARD_LAYOUT` and `ARMY_COMPOSITION` resolve through
-    the edition and flag registry (`record.resolve_flag`), and their value labels
-    are looked up in the tables of what this build can actually play.
+    can set a game up with: every flag resolves through the edition and flag
+    registry (`record.resolve_flag`), and its value label is then checked against
+    what this build can actually play. `BOARD_LAYOUT` and `ARMY_COMPOSITION` are
+    checked against the tables they resolve to; `TOWER_PLACEMENT` resolves to
+    behavior rather than to an object, so it is checked against the set of labels
+    this code has an implementation for.
 
     Raises `ValueError` naming everything wrong at once when the configuration is
     beyond this build — an edition it does not implement, a flag it does not
@@ -105,11 +159,13 @@ def resolve_setup(configuration: RulesetConfiguration) -> GameSetup:
 
     layout_id = resolve_flag(configuration, "BOARD_LAYOUT")
     composition_id = resolve_flag(configuration, "ARMY_COMPOSITION")
+    tower_placement = resolve_flag(configuration, "TOWER_PLACEMENT")
     missing = [
         f"{flag_id} {label!r}"
         for flag_id, label, table in (
             ("BOARD_LAYOUT", layout_id, BOARD_LAYOUTS),
             ("ARMY_COMPOSITION", composition_id, ARMY_COMPOSITIONS),
+            ("TOWER_PLACEMENT", tower_placement, TOWER_PLACEMENTS),
         )
         if label not in table
     ]
@@ -126,6 +182,7 @@ def resolve_setup(configuration: RulesetConfiguration) -> GameSetup:
         layout=BOARD_LAYOUTS[layout_id],
         composition=ARMY_COMPOSITIONS[composition_id],
         configuration=configuration,
+        tower_placement=tower_placement,
     )
 
 

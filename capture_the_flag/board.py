@@ -99,6 +99,26 @@ class BoardLayout:
         init=False, compare=False, repr=False
     )
     lake_squares: frozenset[Square] = field(init=False, compare=False, repr=False)
+    lane_squares: frozenset[Square] = field(init=False, compare=False, repr=False)
+    """The open squares within the lake rows — the only squares a piece can cross
+    the middle of the board through, which is what makes them lanes.
+
+    A property of the lake pattern rather than a second way of stating it: a
+    column is lane exactly where it is not lake, so this is the lake rows'
+    complement and cannot drift from `lake_squares`."""
+
+    lane_adjacent_squares: frozenset[Square] = field(
+        init=False, compare=False, repr=False
+    )
+    """Squares one orthogonal step from a lane square, the lanes themselves
+    included where two lane rows meet.
+
+    Derived rather than listed because the answer differs completely by board and
+    a listing would have to be right about each one separately: on a board whose
+    home zones abut the lake rows this reaches into both home zones, and on one
+    with a neutral buffer row it reaches only into the buffer. The `TOWER_PLACEMENT`
+    flag is what reads it (`game_setup.GameSetup.forbidden_tower_squares`); the
+    geometry itself is board fact and stays here."""
 
     def __post_init__(self) -> None:
         # Derived members are excluded from equality: they are a function of the
@@ -142,6 +162,22 @@ class BoardLayout:
                 for row in self.lake_rows
                 for column in range(self.columns)
                 if self.lake_pattern[column]
+            ),
+        )
+        lanes = frozenset(
+            Square(column, row)
+            for row in self.lake_rows
+            for column in range(self.columns)
+            if not self.lake_pattern[column]
+        )
+        object.__setattr__(self, "lane_squares", lanes)
+        object.__setattr__(
+            self,
+            "lane_adjacent_squares",
+            frozenset(
+                neighbour
+                for lane in lanes
+                for neighbour in self.orthogonal_neighbors(lane)
             ),
         )
 

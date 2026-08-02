@@ -1,5 +1,6 @@
 """Tests for the placement seam and the random placement generator."""
 
+import dataclasses
 import itertools
 import random
 
@@ -9,7 +10,11 @@ from capture_the_flag.board import (
     STANDARD_144,
     Square,
 )
-from capture_the_flag.game_setup import BATTLE_SETUP, setup_for_ruleset
+from capture_the_flag.game_setup import (
+    BATTLE_SETUP,
+    SPACING_AND_LANES,
+    setup_for_ruleset,
+)
 from capture_the_flag.pieces import STANDARD_BATTLE, STANDARD_SKIRMISH, PieceType
 from capture_the_flag.placement import Placement, assemble_position, random_placement
 from capture_the_flag.side import Side
@@ -208,3 +213,116 @@ def test_a_skirmish_placement_assembles_into_a_skirmish_position():
     # Front ranks 3 rows apart, not Battle's 4: there is no neutral buffer.
     assert max(s.row for s in position.board if s.row <= 3) == 3
     assert min(s.row for s in position.board if s.row >= 6) == 6
+
+
+# --- TOWER_PLACEMENT (story 37, step 10) -------------------------------------
+
+_SKIRMISH_LANES = setup_for_ruleset("SKIRMISH")
+_SKIRMISH_LANES_ON = dataclasses.replace(
+    _SKIRMISH_LANES, tower_placement=SPACING_AND_LANES
+)
+_BATTLE_LANES_ON = dataclasses.replace(BATTLE_SETUP, tower_placement=SPACING_AND_LANES)
+
+
+def test_spacing_and_lanes_closes_the_skirmish_lane_mouths():
+    # The four lanes on the 8x8 board are columns A, D, E and H — the columns the
+    # lake pattern leaves open — and each home zone's front rank sits directly
+    # against a lake row, so exactly those four squares close per side.
+    white = _SKIRMISH_LANES_ON.forbidden_tower_squares(Side.WHITE)
+    black = _SKIRMISH_LANES_ON.forbidden_tower_squares(Side.BLACK)
+
+    assert {str(square) for square in white} == {"A3", "D3", "E3", "H3"}
+    assert {str(square) for square in black} == {"A6", "D6", "E6", "H6"}
+
+
+def test_spacing_and_lanes_leaves_the_squares_behind_the_lakes_open():
+    # B, C, F and G are lake columns, so nothing behind them fronts a lane and
+    # the restriction must not touch them — a rule that closed the whole front
+    # rank would be a different (and much heavier) rule.
+    closed = _SKIRMISH_LANES_ON.forbidden_tower_squares(Side.WHITE)
+
+    assert not closed & {Square(column, 3) for column in (1, 2, 5, 6)}
+
+
+@pytest.mark.parametrize("side", [Side.WHITE, Side.BLACK])
+def test_spacing_and_lanes_closes_nothing_on_the_battle_board(side):
+    # Battle has a neutral buffer row between each home zone and the lakes, so no
+    # home square is adjacent to a lane. The flag is well-defined there and inert,
+    # and that falls out of the geometry rather than being special-cased.
+    assert _BATTLE_LANES_ON.forbidden_tower_squares(side) == frozenset()
+
+
+@pytest.mark.parametrize("side", [Side.WHITE, Side.BLACK])
+def test_spacing_only_closes_nothing_anywhere(side):
+    assert _SKIRMISH_LANES.forbidden_tower_squares(side) == frozenset()
+    assert BATTLE_SETUP.forbidden_tower_squares(side) == frozenset()
+
+
+@pytest.mark.parametrize("side", [Side.WHITE, Side.BLACK])
+def test_random_skirmish_placement_never_puts_a_tower_on_a_closed_square(side):
+    # Many seeds rather than a few: three Towers in twenty candidate squares is
+    # the tightest the greedy walk gets under any published pairing, so this is
+    # also the stall check — a seed that stalls raises out of `random_placement`.
+    closed = _SKIRMISH_LANES_ON.forbidden_tower_squares(side)
+    for seed in range(400):
+        placement = random_placement(side, _SKIRMISH_LANES_ON, random.Random(seed))
+        assert not closed & set(_towers(placement))
+        assert not _has_adjacent_towers(placement)
+        assert _piece_counts(placement) == STANDARD_SKIRMISH.counts
+
+
+def _skirmish_placement(side: Side, tower_squares: tuple[Square, ...]) -> Placement:
+    """A roster-exact Skirmish placement with the Towers on `tower_squares`.
+
+    Built by hand rather than drawn, so the only thing that varies between the
+    cases below is where the Towers stand.
+    """
+    placement: dict[Square, PieceType] = dict.fromkeys(tower_squares, PieceType.TOWER)
+    rest = [
+        square
+        for square in sorted(_SKIRMISH_LANES.layout.home_squares(side))
+        if square not in placement
+    ]
+    pieces = [PieceType.FLAG] + [
+        rank
+        for rank in (
+            PieceType.MASTER_OF_ARMS,
+            PieceType.CHAMPION,
+            PieceType.KNIGHT,
+            PieceType.HALBERDIER,
+        )
+        for _ in range(3)
+    ]
+    placement.update(zip(rest, pieces, strict=False))
+    return placement
+
+
+_A3, _D1, _G1 = Square(0, 3), Square(3, 1), Square(6, 1)
+
+
+def test_assemble_position_rejects_a_tower_in_a_lane_mouth():
+    # A3 is the mouth of the A lane; D1 and G1 are back-rank squares far enough
+    # from it and from each other that the spacing rule is satisfied, so the lane
+    # rule is the only thing that can reject this placement.
+    white = _skirmish_placement(Side.WHITE, (_A3, _D1, _G1))
+    black = random_placement(Side.BLACK, _SKIRMISH_LANES_ON, random.Random(2))
+
+    with pytest.raises(ValueError, match="in front of a lane") as rejection:
+        assemble_position(white, black, _SKIRMISH_LANES_ON)
+    assert "A3" in str(rejection.value)
+
+
+def test_the_same_placement_is_legal_under_spacing_only():
+    # Same board, flag at its default: accepted. That is what makes this a flag
+    # rather than a rules change — no existing edition's play is altered.
+    white = _skirmish_placement(Side.WHITE, (_A3, _D1, _G1))
+    black = random_placement(Side.BLACK, _SKIRMISH_LANES, random.Random(2))
+
+    position = assemble_position(white, black, _SKIRMISH_LANES)
+
+    assert position.board[_A3] == (Side.WHITE, PieceType.TOWER)
+
+
+def test_game_setup_rejects_an_unimplemented_tower_placement():
+    with pytest.raises(ValueError, match="TOWER_PLACEMENT"):
+        dataclasses.replace(BATTLE_SETUP, tower_placement="lanes_only_on_tuesdays")

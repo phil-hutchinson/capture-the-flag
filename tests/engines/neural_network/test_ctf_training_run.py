@@ -31,7 +31,6 @@ from capture_the_flag.engines.neural_network.ctf_training_run import (
 )
 from capture_the_flag.record import (
     DEFAULT_EDITION,
-    RuleFlag,
     RulesetConfiguration,
     active_configuration,
 )
@@ -251,15 +250,13 @@ def test_resume_stamps_its_own_checkpoints_with_the_configuration_it_adopted(
 ):
     # The stamp is adopted, not merely verified: a resume continues under the
     # configuration its weights were trained under, so the generations it appends
-    # must carry that configuration and not the current active one. With a single
-    # published edition and an empty flag registry the two coincide, which is why
-    # this test has to supply a flag — the failure it guards against only becomes
-    # reachable once a second variant exists, and by then it is silent.
-    monkeypatch.setattr(
-        "capture_the_flag.record.RULE_FLAGS",
-        {"MOVABLE_TOWERS": RuleFlag(flag_id="MOVABLE_TOWERS", values=("off", "on"), default="off")},
+    # must carry that configuration and not the current active one. The deviation
+    # is a real published flag at a real published value, and one that is inert on
+    # Battle's board — so what this pins is the *stamp* travelling intact through a
+    # resume, with no behavioural difference propping it up.
+    trained_under = RulesetConfiguration(
+        DEFAULT_EDITION, {"TOWER_PLACEMENT": "spacing_and_lanes"}
     )
-    trained_under = RulesetConfiguration(DEFAULT_EDITION, {"MOVABLE_TOWERS": "on"})
     run_dir = _assembled_run(tmp_path, configuration=trained_under)
     # Self-play and gradient descent are not what is under test, and running them
     # would put this in the `slow` suite; the stub keeps the resume path itself

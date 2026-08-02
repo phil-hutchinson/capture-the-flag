@@ -19,17 +19,19 @@ ruleset marker of its own.
 placements folder (`placements/` by default, gitignored). Both raise
 `PlacementFileError` with a player-facing message, in two vocabularies: a
 file not in proper form (row count, row length, unknown character) is
-reported structurally, while a well-formed file with the wrong piece mix is
-reported as which piece types appear too many and too few times.
+reported structurally, while a well-formed file breaking a placement rule is
+reported in the rule's own terms — which piece types appear too many and too few
+times, or which Towers are badly placed and why.
 """
 
+import itertools
 from collections import Counter
 from pathlib import Path
 
 from .board import BoardLayout, Square
 from .game_setup import GameSetup
 from .pieces import PIECE_BY_SYMBOL, PieceType
-from .placement import Placement
+from .placement import Placement, towers_too_close
 from .side import Side
 
 DEFAULT_PLACEMENT_DIR = Path("placements")
@@ -76,12 +78,43 @@ def _check_roster(placement: Placement, setup: GameSetup) -> None:
     )
 
 
+def _check_tower_rules(placement: Placement, side: Side, setup: GameSetup) -> None:
+    """Both Tower placement rules, reported in the player-facing vocabulary.
+
+    Checked here as well as in `placement._validate_placement` because the two
+    are reached by different people. The placement check is the engine's own
+    invariant and raises a plain `ValueError` that ends the game; this one runs
+    while the player is still at the prompt, so a bad file is something they can
+    correct and retry rather than a crash. Naming the offending squares is what
+    makes that retry useful — a file is a grid of characters, and "somewhere in
+    it, two Towers are adjacent" is not enough to act on.
+    """
+    towers = [square for square, piece in placement.items() if piece is PieceType.TOWER]
+    adjacent = sorted(
+        (a, b) for a, b in itertools.combinations(sorted(towers), 2)
+        if towers_too_close(a, b)
+    )
+    if adjacent:
+        pairs = "; ".join(f"{a} and {b}" for a, b in adjacent)
+        raise PlacementFileError(
+            f"Towers must not be placed next to each other, including diagonally "
+            f"— {pairs}"
+        )
+    closed = sorted(setup.forbidden_tower_squares(side) & set(towers), key=str)
+    if closed:
+        raise PlacementFileError(
+            "Towers may not stand directly in front of a lane — "
+            f"{', '.join(str(square) for square in closed)}"
+        )
+
+
 def parse_placement_file(text: str, side: Side, setup: GameSetup) -> Placement:
     """Parse placement-file `text` into a `Placement` for `side` under `setup`.
 
     Raises `PlacementFileError` if the text is not one row per home-zone row,
-    each as wide as the board and made of known piece symbols or `-` (empty), or
-    if the filled squares do not match the setup's army.
+    each as wide as the board and made of known piece symbols or `-` (empty), if
+    the filled squares do not match the setup's army, or if the Towers break
+    either placement rule the setup imposes on them.
     """
     layout = setup.layout
     lines = text.splitlines()
@@ -112,6 +145,7 @@ def parse_placement_file(text: str, side: Side, setup: GameSetup) -> Placement:
             placement[_square_for(side, line_index, char_index, layout)] = piece
 
     _check_roster(placement, setup)
+    _check_tower_rules(placement, side, setup)
     return placement
 
 

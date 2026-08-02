@@ -1,5 +1,7 @@
 """Tests for placement-file parsing and loading."""
 
+import dataclasses
+
 import pytest
 
 from capture_the_flag.board import (
@@ -7,7 +9,11 @@ from capture_the_flag.board import (
     Square,
     parse_square,
 )
-from capture_the_flag.game_setup import BATTLE_SETUP
+from capture_the_flag.game_setup import (
+    BATTLE_SETUP,
+    SPACING_AND_LANES,
+    setup_for_ruleset,
+)
 from capture_the_flag.pieces import STANDARD_BATTLE, PieceType
 from capture_the_flag.placement_file import (
     PlacementFileError,
@@ -123,3 +129,78 @@ def test_parsed_placement_has_a_flag_on_the_board():
     # Guard the test fixture itself: VALID_TEXT is roster-exact.
     placement = parse_placement_file(VALID_TEXT, Side.WHITE, BATTLE_SETUP)
     assert Square(11, 1) in placement  # L1, the Flag square
+
+
+# --- Tower rules at the file seam (story 37, step 10) ------------------------
+#
+# Both Tower rules are checked here as well as in `placement`, because a player
+# typing a file name is still at a prompt they can retry from: a
+# `PlacementFileError` is printed and re-prompted, while the plain `ValueError`
+# `assemble_position` raises would end the game.
+
+_SKIRMISH = setup_for_ruleset("SKIRMISH")
+_SKIRMISH_LANES_ON = dataclasses.replace(_SKIRMISH, tower_placement=SPACING_AND_LANES)
+
+# A legal Skirmish file, front rank first: Towers on the back rank at A1, D1 and
+# G1, the Flag beside them, and the twelve numbered pieces above.
+SKIRMISH_TEXT = "\n".join(
+    [
+        "12341234",
+        "1234----",
+        "T--T--TF",
+    ]
+)
+
+# The same roster with one Tower moved to the mouth of the A lane (A3 for White).
+SKIRMISH_LANE_TOWER_TEXT = "\n".join(
+    [
+        "T2341234",
+        "1234----",
+        "1--T--TF",
+    ]
+)
+
+
+def test_a_valid_skirmish_file_parses_under_both_tower_rules():
+    for setup in (_SKIRMISH, _SKIRMISH_LANES_ON):
+        placement = parse_placement_file(SKIRMISH_TEXT, Side.WHITE, setup)
+        assert _piece_counts(placement)[PieceType.TOWER] == 3
+
+
+def test_a_lane_mouth_tower_is_rejected_under_spacing_and_lanes():
+    with pytest.raises(PlacementFileError, match="in front of a lane") as rejection:
+        parse_placement_file(SKIRMISH_LANE_TOWER_TEXT, Side.WHITE, _SKIRMISH_LANES_ON)
+    # The offending square by name: a file is a grid of characters, so "a Tower is
+    # badly placed" is not something a player can act on.
+    assert "A3" in str(rejection.value)
+
+
+def test_a_lane_mouth_tower_is_accepted_under_spacing_only():
+    placement = parse_placement_file(SKIRMISH_LANE_TOWER_TEXT, Side.WHITE, _SKIRMISH)
+
+    assert placement[parse_square("A3")] is PieceType.TOWER
+
+
+def test_the_lane_rule_follows_the_side_the_file_is_read_for():
+    # The same file read for Black lands on Black's home zone, so the square it
+    # closes is A6 rather than A3 — the restriction is per side, derived from the
+    # same geometry.
+    with pytest.raises(PlacementFileError, match="in front of a lane") as rejection:
+        parse_placement_file(SKIRMISH_LANE_TOWER_TEXT, Side.BLACK, _SKIRMISH_LANES_ON)
+    assert "H6" in str(rejection.value)
+
+
+def test_adjacent_towers_are_reported_at_the_file_seam():
+    # Not new to this story's flag, but reachable through the same seam: without
+    # the check the file parses and the game then dies in `assemble_position`.
+    text = "\n".join(
+        [
+            "12341234",
+            "1234----",
+            "TT---T-F",
+        ]
+    )
+    with pytest.raises(PlacementFileError, match="next to each other") as rejection:
+        parse_placement_file(text, Side.WHITE, _SKIRMISH)
+    message = str(rejection.value)
+    assert "A1" in message and "B1" in message

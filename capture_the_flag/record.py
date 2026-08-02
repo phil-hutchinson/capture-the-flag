@@ -61,6 +61,11 @@ RULE_FLAGS: dict[str, RuleFlag] = {
             values=("standard_battle", "standard_skirmish"),
             default="standard_battle",
         ),
+        RuleFlag(
+            flag_id="TOWER_PLACEMENT",
+            values=("spacing_only", "spacing_and_lanes"),
+            default="spacing_only",
+        ),
     )
 }
 """The published flag registry, keyed by flag id.
@@ -71,8 +76,10 @@ from `doc/ruleset/proposed-variants.md`.
 
 The document appendices are the source of truth for what is published (see
 `doc/ruleset/rules.md` Appendix A); this is the engine's own copy of the part it
-must act on. Both defaults reproduce what `1-2:PRE-RELEASE` played, which is what
-made introducing them a no-op for every edition and record that predates them.
+must act on. Every default reproduces what `1-2:PRE-RELEASE` played, which is what
+made introducing each one a no-op for every edition and record that predates it —
+`TOWER_PLACEMENT` included, since no published edition sets it away from
+`spacing_only` at the point it is registered.
 
 A value label appearing here is a claim about what is *published*, not about what
 this build can set up: `board.BOARD_LAYOUTS` and `pieces.ARMY_COMPOSITIONS` say

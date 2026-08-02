@@ -142,9 +142,18 @@ class BoardLayout:
 
         white_home = range(1, self.home_rows + 1)
         black_home = range(self.rows - self.home_rows + 1, self.rows + 1)
-        # A lake inside a home zone would make placement geometry ill-defined and
-        # is far more likely a typo in a new layout than an intended board.
+        # A lake off the board or inside a home zone is far more likely a typo in
+        # a new layout than an intended board, and neither fails loudly on its
+        # own: an off-board lake row lands in `lake_squares` but is filtered out
+        # of every derived set by `contains`, so the layout silently becomes a
+        # board with no lakes and no lanes -- and `TOWER_PLACEMENT` silently inert
+        # on it.
         for row in self.lake_rows:
+            if not 1 <= row <= self.rows:
+                raise ValueError(
+                    f"{self.layout_id}: lake row {row} is not on a "
+                    f"{self.rows}-row board"
+                )
             if row in white_home or row in black_home:
                 raise ValueError(
                     f"{self.layout_id}: lake row {row} lies inside a home zone"

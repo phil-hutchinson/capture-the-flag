@@ -36,7 +36,9 @@ class _ScriptedPlayer:
             self.prompts.append(prompt)
             return next(inputs_iter)
 
-        ui = CtfGameUI(input_fn=input_fn, print_fn=self.messages.append)
+        ui = CtfGameUI(
+            BATTLE_SETUP, input_fn=input_fn, print_fn=self.messages.append
+        )
         self.player = HumanCtfPlayer(
             "Alice",
             ui,

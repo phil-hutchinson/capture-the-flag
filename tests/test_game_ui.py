@@ -5,6 +5,7 @@ from types import MappingProxyType
 import pytest
 
 from capture_the_flag.board import STANDARD_144, Square
+from capture_the_flag.game_setup import BATTLE_SETUP
 from capture_the_flag.game_ui import CtfGameUI
 from capture_the_flag.pieces import PieceType as P
 from capture_the_flag.ply import CtfPly, parse_ply
@@ -33,7 +34,9 @@ class _ScriptedUI:
             self.prompts.append(prompt)
             return next(inputs_iter)
 
-        self.ui = CtfGameUI(input_fn=input_fn, print_fn=self.messages.append)
+        self.ui = CtfGameUI(
+            BATTLE_SETUP, input_fn=input_fn, print_fn=self.messages.append
+        )
 
 
 def test_parse_ply_is_the_inverse_of_str():

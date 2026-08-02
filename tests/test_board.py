@@ -116,6 +116,22 @@ def test_layout_rejects_a_lake_row_inside_a_home_zone():
         )
 
 
+def test_layout_rejects_a_lake_row_off_the_board():
+    # Silent if unchecked: an off-board lake row is outside both home zones, so
+    # it passes the check above, and every square it contributes is then filtered
+    # out by `contains` — leaving a board with no lakes, no lanes, and a
+    # `spacing_and_lanes` restriction that closes nothing.
+    with pytest.raises(ValueError, match="is not on a 8-row board"):
+        BoardLayout(
+            layout_id="broken",
+            columns=4,
+            rows=8,
+            home_rows=3,
+            lake_rows=(4, 40),
+            lake_pattern=(False, True, True, False),
+        )
+
+
 def test_layout_rejects_a_lake_pattern_of_the_wrong_width():
     with pytest.raises(ValueError, match="lake pattern covers"):
         BoardLayout(

@@ -111,11 +111,16 @@ class TrainingConfig:
     residual_block_count: int = DEFAULT_RESIDUAL_BLOCK_COUNT
     seed: int | None = None
     ruleset: str = DEFAULT_RULESET
-    """Which published ruleset the run plays. A *name*, not an edition id: the
-    name is what a person selects and what stays true across a minor bump, while
-    the edition it resolves to is what every checkpoint is stamped with. A resume
-    re-resolves the name, so if the pointer has moved since, the checkpoint's own
-    stamp is what catches the disagreement."""
+    """Which published ruleset a *fresh* run plays. A name, not an edition id:
+    the name is what a person selects and what stays true across a minor bump,
+    while the edition it resolves to is what every checkpoint is stamped with.
+
+    A resume never reads this field. It resolves the edition stamped on the
+    checkpoint it continues from, which is the only thing that describes the
+    weights being rehydrated — re-resolving the name would silently follow the
+    pointer if it had moved since, and continue a run under an edition it was not
+    trained under. A moved pointer instead surfaces as the stamped edition no
+    longer being Active, which `checkpoint_configuration` refuses outright."""
 
 
 def train_generations(

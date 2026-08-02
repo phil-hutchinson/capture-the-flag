@@ -86,7 +86,8 @@ is a one-character piece symbol (`1`–`6`, `T`, `F`) or `-` for an empty square
 since a home zone holds more squares than the army fills. It is written from the
 owning player's seat (first line nearest the lakes, last line the back rank), so
 the same file produces the same setup for either side, and its shape is what
-identifies which board it is for.
+identifies which board it is for. The folder is gitignored and **ships empty** —
+placement files are yours to write, and no example ones are checked in.
 
 Moves are typed in the simple source–destination notation (e.g. `A2A3`);
 malformed or illegal input re-prompts with an explanation, and each turn's

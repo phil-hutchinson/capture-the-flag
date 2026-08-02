@@ -74,7 +74,7 @@ currently active for it, and that pointer moves. Two rulesets are live: `BATTLE`
 on the 12 × 12 board and `SKIRMISH` on the 8 × 8 board.
 
 **Edition** — an immutable identifier of the form `<major>-<minor>:<Ruleset>`
-(e.g. `2-0:SKIRMISH`), naming a **major baseline plus a complete set of rule
+(e.g. `2-1:SKIRMISH`), naming a **major baseline plus a complete set of rule
 flag values**. Once published, an edition never changes meaning; a rules change
 publishes a new edition and moves the ruleset's pointer to it. Immutability
 attaches to the published label, not to a frozen copy of rules text or engine
@@ -93,9 +93,11 @@ value of a flag (`ARMY_COMPOSITION`) like anything else, so nothing but flags
 ever has a claim on what an edition means.
 
 **Minor is namespaced per ruleset; major is global.** `2-0:BATTLE` and
-`2-0:SKIRMISH` share a major because they share a notation and a baseline, but
-their minors advance independently — `BATTLE` moving to `2-1` leaves `SKIRMISH`
-at `2-0`. A notation break moves every live ruleset to the next major together.
+`2-1:SKIRMISH` share a major because they share a notation and a baseline, but
+their minors advance independently — this is what actually happened: `SKIRMISH`
+moved to `2-1` for a placement restriction that changed nothing about Battle, and
+`BATTLE` stayed at `2-0`. The two are not meant to be brought back into step. A
+notation break moves every live ruleset to the next major together.
 
 The separator for editions is a **dash, not a dot** (`1-2:`, never `1.2:`): the
 id is a compound label rather than a decimal, and a dot invites decimal ordering,

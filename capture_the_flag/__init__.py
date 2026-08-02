@@ -13,6 +13,8 @@ match wrapper that plays a complete game. Training code lands in later stories.
 """
 
 from .board import (
+    BOARD_LAYOUTS,
+    STANDARD_64,
     STANDARD_144,
     BoardLayout,
     Square,
@@ -21,12 +23,19 @@ from .board import (
 )
 from .combat import CombatResult, resolve_combat
 from .game_logging import CtfGameLogging
-from .game_setup import BATTLE_SETUP, GameSetup, resolve_setup
+from .game_setup import BATTLE_SETUP, GameSetup, resolve_setup, setup_for_ruleset
 from .game_ui import CtfGameUI
 from .game_view import render_game_view
 from .match import MatchResult, build_initial_position, play_match
 from .outcome import compute_outcome, compute_outcome_reason
-from .pieces import STANDARD_BATTLE, ArmyComposition, Mobility, PieceType
+from .pieces import (
+    ARMY_COMPOSITIONS,
+    STANDARD_BATTLE,
+    STANDARD_SKIRMISH,
+    ArmyComposition,
+    Mobility,
+    PieceType,
+)
 from .placement import Placement, assemble_position, random_placement
 from .placement_file import (
     DEFAULT_PLACEMENT_DIR,
@@ -56,11 +65,15 @@ from .transitions import apply_ply
 
 __all__ = [
     "ACTIVE_EDITIONS",
+    "ARMY_COMPOSITIONS",
     "BATTLE_SETUP",
+    "BOARD_LAYOUTS",
     "DEFAULT_EDITION",
     "DEFAULT_PLACEMENT_DIR",
+    "STANDARD_64",
     "STANDARD_144",
     "STANDARD_BATTLE",
+    "STANDARD_SKIRMISH",
     "ArmyComposition",
     "BoardLayout",
     "CombatResult",
@@ -98,7 +111,8 @@ __all__ = [
     "random_placement",
     "render_game_view",
     "render_position_block",
-    "resolve_setup",
     "resolve_combat",
+    "resolve_setup",
+    "setup_for_ruleset",
     "write_record",
 ]

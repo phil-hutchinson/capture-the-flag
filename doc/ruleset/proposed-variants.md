@@ -49,9 +49,7 @@ from:
 - **Status** — free-form: under discussion, being prototyped, branch open,
   parked.
 
-## Proposals
-
-*(none)*
+## Recently graduated
 
 `TOWER_PLACEMENT` was proposed here and **graduated to
 [`rules.md`](rules.md) Appendix A** with story 00000037, which published
@@ -59,3 +57,7 @@ from:
 are permanent from that point; the reasoning behind it, and the connectivity rule
 rejected in its favour, moved to
 [`technical-notes.md`](technical-notes.md).
+
+## Proposals
+
+*(none)*

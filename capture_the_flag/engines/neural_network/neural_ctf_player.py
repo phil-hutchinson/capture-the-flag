@@ -72,13 +72,24 @@ def build_neural_player(
 
     `setup` is the board and army the seat is being filled for; it shapes the
     evaluator and, when one is not supplied, the network. A supplied `network`
-    must have been built for the same setup — `load_neural_player` is handed the
-    same one it loads the checkpoint against, so the two agree by construction.
+    must have been built for the same setup, and is checked rather than trusted:
+    `load_neural_player` is handed the same setup it loads the checkpoint against
+    so the two agree by construction, but a caller wiring a network up by hand has
+    no such guarantee, and the alternative to a named refusal here is a torch
+    shape error from somewhere inside the forward pass.
 
     The engine is the timed subclass, so an ordinary batch of games measures the
     same search boundary self-play does; with no timing session active it behaves
     exactly as the plain engine."""
     tensor_layout = TensorLayout.for_setup(setup)
+    if network is not None and network.tensor_layout != tensor_layout:
+        raise ValueError(
+            f"this network was built for "
+            f"{network.tensor_layout.layout.layout_id} / "
+            f"{network.tensor_layout.composition.composition_id}, but the seat is "
+            f"being filled for {tensor_layout.layout.layout_id} / "
+            f"{tensor_layout.composition.composition_id}"
+        )
     engine: MCTSEngine[CtfPly, CtfPosition, CtfNNEvaluator] = TimedMCTSEngine(
         evaluator=CtfNNEvaluator(
             network if network is not None else CtfCrn(tensor_layout), tensor_layout

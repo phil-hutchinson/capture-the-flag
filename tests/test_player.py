@@ -27,7 +27,9 @@ def test_make_human_player_needs_a_game_ui():
     with pytest.raises(ValueError, match="game UI"):
         make_player("human", "H", context=PlayerContext(game_ui=None))
 
-    player = make_player("human", "H", context=PlayerContext(game_ui=CtfGameUI()))
+    player = make_player(
+        "human", "H", context=PlayerContext(game_ui=CtfGameUI(BATTLE_SETUP))
+    )
     assert isinstance(player, HumanCtfPlayer)
 
 

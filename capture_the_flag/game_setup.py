@@ -70,6 +70,12 @@ class GameSetup:
     and such a setup is playable but not stampable. `resolve_setup` always fills
     it; a hand-built `GameSetup` leaves it `None`, and `stamp` is what turns
     trying to record one into a named error rather than a silent mislabel.
+
+    When it *is* named it must resolve to the other fields — a setup carrying a
+    configuration that describes some other board, army, or Tower rule is
+    rejected at construction (`_check_configuration_describes_this_setup`), since
+    it would stamp every record and checkpoint it produced with rules the game
+    was not played under.
     """
 
     layout: BoardLayout
@@ -107,6 +113,42 @@ class GameSetup:
             raise ValueError(
                 f"this build applies no TOWER_PLACEMENT {self.tower_placement!r}; "
                 f"it implements {', '.join(sorted(repr(v) for v in TOWER_PLACEMENTS))}"
+            )
+        self._check_configuration_describes_this_setup()
+
+    def _check_configuration_describes_this_setup(self) -> None:
+        """A named `configuration` must resolve to exactly these fields.
+
+        `stamp` guards the setup that has *no* configuration to record itself as;
+        this guards the setup that has the wrong one. Both are the same failure —
+        an artifact whose stamp does not describe the game that produced it — and
+        without this the second is silent, because a stamp is only ever compared
+        against another stamp and never against the board and army actually
+        played. `resolve_setup` derives every field from the configuration, so it
+        satisfies this by construction; what it catches is a setup assembled
+        field-by-field (or `dataclasses.replace`d) that then keeps a stamp
+        describing something else.
+
+        Mismatches are reported together rather than one at a time, for the
+        reason `resolve_setup` reports its own list whole: a setup built from the
+        wrong configuration usually disagrees about more than one flag, and
+        fixing them one error at a time reveals that slowly.
+        """
+        if self.configuration is None:
+            return
+        mismatches = [
+            f"{flag_id} resolves to {resolved!r}, but this setup has {actual!r}"
+            for flag_id, actual in (
+                ("BOARD_LAYOUT", self.layout.layout_id),
+                ("ARMY_COMPOSITION", self.composition.composition_id),
+                ("TOWER_PLACEMENT", self.tower_placement),
+            )
+            if (resolved := resolve_flag(self.configuration, flag_id)) != actual
+        ]
+        if mismatches:
+            raise ValueError(
+                f"this setup cannot be stamped {self.configuration.render()!r}: "
+                + "; ".join(mismatches)
             )
 
     def forbidden_tower_squares(self, side: Side) -> frozenset[Square]:

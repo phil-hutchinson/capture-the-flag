@@ -14,10 +14,12 @@ from capture_the_flag.game_setup import (
     BATTLE_SETUP,
     SPACING_AND_LANES,
     SPACING_ONLY,
+    resolve_setup,
     setup_for_ruleset,
 )
 from capture_the_flag.pieces import STANDARD_BATTLE, STANDARD_SKIRMISH, PieceType
 from capture_the_flag.placement import Placement, assemble_position, random_placement
+from capture_the_flag.record import RulesetConfiguration
 from capture_the_flag.side import Side
 
 BUFFER_ROWS = (5, 8)
@@ -219,17 +221,33 @@ def test_a_skirmish_placement_assembles_into_a_skirmish_position():
 # --- TOWER_PLACEMENT (story 37, step 10) -------------------------------------
 
 # The published Skirmish edition sets the flag on, so `setup_for_ruleset` already
-# carries it; the spacing-only variant has to be constructed. Battle with the flag
-# turned on is not a published pairing and exists only to pin that the restriction
-# is inert there.
+# carries it; the two variants are resolved from a configuration that deviates
+# from its edition on `TOWER_PLACEMENT` alone. Going through `resolve_setup`
+# rather than editing the field on a resolved setup is what keeps each variant
+# stampable: a setup's configuration has to resolve to its fields, so a setup
+# playing one Tower rule while carrying an edition that names the other is
+# rejected at construction. It is also the truer exercise of the flag — a
+# deviation is how a variant is expressed on the branch that tries it, before any
+# edition adopts it. Battle with the restriction on is not a published pairing and
+# exists only to pin that it is inert there.
 _SKIRMISH = setup_for_ruleset("SKIRMISH")
-_SKIRMISH_SPACING_ONLY = dataclasses.replace(_SKIRMISH, tower_placement=SPACING_ONLY)
-_BATTLE_LANES_ON = dataclasses.replace(BATTLE_SETUP, tower_placement=SPACING_AND_LANES)
+_SKIRMISH_SPACING_ONLY = resolve_setup(
+    RulesetConfiguration(
+        edition=_SKIRMISH.stamp.edition, flags={"TOWER_PLACEMENT": SPACING_ONLY}
+    )
+)
+_BATTLE_LANES_ON = resolve_setup(
+    RulesetConfiguration(
+        edition=BATTLE_SETUP.stamp.edition,
+        flags={"TOWER_PLACEMENT": SPACING_AND_LANES},
+    )
+)
 
 
 def test_spacing_and_lanes_closes_the_skirmish_lane_mouths():
-    # The four lanes on the 8x8 board are columns A, D, E and H — the columns the
-    # lake pattern leaves open — and each home zone's front rank sits directly
+    # The 8x8 board has three lanes — column A, columns D-E, column H — but four
+    # lane-mouth squares per home zone, since the double-column lane has one in
+    # front of each of its columns. Each home zone's front rank sits directly
     # against a lake row, so exactly those four squares close per side.
     white = _SKIRMISH.forbidden_tower_squares(Side.WHITE)
     black = _SKIRMISH.forbidden_tower_squares(Side.BLACK)

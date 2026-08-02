@@ -329,11 +329,10 @@ def edition_for_ruleset(ruleset: str) -> str:
 def active_configuration(edition: str = DEFAULT_EDITION) -> RulesetConfiguration:
     """The configuration for an Active `edition`, with no deviations.
 
-    Both published flags are set explicitly by every Active edition, so a
-    configuration naming one of them lists no deviations at all and renders as a
-    bare edition id. A flag that exists, is authoritative, and never appears in
-    any artifact is a well-formed outcome under this model rather than a sign
-    something is wrong.
+    Every Active edition sets every published flag explicitly, so a configuration
+    naming one of them lists no deviations at all and renders as a bare edition
+    id. A flag that exists, is authoritative, and never appears in any artifact is
+    a well-formed outcome under this model rather than a sign something is wrong.
     """
     if edition not in ACTIVE_EDITIONS:
         raise ValueError(
@@ -360,9 +359,11 @@ def resolve_flag(
     was published hits the second and reads like a one-level lookup.
 
     `rule_flags` and `editions` default to the published registry and table.
-    They are injectable because these are pure functions of that data, and
-    exercising resolution, rendering, and comparison against hypothetical flags
-    is the only way to test them while the real registry is still empty.
+    They are injectable because these are pure functions of that data: the
+    published tables exercise the cases they happen to contain, and a rule that
+    has to hold for *any* flag and *any* edition is only tested by supplying ones
+    they do not — a flag no edition sets, an edition predating a flag, a value
+    label the registry has never carried.
 
     Raises `KeyError` for an unknown flag id or edition id.
     """
@@ -399,8 +400,8 @@ def canonicalize(
     a real deviation.
 
     `rule_flags` and `editions` are injectable for the reason `resolve_flag`'s
-    are: the published registry is empty, so canonicality can only be exercised
-    against hypothetical flags.
+    are: canonicality has to hold for flags and editions the published tables do
+    not happen to contain, and those can only be supplied.
     """
     rule_flags = RULE_FLAGS if rule_flags is None else rule_flags
     editions = EDITIONS if editions is None else editions

@@ -79,6 +79,16 @@ def parse_position_block(text: str) -> dict[Square, tuple[Side, PieceType]]:
     to be told which board it is looking at — the property major 2's
     size-parametric notation exists to provide. The grid must be rectangular,
     which is the only shape check available without a layout to compare against.
+
+    **What that gives up.** Before major 2 the dimensions were fixed, so a block
+    of the wrong width was caught here. Now the first row *defines* the width, and
+    a block that is uniformly wrong — 11 cells on every line of what should be a
+    12-wide Battle record — parses cleanly into an 11-column board. Only a ragged
+    block is detectable. Nothing in this repository reads records (see the module
+    docstring), so there is no caller to hand a layout to and no signature here
+    for one; a consumer that does read them, and knows which board it asked for,
+    should compare the parsed dimensions against that board's `BoardLayout` rather
+    than assume this function validated them.
     """
     lines = text.splitlines()
     if not lines:

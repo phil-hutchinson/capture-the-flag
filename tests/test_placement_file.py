@@ -1,7 +1,5 @@
 """Tests for placement-file parsing and loading."""
 
-import dataclasses
-
 import pytest
 
 from capture_the_flag.board import (
@@ -12,6 +10,7 @@ from capture_the_flag.board import (
 from capture_the_flag.game_setup import (
     BATTLE_SETUP,
     SPACING_ONLY,
+    resolve_setup,
     setup_for_ruleset,
 )
 from capture_the_flag.pieces import STANDARD_BATTLE, PieceType
@@ -20,6 +19,7 @@ from capture_the_flag.placement_file import (
     load_placement_file,
     parse_placement_file,
 )
+from capture_the_flag.record import RulesetConfiguration
 from capture_the_flag.side import Side
 
 # A valid 25-piece setup in the 4x12 file shape: three of each numbered rank,
@@ -139,9 +139,15 @@ def test_parsed_placement_has_a_flag_on_the_board():
 # `assemble_position` raises would end the game.
 
 # The published Skirmish edition already sets the flag on; the spacing-only
-# variant has to be constructed to show the same file being accepted under it.
+# variant is resolved from a configuration deviating on `TOWER_PLACEMENT` alone,
+# so that it stays stampable — a setup's configuration has to resolve to its
+# fields (see `game_setup.GameSetup`).
 _SKIRMISH = setup_for_ruleset("SKIRMISH")
-_SKIRMISH_SPACING_ONLY = dataclasses.replace(_SKIRMISH, tower_placement=SPACING_ONLY)
+_SKIRMISH_SPACING_ONLY = resolve_setup(
+    RulesetConfiguration(
+        edition=_SKIRMISH.stamp.edition, flags={"TOWER_PLACEMENT": SPACING_ONLY}
+    )
+)
 
 # A legal Skirmish file, front rank first: Towers on the back rank at A1, D1 and
 # G1, the Flag beside them, and the twelve numbered pieces above.

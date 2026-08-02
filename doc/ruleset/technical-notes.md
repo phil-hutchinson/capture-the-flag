@@ -218,13 +218,16 @@ approach is single-file and the trade cannot be set up favourably. A Tower in a
 lane mouth is therefore a tollbooth: the only way past is to walk a piece into it
 and lose that piece.
 
-Three Towers cover Skirmish's four lane mouths almost completely. A3, D3 and H3
-are pairwise far enough apart to satisfy the spacing rule, so a player can close
-both single-column lanes outright and half of the double-column one, leaving E3
-as the only untolled way in. (The spacing rule is what stops them closing the
-double lane entirely — D3 and E3 are adjacent.) Battle has the same Towers and
-the same lanes but a buffer row, so the lane mouth is a neutral square nobody may
-occupy at placement and the position never arises.
+Three Towers cover Skirmish's four lane-mouth squares almost completely. Note the
+counts differ on purpose: Skirmish has **three lanes** (column A, columns D–E,
+column H — the glossary sense) but **four mouth squares**, because the
+double-column lane D–E has one in front of each of its columns. A3, D3 and H3 are
+pairwise far enough apart to satisfy the spacing rule, so a player can close both
+single-column lanes outright and half of the double-column one, leaving E3 as the
+only untolled way in. (The spacing rule is what stops them closing the double
+lane entirely — D3 and E3 are adjacent.) Battle has the same Towers and the same
+lanes but a buffer row, so each lane mouth is a neutral square nobody may occupy
+at placement and the position never arises.
 
 **The rejected alternative: a connectivity rule.** "A placement must leave a path
 across the board" states the intent more directly and was considered first. It

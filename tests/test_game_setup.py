@@ -1,11 +1,14 @@
 """Tests for `GameSetup`: the board and army pairing, and which pairings are
 playable at all (rules.md Appendix A, "Combining these two")."""
 
+import dataclasses
+
 import pytest
 
 from capture_the_flag.board import STANDARD_144, BoardLayout, Square
 from capture_the_flag.game_setup import (
     BATTLE_SETUP,
+    SPACING_AND_LANES,
     GameSetup,
     resolve_setup,
     setup_for_ruleset,
@@ -172,3 +175,44 @@ def test_a_hand_built_setup_has_nothing_to_stamp_itself_as():
     assert ad_hoc.configuration is None
     with pytest.raises(ValueError, match="nothing to stamp it as"):
         _ = ad_hoc.stamp
+
+
+def test_a_setup_cannot_carry_a_configuration_that_describes_another_game():
+    # The mirror of the case above: a setup with no configuration cannot be
+    # stamped, and one whose configuration resolves to different rules must not
+    # exist at all. `2-0:BATTLE` resolves TOWER_PLACEMENT to `spacing_only`, so a
+    # setup playing `spacing_and_lanes` under that stamp would record every game
+    # as having been played under rules it was not.
+    with pytest.raises(ValueError, match="cannot be stamped '2-0:BATTLE'"):
+        dataclasses.replace(BATTLE_SETUP, tower_placement=SPACING_AND_LANES)
+
+
+def test_the_mismatch_names_every_flag_that_disagrees():
+    # A setup assembled from another edition's board and army disagrees on both,
+    # and reporting them together is what makes a wrong configuration one read
+    # rather than three.
+    skirmish = setup_for_ruleset("SKIRMISH")
+    with pytest.raises(ValueError) as rejection:
+        GameSetup(
+            layout=skirmish.layout,
+            composition=skirmish.composition,
+            configuration=BATTLE_SETUP.stamp,
+            tower_placement=SPACING_AND_LANES,
+        )
+    message = str(rejection.value)
+    assert "BOARD_LAYOUT" in message
+    assert "ARMY_COMPOSITION" in message
+    assert "TOWER_PLACEMENT" in message
+
+
+def test_a_deviating_flag_is_a_configuration_a_setup_can_carry():
+    # Deviation is not mismatch: a configuration that names the deviation
+    # resolves to the setup's own fields and is stampable, which is how a variant
+    # is played before any edition adopts it.
+    setup = resolve_setup(
+        RulesetConfiguration(
+            edition="2-0:BATTLE", flags={"TOWER_PLACEMENT": SPACING_AND_LANES}
+        )
+    )
+    assert setup.tower_placement == SPACING_AND_LANES
+    assert setup.stamp.render() == "2-0:BATTLE TOWER_PLACEMENT=spacing_and_lanes"

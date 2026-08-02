@@ -26,7 +26,15 @@ deviating flags names exactly one ruleset (see `doc/ruleset/rules.md` Appendix B
 | Edition        | Deviating flags | Board  | Army                                |
 |----------------|-----------------|--------|-------------------------------------|
 | `2-0:BATTLE`   | (none)          | 12 × 12 | 3 each of ranks 1–6, 6 Towers, 1 Flag |
-| `2-0:SKIRMISH` | (none)          | 8 × 8   | 3 each of ranks 1–4, 3 Towers, 1 Flag |
+| `2-1:SKIRMISH` | (none)          | 8 × 8   | 3 each of ranks 1–4, 3 Towers, 1 Flag |
+
+These are the two **Active** editions (`rules.md` Appendix B). The historical
+`2-0:SKIRMISH` is also compatible — it differs from `2-1:SKIRMISH` only in
+`TOWER_PLACEMENT`, which restricts where a Tower may be *placed* and so changes
+neither a plane nor an action-space entry — but no build implements it, so no
+weights can be trained or stamped under it and it is not listed as a target.
+Compatibility of that kind is what the rule in [README.md](README.md) describes:
+a change that only restricts which plies are legal leaves a spec compatible.
 
 `1-2:PRE-RELEASE` — the only combination `ENG_NN_1` and `ENG_NN_2` listed — is
 **not** compatible: it is a major-1 edition, and its action space has no diagonal
@@ -45,7 +53,7 @@ contract.
 
 Everything below is stated in three numbers, fixed for a given ruleset:
 
-| Symbol | Meaning                                | `2-0:BATTLE` | `2-0:SKIRMISH` |
+| Symbol | Meaning                                | `2-0:BATTLE` | `2-1:SKIRMISH` |
 |--------|----------------------------------------|--------------|----------------|
 | `R`    | board rows                             | 12           | 8              |
 | `C`    | board columns                          | 12           | 8              |
@@ -77,7 +85,7 @@ move produces an equivalent position — the two encode to identical tensors.
 ### Feature Planes
 
 **All thirty-four planes are present under every army**, including planes for
-ranks the army does not field. Under `2-0:SKIRMISH` the Foot Soldier and Militia
+ranks the army does not field. Under `2-1:SKIRMISH` the Foot Soldier and Militia
 planes (6, 7, 14, 15, 26, 27, 32, 33) are therefore always zero. Dropping them
 would make the two rulesets two different contracts and foreclose any question
 about a trunk trained on one board being reused on the other; keeping the layout

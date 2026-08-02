@@ -6,9 +6,9 @@ import random
 
 import pytest
 
-from capture_the_flag.board import STANDARD_144
+from capture_the_flag.game_setup import BATTLE_SETUP
 from capture_the_flag.match import play_match
-from capture_the_flag.pieces import ARMY_ROSTER
+from capture_the_flag.pieces import STANDARD_BATTLE
 from capture_the_flag.player import RandomCtfPlayer
 from capture_the_flag.record import (
     ACTIVE_EDITION,
@@ -54,7 +54,7 @@ _TABLE = {
 def _play(seed: int):
     white = RandomCtfPlayer("Random White", random.Random(seed))
     black = RandomCtfPlayer("Random Black", random.Random(seed + 1))
-    return play_match(white, black, STANDARD_144, render_final_board=False)
+    return play_match(white, black, BATTLE_SETUP, render_final_board=False)
 
 
 def test_write_record_has_the_documented_sections_in_order():
@@ -185,11 +185,12 @@ def test_write_record_lone_final_white_ply_on_odd_length_games():
 
 
 def test_active_edition_distribution_matches_the_army_roster():
-    # The edition spells its distribution out rather than reading ARMY_ROSTER, so
+    # The edition spells its distribution out rather than reading the live army, so
     # that a later roster change cannot retroactively alter what a published
     # edition (and every record stamped with it) meant. This is the check that
     # keeps the deliberate duplication honest: placement validation enforces
-    # ARMY_ROSTER on every game, so a divergence would mean records stamped with
+    # the engine's own army on every game, so a divergence would mean records
+    # stamped with
     # the active edition were played under something else.
     #
     # If this fails because the roster changed: that is a rules change, and the
@@ -197,7 +198,7 @@ def test_active_edition_distribution_matches_the_army_roster():
     # existing edition's distribution to match. See doc/ruleset/CLAUDE.md, "The
     # document leads; the code follows" — this assertion cannot tell those two
     # apart, so making it green is not evidence of having done the right one.
-    assert EDITIONS[ACTIVE_EDITION].distribution == ARMY_ROSTER
+    assert EDITIONS[ACTIVE_EDITION].distribution == STANDARD_BATTLE.counts
 
 
 def test_active_configuration_names_the_active_edition_with_no_deviations():

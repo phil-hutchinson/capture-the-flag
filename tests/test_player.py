@@ -4,7 +4,7 @@ import random
 
 import pytest
 
-from capture_the_flag.board import STANDARD_144
+from capture_the_flag.game_setup import BATTLE_SETUP
 from capture_the_flag.game_ui import CtfGameUI
 from capture_the_flag.player import (
     HumanCtfPlayer,
@@ -19,7 +19,7 @@ def test_make_random_player():
     player = make_player("random", "R", context=PlayerContext(rng=random.Random(1)))
     assert isinstance(player, RandomCtfPlayer)
     # A random seat can produce a legal placement without a UI.
-    assert len(player.get_placement(Side.WHITE, STANDARD_144)) == 25
+    assert len(player.get_placement(Side.WHITE, BATTLE_SETUP)) == 25
 
 
 def test_make_human_player_needs_a_game_ui():
@@ -41,7 +41,7 @@ def test_make_neural_player():
         "neural", "N", context=PlayerContext(rng=random.Random(1)), iterations=5
     )
     assert isinstance(player, NeuralCtfPlayer)
-    assert len(player.get_placement(Side.BLACK, STANDARD_144)) == 25
+    assert len(player.get_placement(Side.BLACK, BATTLE_SETUP)) == 25
 
 
 def test_make_player_rejects_unknown_kind():

@@ -3,8 +3,9 @@
 from types import MappingProxyType
 
 from capture_the_flag.board import STANDARD_144, Square
+from capture_the_flag.game_setup import BATTLE_SETUP
 from capture_the_flag.game_ui import CtfGameUI
-from capture_the_flag.pieces import ARMY_ROSTER, PieceType
+from capture_the_flag.pieces import STANDARD_BATTLE, PieceType
 from capture_the_flag.placement_file import parse_placement_file
 from capture_the_flag.player import CtfPlayer, HumanCtfPlayer
 from capture_the_flag.ply import CtfPly
@@ -56,9 +57,9 @@ def test_bad_file_names_reprompt_until_a_valid_file(tmp_path):
     (tmp_path / "bad.txt").write_text("not a placement", encoding="utf-8")
     scripted = _ScriptedPlayer(["missing.txt", "bad.txt", "good.txt"], tmp_path)
 
-    placement = scripted.player.get_placement(Side.WHITE, STANDARD_144)
+    placement = scripted.player.get_placement(Side.WHITE, BATTLE_SETUP)
 
-    assert placement == parse_placement_file(VALID_TEXT, Side.WHITE, STANDARD_144)
+    assert placement == parse_placement_file(VALID_TEXT, Side.WHITE, BATTLE_SETUP)
     assert "No placement file named 'missing.txt'" in scripted.messages[0]
     assert "Expected 4 rows" in scripted.messages[1]
     assert "Alice (White)" in scripted.prompts[0]
@@ -66,7 +67,7 @@ def test_bad_file_names_reprompt_until_a_valid_file(tmp_path):
 
 def test_accepted_placement_clears_the_screen(tmp_path):
     scripted = _ScriptedPlayer(["random"], tmp_path)
-    scripted.player.get_placement(Side.WHITE, STANDARD_144)
+    scripted.player.get_placement(Side.WHITE, BATTLE_SETUP)
     # The typed dialogue is wiped so the opponent never sees the file name.
     assert scripted.messages[-1].startswith("\033[2J\033[H")
     assert "Alice's placement is locked in." in scripted.messages[-1]
@@ -77,13 +78,13 @@ def test_random_request_yields_a_legal_placement(tmp_path):
         ("random", Side.WHITE, STANDARD_144.white_home_squares),
         ("RANDOM", Side.BLACK, STANDARD_144.black_home_squares),
     ]:
-        placement = _ScriptedPlayer([text], tmp_path).player.get_placement(side, STANDARD_144)
+        placement = _ScriptedPlayer([text], tmp_path).player.get_placement(side, BATTLE_SETUP)
         assert placement.keys() <= home  # 25 of the 48 home squares filled
         assert len(placement) == 25
         counts: dict[PieceType, int] = {}
         for piece in placement.values():
             counts[piece] = counts.get(piece, 0) + 1
-        assert counts == ARMY_ROSTER
+        assert counts == STANDARD_BATTLE.counts
 
 
 def test_select_ply_delegates_to_the_ui_prompt(tmp_path):

@@ -104,6 +104,15 @@ symbol, name, and mobility stay. `placement.py`, `placement_file.py`,
 `game_view.py`, `record.py`, and `ctf_nn_evaluator.py` take the roster from a
 composition value.
 
+Pair the composition with the layout in a **`GameSetup`**, rather than threading
+a second parameter beside the first. A board and an army are independent flags
+but nothing plays a game with one and not the other, and seven signatures between
+the runner and the placement seam would otherwise carry both. The pairing is also
+the only place the two flags meet, so it is the only place the rules' **invalid
+combinations** can be caught — an army must fit its home zone one piece per
+square, which is what makes `standard_battle` on `standard_64` unplayable. Step 6
+grows the run-time configuration from this rather than replacing it.
+
 Depends on: Step 3 (both are consumed together by the configuration in step 6,
 and placement touches geometry and roster in the same functions).
 

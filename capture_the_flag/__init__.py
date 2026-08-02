@@ -21,11 +21,12 @@ from .board import (
 )
 from .combat import CombatResult, resolve_combat
 from .game_logging import CtfGameLogging
+from .game_setup import BATTLE_SETUP, GameSetup
 from .game_ui import CtfGameUI
 from .game_view import render_game_view
 from .match import MatchResult, build_initial_position, play_match
 from .outcome import compute_outcome, compute_outcome_reason
-from .pieces import ARMY_ROSTER, ARMY_SIZE, Mobility, PieceType
+from .pieces import STANDARD_BATTLE, ArmyComposition, Mobility, PieceType
 from .placement import Placement, assemble_position, random_placement
 from .placement_file import (
     DEFAULT_PLACEMENT_DIR,
@@ -54,10 +55,11 @@ from .transitions import apply_ply
 
 __all__ = [
     "ACTIVE_EDITION",
-    "ARMY_ROSTER",
-    "ARMY_SIZE",
+    "BATTLE_SETUP",
     "DEFAULT_PLACEMENT_DIR",
     "STANDARD_144",
+    "STANDARD_BATTLE",
+    "ArmyComposition",
     "BoardLayout",
     "CombatResult",
     "CtfGameLogging",
@@ -65,6 +67,7 @@ __all__ = [
     "CtfPlayer",
     "CtfPly",
     "CtfPosition",
+    "GameSetup",
     "HumanCtfPlayer",
     "MatchResult",
     "Mobility",

@@ -18,9 +18,9 @@ import pytest
 import torch
 from game_engine_core.engines.mcts_engine import MCTSEngine
 
-from capture_the_flag.board import STANDARD_144
 from capture_the_flag.engines.neural_network.ctf_nn_evaluator import CtfNNEvaluator
 from capture_the_flag.engines.neural_network.neural_ctf_player import NeuralCtfPlayer
+from capture_the_flag.game_setup import BATTLE_SETUP
 from capture_the_flag.match import play_match
 from capture_the_flag.outcome import (
     REASON_FLAG_CAPTURED,
@@ -52,7 +52,7 @@ def test_neural_player_completes_full_match_against_random():
     neural_player = NeuralCtfPlayer(engine, name="neural")
     random_player = RandomCtfPlayer(name="random", rng=random.Random(1234))
 
-    result = play_match(neural_player, random_player, STANDARD_144).game_result
+    result = play_match(neural_player, random_player, BATTLE_SETUP).game_result
 
     # A legal terminal result: a valid outcome, ended for a known reason, with a
     # non-empty log of the plies that were actually applied.

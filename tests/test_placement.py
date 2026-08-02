@@ -9,7 +9,8 @@ from capture_the_flag.board import (
     STANDARD_144,
     Square,
 )
-from capture_the_flag.pieces import ARMY_ROSTER, ARMY_SIZE, PieceType
+from capture_the_flag.game_setup import BATTLE_SETUP
+from capture_the_flag.pieces import STANDARD_BATTLE, PieceType
 from capture_the_flag.placement import Placement, assemble_position, random_placement
 from capture_the_flag.side import Side
 
@@ -42,37 +43,37 @@ def _has_adjacent_towers(placement: Placement) -> bool:
 @pytest.mark.parametrize("side", [Side.WHITE, Side.BLACK])
 def test_random_placement_fills_25_of_home_zone_with_correct_roster(side):
     for _ in range(20):
-        placement = random_placement(side, STANDARD_144, random.Random())
+        placement = random_placement(side, BATTLE_SETUP, random.Random())
         assert placement.keys() <= _home_squares(side)  # inside the home zone
-        assert len(placement) == ARMY_SIZE == 25  # 25 of the 48 squares filled
-        assert _piece_counts(placement) == ARMY_ROSTER
+        assert len(placement) == STANDARD_BATTLE.size == 25  # 25 of the 48 squares filled
+        assert _piece_counts(placement) == STANDARD_BATTLE.counts
 
 
 @pytest.mark.parametrize("side", [Side.WHITE, Side.BLACK])
 def test_random_placement_never_places_adjacent_towers(side):
     for seed in range(200):
-        placement = random_placement(side, STANDARD_144, random.Random(seed))
+        placement = random_placement(side, BATTLE_SETUP, random.Random(seed))
         assert not _has_adjacent_towers(placement)
 
 
 def test_random_placement_is_reproducible_with_a_fixed_seed():
-    first = random_placement(Side.WHITE, STANDARD_144, random.Random(12345))
-    second = random_placement(Side.WHITE, STANDARD_144, random.Random(12345))
+    first = random_placement(Side.WHITE, BATTLE_SETUP, random.Random(12345))
+    second = random_placement(Side.WHITE, BATTLE_SETUP, random.Random(12345))
     assert first == second
 
 
 def test_random_placement_is_not_always_identical():
     placements = {
-        tuple(sorted(random_placement(Side.WHITE, STANDARD_144, random.Random(seed)).items()))
+        tuple(sorted(random_placement(Side.WHITE, BATTLE_SETUP, random.Random(seed)).items()))
         for seed in range(10)
     }
     assert len(placements) > 1
 
 
 def test_assemble_position_places_both_armies_in_their_home_zones():
-    white_placement = random_placement(Side.WHITE, STANDARD_144, random.Random(1))
-    black_placement = random_placement(Side.BLACK, STANDARD_144, random.Random(2))
-    position = assemble_position(white_placement, black_placement, STANDARD_144)
+    white_placement = random_placement(Side.WHITE, BATTLE_SETUP, random.Random(1))
+    black_placement = random_placement(Side.BLACK, BATTLE_SETUP, random.Random(2))
+    position = assemble_position(white_placement, black_placement, BATTLE_SETUP)
 
     white = {
         sq: piece
@@ -86,15 +87,15 @@ def test_assemble_position_places_both_armies_in_their_home_zones():
     }
     assert white.keys() <= STANDARD_144.white_home_squares
     assert black.keys() <= STANDARD_144.black_home_squares
-    assert len(white) == len(black) == ARMY_SIZE
-    assert _piece_counts(white) == ARMY_ROSTER
-    assert _piece_counts(black) == ARMY_ROSTER
+    assert len(white) == len(black) == STANDARD_BATTLE.size
+    assert _piece_counts(white) == STANDARD_BATTLE.counts
+    assert _piece_counts(black) == STANDARD_BATTLE.counts
 
 
 def test_assemble_position_leaves_buffer_and_lake_rows_unoccupied():
-    white_placement = random_placement(Side.WHITE, STANDARD_144, random.Random(3))
-    black_placement = random_placement(Side.BLACK, STANDARD_144, random.Random(4))
-    position = assemble_position(white_placement, black_placement, STANDARD_144)
+    white_placement = random_placement(Side.WHITE, BATTLE_SETUP, random.Random(3))
+    black_placement = random_placement(Side.BLACK, BATTLE_SETUP, random.Random(4))
+    position = assemble_position(white_placement, black_placement, BATTLE_SETUP)
 
     occupied = set(position.board.keys())
     assert occupied.isdisjoint(STANDARD_144.lake_squares)
@@ -104,9 +105,9 @@ def test_assemble_position_leaves_buffer_and_lake_rows_unoccupied():
 
 
 def test_assemble_position_side_to_move_and_clock():
-    white_placement = random_placement(Side.WHITE, STANDARD_144, random.Random(5))
-    black_placement = random_placement(Side.BLACK, STANDARD_144, random.Random(6))
-    position = assemble_position(white_placement, black_placement, STANDARD_144)
+    white_placement = random_placement(Side.WHITE, BATTLE_SETUP, random.Random(5))
+    black_placement = random_placement(Side.BLACK, BATTLE_SETUP, random.Random(6))
+    position = assemble_position(white_placement, black_placement, BATTLE_SETUP)
 
     assert position.side_to_move is Side.WHITE
     assert position.active_player_id == 1
@@ -114,39 +115,39 @@ def test_assemble_position_side_to_move_and_clock():
 
 
 def test_assemble_position_rejects_wrong_zone_or_roster():
-    good_white = random_placement(Side.WHITE, STANDARD_144, random.Random(7))
-    good_black = random_placement(Side.BLACK, STANDARD_144, random.Random(8))
+    good_white = random_placement(Side.WHITE, BATTLE_SETUP, random.Random(7))
+    good_black = random_placement(Side.BLACK, BATTLE_SETUP, random.Random(8))
 
     with pytest.raises(ValueError):
         # A Black placement offered as White's (wrong home zone).
-        assemble_position(good_black, good_black, STANDARD_144)
+        assemble_position(good_black, good_black, BATTLE_SETUP)
 
     mismatched_roster = dict(good_white)
     non_tower = next(sq for sq, piece in mismatched_roster.items() if piece is not PieceType.TOWER)
     mismatched_roster[non_tower] = PieceType.TOWER  # now 7 Towers, short one rank
     with pytest.raises(ValueError):
-        assemble_position(mismatched_roster, good_black, STANDARD_144)
+        assemble_position(mismatched_roster, good_black, BATTLE_SETUP)
 
 
 def test_assemble_position_rejects_a_full_home_zone_fill():
     # Filling all 48 squares can never match the 25-piece roster.
     full_white = {square: PieceType.MILITIA for square in STANDARD_144.white_home_squares}
-    good_black = random_placement(Side.BLACK, STANDARD_144, random.Random(9))
+    good_black = random_placement(Side.BLACK, BATTLE_SETUP, random.Random(9))
     with pytest.raises(ValueError):
-        assemble_position(full_white, good_black, STANDARD_144)
+        assemble_position(full_white, good_black, BATTLE_SETUP)
 
 
 def test_assemble_position_rejects_adjacent_towers():
-    good_white = random_placement(Side.WHITE, STANDARD_144, random.Random(10))
-    good_black = random_placement(Side.BLACK, STANDARD_144, random.Random(11))
+    good_white = random_placement(Side.WHITE, BATTLE_SETUP, random.Random(10))
+    good_black = random_placement(Side.BLACK, BATTLE_SETUP, random.Random(11))
     clustered = _force_adjacent_towers(good_white, STANDARD_144.white_home_squares)
 
     # The tampered placement keeps the exact roster, so only the spacing rule
     # can be what rejects it.
-    assert _piece_counts(clustered) == ARMY_ROSTER
+    assert _piece_counts(clustered) == STANDARD_BATTLE.counts
     assert _has_adjacent_towers(clustered)
     with pytest.raises(ValueError):
-        assemble_position(clustered, good_black, STANDARD_144)
+        assemble_position(clustered, good_black, BATTLE_SETUP)
 
 
 def _force_adjacent_towers(placement: Placement, home) -> dict:

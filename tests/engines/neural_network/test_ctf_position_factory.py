@@ -10,7 +10,7 @@ from capture_the_flag.board import STANDARD_144
 from capture_the_flag.engines.neural_network.ctf_position_factory import (
     CtfPositionFactory,
 )
-from capture_the_flag.pieces import ARMY_ROSTER, PieceType
+from capture_the_flag.pieces import STANDARD_BATTLE, PieceType
 from capture_the_flag.side import Side
 
 
@@ -43,8 +43,8 @@ def test_factory_returns_legal_phase_two_start():
 def test_factory_places_both_full_armies():
     position = CtfPositionFactory()()
 
-    assert _piece_counts(position, Side.WHITE) == ARMY_ROSTER
-    assert _piece_counts(position, Side.BLACK) == ARMY_ROSTER
+    assert _piece_counts(position, Side.WHITE) == STANDARD_BATTLE.counts
+    assert _piece_counts(position, Side.BLACK) == STANDARD_BATTLE.counts
 
 
 def test_factory_keeps_each_side_in_its_home_zone_off_the_lakes():

@@ -8,6 +8,7 @@ from collections.abc import Callable
 
 from game_engine_core.protocols.game_ui import GameUI
 
+from .game_setup import BATTLE_SETUP, GameSetup
 from .game_view import render_game_view
 from .ply import CtfPly, parse_ply
 from .position import CtfPosition
@@ -18,18 +19,25 @@ class CtfGameUI(GameUI[CtfPly, CtfPosition]):
 
     `input_fn` and `print_fn` default to the builtins; tests inject scripted
     replacements.
+
+    `setup` is the board and army being played. The `GameUI` protocol hands
+    `render_board` a position and nothing else, and the captured-piece tally
+    needs the army that started on the board, which a position does not carry --
+    so the UI holds it for the life of the game.
     """
 
     def __init__(
         self,
         input_fn: Callable[[str], str] = input,
         print_fn: Callable[[str], None] = print,
+        setup: GameSetup = BATTLE_SETUP,
     ) -> None:
         self._input = input_fn
         self._print = print_fn
+        self._setup = setup
 
     def render_board(self, position: CtfPosition) -> None:
-        self._print(render_game_view(position))
+        self._print(render_game_view(position, self._setup))
 
     def get_next_ply(self, position: CtfPosition) -> CtfPly:
         """Prompt for a move in simple notation until a legal ply is entered.

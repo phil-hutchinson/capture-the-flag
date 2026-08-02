@@ -1,13 +1,20 @@
-from ...board import STANDARD_144
+from ...game_setup import BATTLE_SETUP
 
-ENCODED_LAYOUT = STANDARD_144
-"""The board this tensor contract is shaped for.
+ENCODED_SETUP = BATTLE_SETUP
+ENCODED_LAYOUT = ENCODED_SETUP.layout
+ENCODED_COMPOSITION = ENCODED_SETUP.composition
+"""The board and army this tensor contract is shaped for.
 
-Still a constant, and still Battle: the shapes below are module-level, so they
-cannot yet vary per run. Making them derive from the run's configuration -- and
-qualifying `ENGINE_SPEC_NAME` by layout so a checkpoint trained on one board
-cannot meet a differently-shaped input -- is step 8 of story 37. Named here
-rather than left as bare numbers so that step has one place to change."""
+Still a constant, and still Battle: the shapes below and the evaluator's
+per-rank normalisers are module- and class-level, so they cannot yet vary per
+run. Making them derive from the run's configuration -- and qualifying
+`ENGINE_SPEC_NAME` by layout so a checkpoint trained on one board cannot meet a
+differently-shaped input -- is step 8 of story 37. Named here rather than left as
+bare numbers so that step has one place to change.
+
+Step 8 also has to answer what a per-rank quantity plane normalises by when the
+army fields none of that rank: `standard_skirmish` has no Foot Soldier, so the
+divisor is 0 and the plane has to read a constant rather than a ratio."""
 
 # The engine I/O spec this tensor layout implements. Checkpoints stamp this name
 # so a checkpoint saved against a superseded spec is rejected at load time

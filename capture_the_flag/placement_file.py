@@ -27,7 +27,8 @@ from collections import Counter
 from pathlib import Path
 
 from .board import BoardLayout, Square
-from .pieces import ARMY_ROSTER, PIECE_BY_SYMBOL, PieceType
+from .game_setup import GameSetup
+from .pieces import PIECE_BY_SYMBOL, PieceType
 from .placement import Placement
 from .side import Side
 
@@ -51,19 +52,22 @@ def _square_for(
     )
 
 
-def _check_roster(placement: Placement) -> None:
+def _check_roster(placement: Placement, setup: GameSetup) -> None:
     counts = Counter(placement.values())
-    # The 25 filled squares must match the roster exactly; report every type
-    # that appears too many or too few times (either can occur independently,
-    # since the empty-square count is not fixed).
-    too_many = [p for p in PieceType if counts[p] > ARMY_ROSTER[p]]
-    too_few = [p for p in PieceType if counts[p] < ARMY_ROSTER[p]]
+    # The filled squares must match the army exactly; report every type that
+    # appears too many or too few times (either can occur independently, since
+    # the empty-square count is not fixed). Iterating `PieceType` rather than the
+    # composition's own keys is what catches a piece the army does not field at
+    # all -- a Militia in a Skirmish file is a surplus of a type whose count is 0.
+    army = setup.composition
+    too_many = [p for p in PieceType if counts[p] > army.count(p)]
+    too_few = [p for p in PieceType if counts[p] < army.count(p)]
     if not too_many and not too_few:
         return
 
     def describe(pieces: list[PieceType]) -> str:
         return ", ".join(
-            f"{p.piece_name} ({counts[p]} of {ARMY_ROSTER[p]})" for p in pieces
+            f"{p.piece_name} ({counts[p]} of {army.count(p)})" for p in pieces
         )
 
     raise PlacementFileError(
@@ -72,13 +76,14 @@ def _check_roster(placement: Placement) -> None:
     )
 
 
-def parse_placement_file(text: str, side: Side, layout: BoardLayout) -> Placement:
-    """Parse placement-file `text` into a `Placement` for `side` on `layout`.
+def parse_placement_file(text: str, side: Side, setup: GameSetup) -> Placement:
+    """Parse placement-file `text` into a `Placement` for `side` under `setup`.
 
     Raises `PlacementFileError` if the text is not one row per home-zone row,
     each as wide as the board and made of known piece symbols or `-` (empty), or
-    if the filled squares do not match the army roster.
+    if the filled squares do not match the setup's army.
     """
+    layout = setup.layout
     lines = text.splitlines()
     while lines and lines[-1] == "":
         lines.pop()
@@ -106,14 +111,14 @@ def parse_placement_file(text: str, side: Side, layout: BoardLayout) -> Placemen
                 )
             placement[_square_for(side, line_index, char_index, layout)] = piece
 
-    _check_roster(placement)
+    _check_roster(placement, setup)
     return placement
 
 
 def load_placement_file(
     name: str,
     side: Side,
-    layout: BoardLayout,
+    setup: GameSetup,
     directory: Path = DEFAULT_PLACEMENT_DIR,
 ) -> Placement:
     """Load the placement file called `name` from `directory` for `side`.
@@ -124,4 +129,4 @@ def load_placement_file(
     path = directory / name
     if not path.is_file():
         raise PlacementFileError(f"No placement file named {name!r} in {directory}/")
-    return parse_placement_file(path.read_text(encoding="utf-8"), side, layout)
+    return parse_placement_file(path.read_text(encoding="utf-8"), side, setup)

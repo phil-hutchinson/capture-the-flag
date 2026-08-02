@@ -11,7 +11,7 @@ from typing import Protocol
 from game_engine_core.engines.random_engine import RandomEngine
 from game_engine_core.protocols.player import Player
 
-from .board import BoardLayout
+from .game_setup import GameSetup
 from .game_ui import CtfGameUI
 from .placement import Placement, random_placement
 from .placement_file import (
@@ -35,12 +35,12 @@ class CtfPlayer(Player[CtfPly, CtfPosition], Protocol):
     `StandardGame`, which drives `select_ply` as usual.
     """
 
-    def get_placement(self, side: Side, layout: BoardLayout) -> Placement:
-        """This player's phase-1 home-zone placement for `side` on `layout`.
+    def get_placement(self, side: Side, setup: GameSetup) -> Placement:
+        """This player's phase-1 home-zone placement for `side` under `setup`.
 
-        The board is passed in rather than held by the player: a home zone's
-        shape is a property of the game being played, not of who is playing it,
-        so one player can be seated for either ruleset.
+        The board and army are passed in rather than held by the player: they are
+        properties of the game being played, not of who is playing it, so one
+        player can be seated for either ruleset.
         """
         ...
 
@@ -68,8 +68,8 @@ class RandomCtfPlayer:
     def render_before_ply(self) -> bool:
         return self._render_before_ply
 
-    def get_placement(self, side: Side, layout: BoardLayout) -> Placement:
-        return random_placement(side, layout, self._rng)
+    def get_placement(self, side: Side, setup: GameSetup) -> Placement:
+        return random_placement(side, setup, self._rng)
 
     def select_ply(self, position: CtfPosition) -> CtfPly:
         return self._engine.select_ply(position)
@@ -122,7 +122,7 @@ class HumanCtfPlayer:
     def render_before_ply(self) -> bool:
         return True
 
-    def get_placement(self, side: Side, layout: BoardLayout) -> Placement:
+    def get_placement(self, side: Side, setup: GameSetup) -> Placement:
         prompt = (
             f"{self._name} ({side.name.title()}) — placement file name in "
             f"{self._placement_dir}/, or 'random': "
@@ -130,11 +130,11 @@ class HumanCtfPlayer:
         while True:
             text = self._input(prompt).strip()
             if text.lower() == "random":
-                placement = random_placement(side, layout, self._rng)
+                placement = random_placement(side, setup, self._rng)
                 break
             try:
                 placement = load_placement_file(
-                    text, side, layout, self._placement_dir
+                    text, side, setup, self._placement_dir
                 )
                 break
             except PlacementFileError as error:

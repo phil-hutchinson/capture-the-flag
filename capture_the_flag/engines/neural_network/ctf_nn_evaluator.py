@@ -40,6 +40,7 @@ from ...timing_regions import (
 )
 from .tensor_layout import (
     ACTION_SPACE_SHAPE,
+    ENCODED_COMPOSITION,
     ENCODED_LAYOUT,
     FP_INACTIVITY_COUNT,
     FP_OUR_FLAG,
@@ -187,19 +188,13 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
         (False, PieceType.MILITIA): FP_THEIR_RANK_6_QUANTITY,
     }
 
+    # What each per-rank quantity plane is normalised by: the army's full count
+    # of that rank, so a plane reads 1.0 at full strength and falls as the rank
+    # is attrited. Derived from `ENCODED_COMPOSITION` rather than from the run's
+    # own army until step 8 makes the encoding configuration-driven.
     _FP_PIECE_TOTAL_QUANTITY = {
-        FP_OUR_RANK_1_QUANTITY: PieceType.MASTER_OF_ARMS.army_count,
-        FP_OUR_RANK_2_QUANTITY: PieceType.CHAMPION.army_count,
-        FP_OUR_RANK_3_QUANTITY: PieceType.KNIGHT.army_count,
-        FP_OUR_RANK_4_QUANTITY: PieceType.HALBERDIER.army_count,
-        FP_OUR_RANK_5_QUANTITY: PieceType.FOOT_SOLDIER.army_count,
-        FP_OUR_RANK_6_QUANTITY: PieceType.MILITIA.army_count,
-        FP_THEIR_RANK_1_QUANTITY: PieceType.MASTER_OF_ARMS.army_count,
-        FP_THEIR_RANK_2_QUANTITY: PieceType.CHAMPION.army_count,
-        FP_THEIR_RANK_3_QUANTITY: PieceType.KNIGHT.army_count,
-        FP_THEIR_RANK_4_QUANTITY: PieceType.HALBERDIER.army_count,
-        FP_THEIR_RANK_5_QUANTITY: PieceType.FOOT_SOLDIER.army_count,
-        FP_THEIR_RANK_6_QUANTITY: PieceType.MILITIA.army_count,
+        quantity_plane: ENCODED_COMPOSITION.count(piece)
+        for (_ours, piece), quantity_plane in _FP_PIECE_QUANTITY.items()
     }
 
     @timed(EVALUATE_POSITION)

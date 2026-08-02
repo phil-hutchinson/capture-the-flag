@@ -16,9 +16,9 @@ from pathlib import Path
 
 from game_engine_core.tournament.tournament import Tournament
 
-from .board import STANDARD_144
 from .device import pipeline_device
 from .game_logging import CtfGameLogging
+from .game_setup import BATTLE_SETUP
 from .instrumentation.timing import region
 from .match import build_initial_position
 from .player import MACHINE_PLAYER_KINDS, PlayerContext, make_player
@@ -200,9 +200,9 @@ def _play_batch(
     tournament = Tournament(
         players=[white_player, black_player],
         # The library's factory contract is two players and nothing else, so the
-        # board is bound here rather than passed per game. Still Battle until the
+        # setup is bound here rather than passed per game. Still Battle until the
         # run-time configuration selects it.
-        position_factory=partial(build_initial_position, layout=STANDARD_144),
+        position_factory=partial(build_initial_position, setup=BATTLE_SETUP),
         game_logging=CtfGameLogging(),
         games_per_pairing=num_games,
     )

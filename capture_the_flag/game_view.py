@@ -11,8 +11,9 @@ counter against its limit, so players can apply the inactivity rule
 
 from collections import Counter
 
+from .game_setup import GameSetup
 from .outcome import INACTIVITY_LIMIT
-from .pieces import ARMY_ROSTER, PieceType
+from .pieces import PieceType
 from .position import CtfPosition
 from .rendering import render_position_block
 from .side import Side
@@ -31,13 +32,13 @@ def _labelled_board(position: CtfPosition) -> str:
     return "\n".join([header, *rows])
 
 
-def _captured_summary(position: CtfPosition, side: Side) -> str:
+def _captured_summary(position: CtfPosition, setup: GameSetup, side: Side) -> str:
     on_board = Counter(
         piece for piece_side, piece in position.board.values() if piece_side is side
     )
     parts = []
     for piece in PieceType:
-        missing = ARMY_ROSTER[piece] - on_board[piece]
+        missing = setup.composition.count(piece) - on_board[piece]
         if missing > 0:
             parts.append(
                 f"{piece.piece_name} x{missing}" if missing > 1 else piece.piece_name
@@ -45,14 +46,19 @@ def _captured_summary(position: CtfPosition, side: Side) -> str:
     return ", ".join(parts) if parts else "none"
 
 
-def render_game_view(position: CtfPosition) -> str:
-    """The full game view for `position`: labelled board, turn, captures, clocks."""
+def render_game_view(position: CtfPosition, setup: GameSetup) -> str:
+    """The full game view for `position`: labelled board, turn, captures, clocks.
+
+    `setup` supplies the army the captured tally is measured against -- what is
+    missing from the board is only meaningful against the army that started on
+    it, and the position alone does not carry that.
+    """
     side_name = position.side_to_move.name.title()
     return (
         f"{_labelled_board(position)}\n"
         f"\n"
         f"{side_name} to move\n"
-        f"Captured — White: {_captured_summary(position, Side.WHITE)}\n"
-        f"Captured — Black: {_captured_summary(position, Side.BLACK)}\n"
+        f"Captured — White: {_captured_summary(position, setup, Side.WHITE)}\n"
+        f"Captured — Black: {_captured_summary(position, setup, Side.BLACK)}\n"
         f"Inactivity — {position.inactivity_counter}/{INACTIVITY_LIMIT}"
     )

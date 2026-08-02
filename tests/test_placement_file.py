@@ -7,7 +7,8 @@ from capture_the_flag.board import (
     Square,
     parse_square,
 )
-from capture_the_flag.pieces import ARMY_ROSTER, ARMY_SIZE, PieceType
+from capture_the_flag.game_setup import BATTLE_SETUP
+from capture_the_flag.pieces import STANDARD_BATTLE, PieceType
 from capture_the_flag.placement_file import (
     PlacementFileError,
     load_placement_file,
@@ -39,15 +40,15 @@ def _piece_counts(placement) -> dict[PieceType, int]:
 
 @pytest.mark.parametrize("side", [Side.WHITE, Side.BLACK])
 def test_valid_file_fills_25_squares_with_correct_roster(side):
-    placement = parse_placement_file(VALID_TEXT, side, STANDARD_144)
+    placement = parse_placement_file(VALID_TEXT, side, BATTLE_SETUP)
     home = STANDARD_144.white_home_squares if side is Side.WHITE else STANDARD_144.black_home_squares
     assert placement.keys() <= home  # inside the home zone
-    assert len(placement) == ARMY_SIZE == 25  # `-` squares left unfilled
-    assert _piece_counts(placement) == ARMY_ROSTER
+    assert len(placement) == STANDARD_BATTLE.size == 25  # `-` squares left unfilled
+    assert _piece_counts(placement) == STANDARD_BATTLE.counts
 
 
 def test_empty_squares_are_left_unoccupied():
-    placement = parse_placement_file(VALID_TEXT, Side.WHITE, STANDARD_144)
+    placement = parse_placement_file(VALID_TEXT, Side.WHITE, BATTLE_SETUP)
     # Row 3 of the file (front rank, nearest the lakes) is all `-`, so its whole
     # board row must be absent from the placement.
     assert len(placement) == 25
@@ -65,20 +66,20 @@ def test_empty_squares_are_left_unoccupied():
     ],
 )
 def test_file_is_read_side_relatively(side, master_of_arms_square, flag_square):
-    placement = parse_placement_file(VALID_TEXT, side, STANDARD_144)
+    placement = parse_placement_file(VALID_TEXT, side, BATTLE_SETUP)
     assert placement[parse_square(master_of_arms_square)] is PieceType.MASTER_OF_ARMS
     assert placement[parse_square(flag_square)] is PieceType.FLAG
 
 
 def test_trailing_newlines_are_tolerated():
-    placement = parse_placement_file(VALID_TEXT + "\n\n", Side.WHITE, STANDARD_144)
+    placement = parse_placement_file(VALID_TEXT + "\n\n", Side.WHITE, BATTLE_SETUP)
     assert len(placement) == 25
 
 
 def test_wrong_row_count_is_a_form_error():
     with pytest.raises(PlacementFileError, match="4 rows.*got 3"):
         parse_placement_file(
-            "\n".join(VALID_TEXT.splitlines()[:3]), Side.WHITE, STANDARD_144
+            "\n".join(VALID_TEXT.splitlines()[:3]), Side.WHITE, BATTLE_SETUP
         )
 
 
@@ -86,14 +87,14 @@ def test_wrong_row_length_is_a_form_error():
     lines = VALID_TEXT.splitlines()
     lines[1] = lines[1][:-1]
     with pytest.raises(PlacementFileError, match="Row 2 has 11 characters"):
-        parse_placement_file("\n".join(lines), Side.WHITE, STANDARD_144)
+        parse_placement_file("\n".join(lines), Side.WHITE, BATTLE_SETUP)
 
 
 def test_unknown_character_is_a_form_error():
     lines = VALID_TEXT.splitlines()
     lines[0] = "Z" + lines[0][1:]
     with pytest.raises(PlacementFileError, match="Row 1: unknown piece character 'Z'"):
-        parse_placement_file("\n".join(lines), Side.WHITE, STANDARD_144)
+        parse_placement_file("\n".join(lines), Side.WHITE, BATTLE_SETUP)
 
 
 def test_roster_mismatch_names_surplus_and_shortfall_types():
@@ -103,22 +104,22 @@ def test_roster_mismatch_names_surplus_and_shortfall_types():
         PlacementFileError,
         match=r"too many: Tower \(7 of 6\); too few: Flag \(0 of 1\)",
     ):
-        parse_placement_file(text, Side.WHITE, STANDARD_144)
+        parse_placement_file(text, Side.WHITE, BATTLE_SETUP)
 
 
 def test_load_reads_a_file_from_the_placements_folder(tmp_path):
     (tmp_path / "setup.txt").write_text(VALID_TEXT, encoding="utf-8")
-    placement = load_placement_file("setup.txt", Side.BLACK, STANDARD_144, tmp_path)
+    placement = load_placement_file("setup.txt", Side.BLACK, BATTLE_SETUP, tmp_path)
     assert placement.keys() <= STANDARD_144.black_home_squares
     assert len(placement) == 25
 
 
 def test_load_reports_a_missing_file(tmp_path):
     with pytest.raises(PlacementFileError, match="No placement file named 'nope.txt'"):
-        load_placement_file("nope.txt", Side.WHITE, STANDARD_144, tmp_path)
+        load_placement_file("nope.txt", Side.WHITE, BATTLE_SETUP, tmp_path)
 
 
 def test_parsed_placement_has_a_flag_on_the_board():
     # Guard the test fixture itself: VALID_TEXT is roster-exact.
-    placement = parse_placement_file(VALID_TEXT, Side.WHITE, STANDARD_144)
+    placement = parse_placement_file(VALID_TEXT, Side.WHITE, BATTLE_SETUP)
     assert Square(11, 1) in placement  # L1, the Flag square

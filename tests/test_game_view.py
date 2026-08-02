@@ -3,7 +3,7 @@
 import random
 from dataclasses import replace
 
-from capture_the_flag.board import STANDARD_144
+from capture_the_flag.game_setup import BATTLE_SETUP
 from capture_the_flag.game_view import render_game_view
 from capture_the_flag.pieces import PieceType
 from capture_the_flag.placement import assemble_position, random_placement
@@ -12,9 +12,9 @@ from capture_the_flag.side import Side
 
 def _start_position():
     return assemble_position(
-        random_placement(Side.WHITE, STANDARD_144, random.Random(1)),
-        random_placement(Side.BLACK, STANDARD_144, random.Random(2)),
-        STANDARD_144,
+        random_placement(Side.WHITE, BATTLE_SETUP, random.Random(1)),
+        random_placement(Side.BLACK, BATTLE_SETUP, random.Random(2)),
+        BATTLE_SETUP,
     )
 
 
@@ -30,7 +30,7 @@ def _without_pieces(position, removals):
 
 
 def test_board_is_labelled_with_the_move_notation_frame():
-    lines = render_game_view(_start_position()).splitlines()
+    lines = render_game_view(_start_position(), BATTLE_SETUP).splitlines()
     header, board_lines = lines[0], lines[1:13]
     # Column letters sit over the middle character of each 3-character cell.
     assert header.index("A") == 5
@@ -42,7 +42,7 @@ def test_board_is_labelled_with_the_move_notation_frame():
 
 
 def test_start_position_status_lines():
-    view = render_game_view(_start_position())
+    view = render_game_view(_start_position(), BATTLE_SETUP)
     assert "White to move" in view
     assert "Captured — White: none" in view
     assert "Captured — Black: none" in view
@@ -58,7 +58,7 @@ def test_captured_pieces_are_derived_from_the_board():
             (Side.WHITE, PieceType.MILITIA, 1),
         ],
     )
-    view = render_game_view(position)
+    view = render_game_view(position, BATTLE_SETUP)
     # Multiples get a count, singles just the name, in piece-rank order.
     assert "Captured — Black: Knight x2, Halberdier" in view
     assert "Captured — White: Militia" in view
@@ -70,6 +70,6 @@ def test_turn_and_clock_line_reports_the_position_fields():
         side_to_move=Side.BLACK,
         inactivity_counter=7,
     )
-    view = render_game_view(position)
+    view = render_game_view(position, BATTLE_SETUP)
     assert "Black to move" in view
     assert "Inactivity — 7/50" in view

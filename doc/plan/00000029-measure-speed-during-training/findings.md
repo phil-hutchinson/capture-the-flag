@@ -11,6 +11,13 @@ A full-scale training run at the architecture and search budget the 2026-07-24
 baseline used (`training-runs/20260724-191645/` is that predecessor), re-taken
 after the gap-closing regions of plan Steps 12–13 were added:
 
+> **Later note (story 00000037, 2026-08-02).** The run directories named here no
+> longer exist. `training-runs/` is gitignored, so they were only ever present on
+> the machine that produced them; story 37 deleted them because their checkpoints
+> became unloadable — trained under the eight-movement action space `ENG_NN_3`
+> superseded, and under rules no longer Active. The figures below were taken from
+> those runs and are unaffected; only the raw `timings.json` behind them is gone.
+
 | | |
 | --- | --- |
 | total | 11,138.6s (3h 05m) |

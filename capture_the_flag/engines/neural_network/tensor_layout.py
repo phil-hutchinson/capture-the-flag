@@ -1,10 +1,17 @@
 from ...board import BOARD_COLUMNS, BOARD_ROWS
 
-# The engine I/O spec (doc/neuralnetwork/eng-nn-2.md) this tensor layout
-# implements. Checkpoints stamp this name so a checkpoint saved against a
-# superseded spec is rejected at load time instead of silently mismapping onto
-# the current, differently-shaped input (see ctf_checkpoint.py).
-ENGINE_SPEC_NAME = "ENG_NN_2"
+# The engine I/O spec this tensor layout implements. Checkpoints stamp this name
+# so a checkpoint saved against a superseded spec is rejected at load time
+# instead of silently mismapping onto the current, differently-shaped input (see
+# ctf_checkpoint.py).
+#
+# ENG_NN_3 supersedes ENG_NN_2 (doc/neuralnetwork/eng-nn-2.md) because major 2's
+# diagonal attack is exactly the case doc/neuralnetwork/README.md names as
+# forcing a new spec: ply geometry the old action space cannot address. Its
+# spec document is minted at the end of story 37, once the rest of the contract
+# — board-parametric shapes and composition-driven quantity planes — has settled;
+# minting it now would publish a contract this story goes on to change.
+ENGINE_SPEC_NAME = "ENG_NN_3"
 
 # Feature Planes:
 FP_OUR_FLAG = 0
@@ -45,6 +52,19 @@ FP_THEIR_RANK_6_QUANTITY = 33
 
 TOTAL_FP_COUNT = 34
 
+# Every offset a legal ply can have, in three groups: the one-square orthogonal
+# step, the two-square orthogonal step the unencumbered bonus allows, and the
+# one-square diagonal attack added to the baseline at major 2 (rules.md 4.3).
+#
+# The diagonals are appended rather than interleaved so the orthogonal indices
+# keep the values they had under ENG_NN_2 — which buys nothing at load time
+# (a differently-shaped policy head is rejected on the spec stamp regardless)
+# but keeps a hand-read logit index meaning the same thing across the two specs.
+#
+# A diagonal offset is only ever an attack: diagonal movement onto an empty
+# square is never legal, so no index has to distinguish the two. The action
+# space addresses ply *geometry*; legality comes from the rules engine at decode
+# time (see doc/neuralnetwork/README.md).
 MOVEMENT_INDEX = {
     #(row_delta, column_delta)
     (1, 0): 0,
@@ -55,6 +75,10 @@ MOVEMENT_INDEX = {
     (0, 2): 5,
     (-2, 0): 6,
     (0, -2): 7,
+    (1, 1): 8,
+    (1, -1): 9,
+    (-1, 1): 10,
+    (-1, -1): 11,
 }
 
 MOVEMENTS_PER_POSITION = len(MOVEMENT_INDEX)

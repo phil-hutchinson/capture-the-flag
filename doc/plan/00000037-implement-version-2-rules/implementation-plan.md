@@ -37,8 +37,15 @@ clears them.
 
 Add the four diagonal deltas to the movement index in `tensor_layout.py`, carry
 the widened action space through `ctf_policy_target.py`, `ctf_crn.py`, and
-network construction, and bump `ENGINE_SPEC_NAME`. No diagonal ply is generated
-yet, so the four new indices stay empty throughout.
+network construction, and bump `ENGINE_SPEC_NAME` to `ENG_NN_3`. No diagonal ply
+is generated yet, so the four new indices stay empty throughout.
+
+The **spec document is not minted here**. `doc/neuralnetwork/README.md` requires
+a contract change to mint one, and requires a minted spec to be immutable — but
+steps 7 and 8 change the same contract again, so a document written now would be
+rewritten twice before the branch merges. The constant moves now, because it is
+what stops an eight-movement checkpoint loading into a twelve-movement policy
+head; the document is minted in step 8, once the contract has settled.
 
 Depends on: nothing. It comes first because step 2 emits plies that need somewhere
 to land in the policy target.
@@ -176,6 +183,10 @@ those ranks, so the plane layout is one contract across compositions rather than
 two — which is what keeps cross-composition transfer an open question rather than
 a foreclosed one. Qualify `ENGINE_SPEC_NAME` by layout, so a checkpoint trained
 on one board cannot silently meet a differently-shaped input.
+
+Mint `doc/neuralnetwork/eng-nn-3.md` here, now that the contract is final: the
+twelve-movement action space, the board-parametric shapes, and the compatible
+rulesets, which are the two Active editions rather than `1-2:PRE-RELEASE`.
 
 Depends on: Step 7 (both layouts must exist for the shape to be worth deriving,
 and the step is verified on both).

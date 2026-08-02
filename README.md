@@ -5,9 +5,10 @@ it. Phase 1 is secret simultaneous placement of a full army; phase 2 is
 alternating, fully visible play until a flag is captured (or a
 player is left with no legal move, or an inactivity limit forces a draw).
 
-Two rulesets are published, sharing every rule but the board and the army:
-**Battle** (12x12 board, 25 pieces per side) and **Skirmish** (8x8 board, 16
-pieces), the smaller and faster of the two. See
+Two rulesets are published, sharing every rule but the board, the army, and one
+Skirmish-only placement restriction: **Battle** (12x12 board, 25 pieces per side)
+and **Skirmish** (8x8 board, 16 pieces), the smaller and faster of the two. Every
+runner below takes `--ruleset battle|skirmish` and defaults to Battle. See
 [`doc/ruleset/rules.md`](doc/ruleset/rules.md).
 
 The game is built on [game-engine-core](https://github.com/phil-hutchinson/game-engine-core),
@@ -53,9 +54,9 @@ directory; `--seed` seeds the batch for reproducible runs. `--white`/`--black`
 choose each seat's kind — `random` or `neural` (the learned engine); a neural
 seat's search is tuned with `--iterations`/`--temperature`. Each record names the
 result and how the game ended, stamps the ruleset edition the game was played
-under (`1-2:PRE-RELEASE`) so a stored game is self-describing about its rules,
-and renders moves in the ruleset's combat notation; the run prints an outcome
-split, an ending-category breakdown, and game-length statistics. Record files
+under (`2-0:BATTLE` or `2-1:SKIRMISH`) so a stored game is self-describing about
+its rules, and renders moves in the ruleset's combat notation; the run prints an
+outcome split, an ending-category breakdown, and game-length statistics. Record files
 follow the format documented in
 [`doc/ruleset/technical-notes.md`](doc/ruleset/technical-notes.md), and the batch
 also writes a `timings.json`/`timings.txt` breakdown of where its time went (see
@@ -79,14 +80,18 @@ game, so it can be watched). Each human player supplies their phase-1 setup at a
 prompt: either the name of a
 placement file read from the gitignored `placements/` folder
 (`-p`/`--placements-dir` overrides the folder), or `random` for a random legal
-placement. A placement file is 4 rows of 12 characters — each a one-character
-piece symbol (`1`–`6`, `T`, `F`) or `-` for an empty square, since only 25 of
-the 48 home squares are filled — written from the owning player's seat (first
-line nearest the lakes, last line the back rank), so the same file produces the
-same setup for either side. Moves are typed in the simple source–destination
-notation (e.g. `A2A3`); malformed or illegal input re-prompts with an
-explanation, and each turn's display shows the coordinate-labelled board,
-captured pieces, and the inactivity clock.
+placement. A placement file is one row per home-zone row, each as wide as the
+board — 4 rows of 12 for Battle, 3 rows of 8 for Skirmish — where each character
+is a one-character piece symbol (`1`–`6`, `T`, `F`) or `-` for an empty square,
+since a home zone holds more squares than the army fills. It is written from the
+owning player's seat (first line nearest the lakes, last line the back rank), so
+the same file produces the same setup for either side, and its shape is what
+identifies which board it is for.
+
+Moves are typed in the simple source–destination notation (e.g. `A2A3`);
+malformed or illegal input re-prompts with an explanation, and each turn's
+display shows the coordinate-labelled board, captured pieces, and the inactivity
+clock.
 
 ## Training the engine
 
@@ -112,11 +117,13 @@ architecture included, so a resumed run rebuilds the network at the size it
 was started at.
 
 Every checkpoint is stamped with the ruleset edition its weights were trained
-under, and a resume continues under that stamp rather than under current
-defaults — a network is only valid for the rules it was trained on. A checkpoint
-whose stamp this code cannot implement, or which has no stamp at all (anything
-saved before stamping existed), is refused rather than loaded silently, so such
-runs have to be started again from scratch.
+under and with the board its tensors are shaped for, and a resume continues under
+that stamp rather than under current defaults — a network is only valid for the
+rules it was trained on. A checkpoint is refused rather than loaded silently when
+its stamp is one this code cannot implement, when it has no stamp at all
+(anything saved before stamping existed), or when it names a ruleset other than
+the one the run is playing: a Skirmish-trained network cannot be seated in a
+Battle game. Such runs have to be started again from scratch.
 
 ## Measuring where the time goes
 

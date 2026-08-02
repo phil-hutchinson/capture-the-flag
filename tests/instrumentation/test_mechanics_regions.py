@@ -24,6 +24,7 @@ from capture_the_flag.timing_regions import (
     OUTCOME_REASON,
     STARTING_POSITION,
 )
+from tests.engines.neural_network.small_networks import BATTLE_SETUP
 
 _WHITE_FLAG_SQUARE = Square(11, 1)  # L1
 _BLACK_FLAG_SQUARE = Square(11, 12)  # L12
@@ -131,7 +132,7 @@ def test_mechanics_nest_under_whatever_region_is_open() -> None:
 
 
 def test_starting_position_generation_is_timed() -> None:
-    factory = CtfPositionFactory()
+    factory = CtfPositionFactory(setup=BATTLE_SETUP)
     with timing_session("test") as session:
         for _ in range(2):
             factory()

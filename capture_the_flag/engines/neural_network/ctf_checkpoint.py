@@ -5,14 +5,22 @@ the shared `game_engine_learning.checkpoints` module is torch-free and only
 supplies the run-directory / checkpoint-path naming, so the `torch.save` /
 `torch.load` of the `CtfCrn` state lives here.
 
-Every checkpoint also stamps the engine I/O spec (`ENGINE_SPEC_NAME`) its
-weights were produced against. `CtfCrn`'s input width follows `INPUT_SHAPE`
-directly, so a checkpoint saved against a superseded, differently-shaped spec
-(e.g. an `ENG_NN_1` checkpoint from before this story) would otherwise fail to
-load with an opaque `state_dict` shape mismatch, or — worse, if the shapes ever
-happened to coincide — load "successfully" into a network that misinterprets
-its planes. `load_network` checks the stamp before touching the network at all,
-so that failure is immediate and names the mismatch.
+Every checkpoint also stamps the engine I/O spec its weights were produced
+against — the spec name qualified by the board it was trained on
+(`TensorLayout.spec`, e.g. `ENG_NN_3/standard_144`). `CtfCrn`'s shape follows its
+`TensorLayout` directly, so a checkpoint saved against a superseded or
+differently-shaped contract (an `ENG_NN_1` checkpoint from before this story, or
+an 8 x 8 one met by a 12 x 12 run) would otherwise fail to load with an opaque
+`state_dict` shape mismatch, or — worse, if the shapes ever happened to coincide
+— load "successfully" into a network that misinterprets its planes.
+`load_network` checks the stamp before touching the network at all, so that
+failure is immediate and names the mismatch.
+
+The board qualifies the spec rather than minting a spec per board because
+`ENG_NN_3` is one *contract*, stated parametrically in the board's dimensions
+(see `doc/neuralnetwork/eng-nn-3.md`). Two boards are two instances of it, and
+their weights are not interchangeable, so the stamp has to distinguish them even
+though the document does not.
 
 Alongside the spec, a checkpoint records the architecture (`CtfCrn`'s trunk width
 and residual-block count) its weights were trained at. The two stamps are handled
@@ -25,9 +33,9 @@ widths coexist under one code version, which any later width comparison needs.
 
 A third stamp records the **ruleset configuration** — the edition plus any
 deviating flags — the weights were trained under. The spec stamp does not cover
-this: `ENGINE_SPEC_NAME` names the tensor *shape* contract, so a rules-only
-change leaves it untouched and an unpinned checkpoint would load cleanly into a
-network evaluating under rules it never saw. It is also a stricter statement than
+this: it names the tensor *shape* contract, so a rules-only change leaves it
+untouched and an unpinned checkpoint would load cleanly into a network
+evaluating under rules it never saw. It is also a stricter statement than
 an engine spec's compatible-rulesets list: that list is the *set* of rulesets an
 I/O contract can serve, many-to-one, while this stamp is the single *point* in
 that set these weights actually occupy.
@@ -73,6 +81,7 @@ from typing import Any
 
 import torch
 
+from ...game_setup import GameSetup
 from ...record import (
     RulesetConfiguration,
     active_configuration,
@@ -85,7 +94,7 @@ from .neural_ctf_player import (
     NeuralCtfPlayer,
     build_neural_player,
 )
-from .tensor_layout import ENGINE_SPEC_NAME
+from .tensor_layout import TensorLayout
 
 DEFAULT_RUNS_DIR = Path("training-runs")
 """Repo-root-relative base directory for training-run artifacts (checkpoints and
@@ -105,9 +114,14 @@ def save_checkpoint(
     network: CtfCrn, path: Path, *, configuration: RulesetConfiguration | None = None
 ) -> None:
     """Write `network`'s weights to `path` (weights only, no optimizer state),
-    stamped with the engine spec (`ENGINE_SPEC_NAME`) they were produced under,
-    the architecture `network` was built at, and the ruleset configuration they
-    were trained under.
+    stamped with the engine spec they were produced under, the architecture
+    `network` was built at, and the ruleset configuration they were trained
+    under.
+
+    The spec stamp is read off `network` rather than passed in or looked up: the
+    network was built to one `TensorLayout` and its weights have that contract's
+    shape, so the network is the only thing that can state it without a chance of
+    disagreeing with the tensors being written beside it.
 
     `configuration` is that last stamp, defaulting to `active_configuration()` —
     what a run starting fresh is training under. A resumed run passes the
@@ -125,7 +139,7 @@ def save_checkpoint(
         configuration = active_configuration()
     path.parent.mkdir(parents=True, exist_ok=True)
     checkpoint = {
-        _CHECKPOINT_SPEC_KEY: ENGINE_SPEC_NAME,
+        _CHECKPOINT_SPEC_KEY: network.tensor_layout.spec,
         _CHECKPOINT_ARCHITECTURE_KEY: {
             _FEATURE_COUNT_KEY: network.feature_count,
             _RESIDUAL_BLOCK_COUNT_KEY: network.residual_block_count,
@@ -203,14 +217,17 @@ def _stamped_configuration(
     return configuration
 
 
-def load_network(path: Path) -> CtfCrn:
+def load_network(path: Path, setup: GameSetup) -> CtfCrn:
     """Rebuild a `CtfCrn` from a checkpoint file, ready to resume training.
 
-    The checkpoint's stamped spec is checked against `ENGINE_SPEC_NAME` before
-    anything else, so a checkpoint saved against a superseded, shape-incompatible
-    spec is rejected with a clear error naming the mismatch, rather than either
-    an opaque `state_dict` shape error or — should the shapes ever coincide — a
-    network that silently misinterprets its input planes.
+    `setup` is the board and army the network is being loaded *for*, and it is
+    what the rebuilt network is shaped to. Its spec — the engine spec qualified
+    by its board — is what the checkpoint's stamped spec is checked against
+    before anything else, so a checkpoint saved against a superseded or
+    differently-shaped contract is rejected with a clear error naming the
+    mismatch, rather than either an opaque `state_dict` shape error or — should
+    the shapes ever coincide — a network that silently misinterprets its input
+    planes.
 
     Once that check passes, the network is rebuilt at the architecture the
     checkpoint records rather than at the current defaults, so a checkpoint
@@ -218,24 +235,25 @@ def load_network(path: Path) -> CtfCrn:
     failing to fit a default-sized container.
 
     The ruleset stamp is checked too, and rejected if absent or beyond what this
-    code implements — a rules-only change leaves `ENGINE_SPEC_NAME` untouched, so
+    code implements — a rules-only change leaves the spec stamp untouched, so
     without this check the weights would load cleanly into a network evaluating
     under rules they were never trained for. Use `checkpoint_configuration` to
     read the stamped configuration itself.
     """
+    tensor_layout = TensorLayout.for_setup(setup)
     checkpoint = _loaded_checkpoint(path)
     if _CHECKPOINT_SPEC_KEY not in checkpoint:
         raise ValueError(
             f"{path} has no engine-spec stamp, so it predates spec stamping and "
-            f"cannot be verified against the current {ENGINE_SPEC_NAME!r} input "
-            "contract."
+            f"cannot be verified against the {tensor_layout.spec!r} input "
+            "contract this run implements."
         )
     stamped_spec = checkpoint[_CHECKPOINT_SPEC_KEY]
-    if stamped_spec != ENGINE_SPEC_NAME:
+    if stamped_spec != tensor_layout.spec:
         raise ValueError(
-            f"{path} was saved against spec {stamped_spec!r}, but the running "
-            f"code implements {ENGINE_SPEC_NAME!r}. Checkpoints are not "
-            "compatible across engine-spec changes; retrain from scratch."
+            f"{path} was saved against spec {stamped_spec!r}, but this run "
+            f"implements {tensor_layout.spec!r}. Checkpoints are not compatible "
+            "across engine-spec changes or across boards; retrain from scratch."
         )
     if _CHECKPOINT_ARCHITECTURE_KEY not in checkpoint:
         # Guessing an architecture would risk loading weights into a network of
@@ -259,6 +277,7 @@ def load_network(path: Path) -> CtfCrn:
         )
     _stamped_configuration(checkpoint, path)
     network = CtfCrn(
+        tensor_layout,
         feature_count=architecture[_FEATURE_COUNT_KEY],
         residual_block_count=architecture[_RESIDUAL_BLOCK_COUNT_KEY],
     )
@@ -269,6 +288,7 @@ def load_network(path: Path) -> CtfCrn:
 def load_neural_player(
     path: Path,
     name: str,
+    setup: GameSetup,
     *,
     iterations: int = DEFAULT_ITERATIONS,
     temperature: float = DEFAULT_TEMPERATURE,
@@ -278,10 +298,14 @@ def load_neural_player(
     """Load a checkpoint into a playable seat: the saved network behind the
     evaluator + `MCTSEngine` + `NeuralCtfPlayer`, so a checkpoint plays through
     the same interfaces as every other engine. Search settings default to the
-    greedy play-time defaults."""
+    greedy play-time defaults.
+
+    `setup` is the game the seat is being filled for; the checkpoint is rejected
+    unless its weights were produced against that board's contract."""
     return build_neural_player(
         name,
-        network=load_network(path),
+        setup,
+        network=load_network(path, setup),
         iterations=iterations,
         temperature=temperature,
         rng=rng,

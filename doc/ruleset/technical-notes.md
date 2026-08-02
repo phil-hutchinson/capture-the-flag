@@ -122,18 +122,20 @@ behavior-preserving by default, and testable on a branch without publishing an
 edition per attempt.
 
 Composition is the sharpest case for the checkpoint pin: the learned evaluator
-normalizes its per-rank quantity features by `army_count`, so changing a count
-changes what those inputs *mean* while leaving the tensor shape — and therefore
-`ENGINE_SPEC_NAME` — untouched. A network trained at one composition would load
-silently into another. The ruleset stamp is what refuses it.
+normalizes its per-rank quantity features by the resolved `ARMY_COMPOSITION`, so
+changing a count changes what those inputs *mean* while leaving the tensor shape
+— and therefore the engine-spec stamp — untouched. A network trained at one
+composition would load silently into another. The ruleset stamp is what refuses
+it.
 
 **Board layout is sharper still.** `BOARD_LAYOUT` changes the spatial extent of
-the input, so unlike a composition change it generally *does* move the tensor
-shape and so is caught by `ENGINE_SPEC_NAME` as well. That makes it the one case
-where the two stamps overlap — which is redundancy rather than a problem, and no
-reason to lean on the spec stamp: a layout change that preserved the grid
-dimensions while moving the lakes or the home-zone depth would leave the shape
-untouched and needs the ruleset stamp to catch it.
+the input, and the engine-spec stamp is deliberately qualified by it
+(`ENG_NN_3/standard_64`), so a checkpoint trained on one board is caught by that
+stamp too. That makes it the one case where the two stamps overlap — which is
+redundancy rather than a problem, and no reason to lean on the spec stamp: a
+layout change that preserved the grid dimensions while moving the lakes or the
+home-zone depth would produce the same shape under a different `layout_id`, and
+it is the qualifier and the ruleset stamp, not the shape, that catch it.
 
 **Not every flag combination is playable.** `BOARD_LAYOUT` and
 `ARMY_COMPOSITION` are independent, so a configuration can name an army that does
@@ -244,9 +246,12 @@ ordering when comparing.
 Such a list is the *set* of rulesets an I/O contract can serve, many-to-one; a
 checkpoint's tag is the single *point* in that set its weights actually occupy. A
 network is only valid for the rules it was trained under, and the engine spec
-stamp (`ENGINE_SPEC_NAME`) does not cover this — it names the tensor *shape*
-contract, so a rules-only change leaves it untouched and the weights would load
-cleanly into a network evaluating under rules they never saw.
+stamp does not cover this — it names the tensor *shape* contract, so a rules-only
+change leaves it untouched and the weights would load cleanly into a network
+evaluating under rules they never saw. `ENG_NN_3` is compatible with both Active
+editions precisely because it is stated parametrically in the board and roster;
+that is a claim about the contract, and says nothing about whether one set of
+weights can move between them.
 
 On load, a checkpoint whose configuration the running code can implement is
 **adopted**: a resumed run continues under the stamped configuration rather than

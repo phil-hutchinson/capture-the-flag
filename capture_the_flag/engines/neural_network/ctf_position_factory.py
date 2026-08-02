@@ -1,6 +1,6 @@
 from random import Random
 
-from ...game_setup import BATTLE_SETUP, GameSetup
+from ...game_setup import GameSetup
 from ...instrumentation.timing import region
 from ...placement import assemble_position, random_placement
 from ...position import CtfPosition
@@ -19,14 +19,12 @@ class CtfPositionFactory:
 
     `setup` is the board and army every position this factory builds is played
     under. It is held on the instance because the library's `position_factory`
-    contract is zero-arg, so there is nowhere else to put it. It still defaults to
-    Battle, which is the last such assumption in the self-play path and is removed
-    when the run-time configuration reaches here.
+    contract is zero-arg, so there is nowhere else to put it, and it is required
+    rather than defaulted: a self-play game played on a different board from the
+    one its network encodes is the failure this whole seam exists to prevent.
     """
 
-    def __init__(
-        self, rng: Random | None = None, setup: GameSetup = BATTLE_SETUP
-    ) -> None:
+    def __init__(self, rng: Random | None = None, *, setup: GameSetup) -> None:
         self._rng = rng if rng is not None else Random()
         self._setup = setup
 

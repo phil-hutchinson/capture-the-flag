@@ -21,7 +21,10 @@ from capture_the_flag.timing_regions import (
     POLICY_SOFTMAX,
     READ_PLY_PROBABILITIES,
 )
-from tests.engines.neural_network.small_networks import small_network
+from tests.engines.neural_network.small_networks import (
+    BATTLE_TENSOR_LAYOUT,
+    small_network,
+)
 
 from .test_mechanics_regions import child, ongoing_position
 
@@ -35,7 +38,7 @@ DECODE_PHASES = (
 
 
 def test_evaluation_children_nest_under_the_evaluation() -> None:
-    evaluator = CtfNNEvaluator(small_network())
+    evaluator = CtfNNEvaluator(small_network(), BATTLE_TENSOR_LAYOUT)
     position = ongoing_position()
 
     with timing_session("test") as session:
@@ -57,7 +60,7 @@ def test_evaluation_keeps_an_unattributed_remainder_of_its_own() -> None:
     sample, unwrapping the value tensor, entering the no-grad context — is real
     time inside `evaluate-position` that none of its children explain. It is left
     unnamed deliberately: naming it would mean copying that class's body here."""
-    evaluator = CtfNNEvaluator(small_network())
+    evaluator = CtfNNEvaluator(small_network(), BATTLE_TENSOR_LAYOUT)
 
     with timing_session("test") as session:
         evaluator.evaluate_position(ongoing_position())
@@ -70,7 +73,7 @@ def test_the_mode_switch_is_charged_to_the_evaluation_that_triggers_it() -> None
     torch implements that as a recursive walk over every submodule — the largest
     single item in what `evaluate-position` used to leave unattributed. The region
     lives on the network, so the call path is what charges it to the evaluation."""
-    evaluator = CtfNNEvaluator(small_network())
+    evaluator = CtfNNEvaluator(small_network(), BATTLE_TENSOR_LAYOUT)
     position = ongoing_position()
 
     with timing_session("test") as session:
@@ -98,7 +101,7 @@ def test_mode_switches_outside_an_evaluation_record_at_the_callers_depth() -> No
 def test_policy_decoding_pays_for_a_ply_generation() -> None:
     """Decoding masks illegal plies, so it regenerates the legal plies — cost
     attributed to the decode rather than pooled with the caller's own."""
-    evaluator = CtfNNEvaluator(small_network())
+    evaluator = CtfNNEvaluator(small_network(), BATTLE_TENSOR_LAYOUT)
 
     with timing_session("test") as session:
         evaluator.evaluate_position(ongoing_position())
@@ -112,7 +115,7 @@ def test_decoding_records_each_of_its_phases() -> None:
     training run — and its phases differ in kind: two walk the legal plies a
     tensor element at a time, one is a single fused tensor op. A single figure for
     the call would not say which to attack."""
-    evaluator = CtfNNEvaluator(small_network())
+    evaluator = CtfNNEvaluator(small_network(), BATTLE_TENSOR_LAYOUT)
     position = ongoing_position()
 
     with timing_session("test") as session:
@@ -132,7 +135,7 @@ def test_ply_generation_stays_a_sibling_of_the_decode_phases() -> None:
     already-timed `legal-plies` region stays where it has always been: beside the
     phases, not buried inside the one that consumes them. Records taken before the
     phases existed therefore remain comparable line for line."""
-    evaluator = CtfNNEvaluator(small_network())
+    evaluator = CtfNNEvaluator(small_network(), BATTLE_TENSOR_LAYOUT)
 
     with timing_session("test") as session:
         evaluator.evaluate_position(ongoing_position())
@@ -147,7 +150,7 @@ def test_the_phases_account_for_the_decode() -> None:
     used to have no name, which put a ceiling on what any optimization of it could
     claim. What is left over now is region-entry overhead — bounded loosely here,
     since the underlying durations are real wall clock."""
-    evaluator = CtfNNEvaluator(small_network())
+    evaluator = CtfNNEvaluator(small_network(), BATTLE_TENSOR_LAYOUT)
     position = ongoing_position()
 
     with timing_session("test") as session:
@@ -161,7 +164,7 @@ def test_the_phases_account_for_the_decode() -> None:
 def test_encoding_alone_records_without_an_evaluation() -> None:
     """`encode_position` is also called directly (the self-play collector encodes
     each step), so it records at whatever depth the caller sits."""
-    evaluator = CtfNNEvaluator(small_network())
+    evaluator = CtfNNEvaluator(small_network(), BATTLE_TENSOR_LAYOUT)
 
     with timing_session("test") as session:
         evaluator.encode_position(ongoing_position())
@@ -175,10 +178,8 @@ def test_batched_forward_passes_record_at_the_callers_depth() -> None:
     the name — is what separates it from search's single-position passes."""
     import torch
 
-    from capture_the_flag.engines.neural_network.tensor_layout import INPUT_SHAPE
-
     network = small_network()
-    batch = torch.zeros((4, *INPUT_SHAPE), dtype=torch.float32)
+    batch = torch.zeros((4, *BATTLE_TENSOR_LAYOUT.input_shape), dtype=torch.float32)
 
     with timing_session("test") as session:
         network(batch)

@@ -25,15 +25,18 @@ from capture_the_flag.engines.neural_network.ctf_position_factory import (
 from capture_the_flag.engines.neural_network.ctf_self_play import (
     build_self_play_collector,
 )
-from capture_the_flag.engines.neural_network.tensor_layout import INPUT_SHAPE
 from capture_the_flag.position import CtfPosition
-from tests.engines.neural_network.small_networks import small_network
+from tests.engines.neural_network.small_networks import (
+    BATTLE_SETUP,
+    BATTLE_TENSOR_LAYOUT,
+    small_network,
+)
 
 
 def _evaluator() -> CtfNNEvaluator:
     # These tests collect real self-play games; what the network says is
     # irrelevant to every assertion, so the tiny one keeps them affordable.
-    return CtfNNEvaluator(small_network())
+    return CtfNNEvaluator(small_network(), BATTLE_TENSOR_LAYOUT)
 
 
 def _fast_engine_factory(evaluator: CtfNNEvaluator) -> CtfEngineFactory:
@@ -44,7 +47,7 @@ def _fast_engine_factory(evaluator: CtfNNEvaluator) -> CtfEngineFactory:
 
 def test_build_self_play_collector_wires_the_game_specific_pieces():
     evaluator = _evaluator()
-    collector = build_self_play_collector(evaluator)
+    collector = build_self_play_collector(evaluator, BATTLE_SETUP)
 
     assert isinstance(collector, SelfPlayCollector)
     assert collector._evaluator is evaluator
@@ -57,13 +60,15 @@ def test_build_self_play_collector_wires_the_game_specific_pieces():
 @pytest.mark.slow
 def test_collect_produces_structurally_valid_samples():
     evaluator = _evaluator()
-    collector = build_self_play_collector(evaluator, _fast_engine_factory(evaluator))
+    collector = build_self_play_collector(
+        evaluator, BATTLE_SETUP, _fast_engine_factory(evaluator)
+    )
 
     samples = collector.collect(2)
 
     assert samples
     for sample in samples:
-        assert tuple(sample.encoded_position.shape) == INPUT_SHAPE
+        assert tuple(sample.encoded_position.shape) == BATTLE_TENSOR_LAYOUT.input_shape
         assert sample.target_value in (-1.0, 0.0, 1.0)
         probs = list(sample.target_policy.values())
         assert probs  # a distribution over at least one ply
@@ -74,7 +79,9 @@ def test_collect_produces_structurally_valid_samples():
 @pytest.mark.slow
 def test_target_values_alternate_within_a_game():
     evaluator = _evaluator()
-    collector = build_self_play_collector(evaluator, _fast_engine_factory(evaluator))
+    collector = build_self_play_collector(
+        evaluator, BATTLE_SETUP, _fast_engine_factory(evaluator)
+    )
 
     values = [sample.target_value for sample in collector.collect(1)]
 
@@ -98,7 +105,7 @@ def test_capture_time_transform_reframes_black_to_move_distributions():
     collector = SelfPlayCollector(
         evaluator=evaluator,
         engine_factory=_fast_engine_factory(evaluator),
-        position_factory=CtfPositionFactory(),
+        position_factory=CtfPositionFactory(setup=BATTLE_SETUP),
         policy_transform=spy_transform,
     )
     collector.collect(1)

@@ -6,7 +6,7 @@ import torch.nn as nn
 from game_engine_core.engines.mcts_engine import MCTSEngine
 from torch import Tensor
 
-from capture_the_flag.board import STANDARD_144, Square
+from capture_the_flag.board import STANDARD_64, STANDARD_144, Square
 from capture_the_flag.engines.neural_network.ctf_nn_evaluator import (
     CtfNNEvaluator,
     policy_logit_location_for_ply,
@@ -14,7 +14,6 @@ from capture_the_flag.engines.neural_network.ctf_nn_evaluator import (
     rotate_square,
 )
 from capture_the_flag.engines.neural_network.tensor_layout import (
-    ACTION_SPACE_SHAPE,
     FP_INACTIVITY_COUNT,
     FP_OUR_FLAG,
     FP_OUR_FLAG_RELATIVE_COLUMN,
@@ -49,7 +48,6 @@ from capture_the_flag.engines.neural_network.tensor_layout import (
     # FP_THEIR_RANK_6,
     FP_THEIR_RANK_6_QUANTITY,
     # FP_THEIR_TOWER,
-    # INPUT_SHAPE,
     MOVEMENT_INDEX,
 )
 from capture_the_flag.outcome import INACTIVITY_LIMIT
@@ -57,7 +55,13 @@ from capture_the_flag.pieces import PieceType as P
 from capture_the_flag.ply import CtfPly
 from capture_the_flag.position import CtfPosition
 from capture_the_flag.side import Side
-from tests.engines.neural_network.small_networks import small_network
+from tests.engines.neural_network.small_networks import (
+    BATTLE_TENSOR_LAYOUT,
+    SKIRMISH_TENSOR_LAYOUT,
+    small_network,
+)
+
+_ACTION_SPACE_SHAPE = BATTLE_TENSOR_LAYOUT.action_space_shape
 
 
 def _dummy_model():
@@ -268,7 +272,7 @@ _H9G9_E4F4:tuple[int,int,int] = MOVEMENT_INDEX[(0, -1)], 8, 7
 def _setup_policy_logits(seed = 987) -> Tensor:
     torch.manual_seed(seed)
 
-    policy_logits = torch.empty(ACTION_SPACE_SHAPE)
+    policy_logits = torch.empty(_ACTION_SPACE_SHAPE)
     policy_logits.uniform_(-10, 10)
     policy_logits[_A2A4_L11L9] = 3.0
     policy_logits[_D4D5_I9I8] = 10.0
@@ -301,7 +305,7 @@ def _setup_position_legal_plies(side: Side, monkeypatch) -> CtfPosition:
     ids=["white_board", "black_board"]
 )
 def test_encode_processes_matching_boards_correctly(position):
-    evaluator = CtfNNEvaluator(_dummy_model())
+    evaluator = CtfNNEvaluator(_dummy_model(), BATTLE_TENSOR_LAYOUT)
     encoded = evaluator.encode_position(position)
     expected_piece_placements = {
         (FP_OUR_FLAG, 0, 0),
@@ -321,7 +325,7 @@ def test_matching_positions_equivalent(inactivity_counter):
     white_position = _matching_white_position(inactivity_counter)
     black_position = _matching_black_position(inactivity_counter)
 
-    evaluator = CtfNNEvaluator(_dummy_model())
+    evaluator = CtfNNEvaluator(_dummy_model(), BATTLE_TENSOR_LAYOUT)
     white_encoded = evaluator.encode_position(white_position)
     black_encoded = evaluator.encode_position(black_position)
 
@@ -334,7 +338,7 @@ def test_matching_positions_equivalent(inactivity_counter):
 def test_inactivity_counter_consistent(inactivity_counter):
     position = _matching_white_position(inactivity_counter)
 
-    evaluator = CtfNNEvaluator(_dummy_model())
+    evaluator = CtfNNEvaluator(_dummy_model(), BATTLE_TENSOR_LAYOUT)
     encoded = evaluator.encode_position(position)
 
     ref_value = encoded[FP_INACTIVITY_COUNT, 0, 0]
@@ -351,7 +355,7 @@ def test_inactivity_counter_consistent(inactivity_counter):
 def test_inactivity_counter_populated(inactivity_counter):
     position = _matching_white_position(inactivity_counter)
 
-    evaluator = CtfNNEvaluator(_dummy_model())
+    evaluator = CtfNNEvaluator(_dummy_model(), BATTLE_TENSOR_LAYOUT)
     encoded = evaluator.encode_position(position)
 
     expected_value = inactivity_counter / INACTIVITY_LIMIT
@@ -372,7 +376,7 @@ def test_flag_relative_planes_normalized_correctly(position, our_flag_position, 
     # Both fixtures are the same position, one from each side's perspective, so
     # both flags land at the same tensor coordinates once re-based into the
     # mover's frame -- (0, 0) for the mover's own flag, (11, 4) for the enemy's.
-    evaluator = CtfNNEvaluator(_dummy_model())
+    evaluator = CtfNNEvaluator(_dummy_model(), BATTLE_TENSOR_LAYOUT)
     encoded = evaluator.encode_position(position)
     _check_flag_relative_planes(encoded, our_flag_position, their_flag_position)
 
@@ -384,7 +388,7 @@ def test_flag_relative_planes_equivalent_under_rotation(inactivity_counter):
     white_position = _matching_white_position(inactivity_counter)
     black_position = _matching_black_position(inactivity_counter)
 
-    evaluator = CtfNNEvaluator(_dummy_model())
+    evaluator = CtfNNEvaluator(_dummy_model(), BATTLE_TENSOR_LAYOUT)
     white_encoded = evaluator.encode_position(white_position)
     black_encoded = evaluator.encode_position(black_position)
 
@@ -399,7 +403,7 @@ def test_flag_relative_planes_equivalent_under_rotation(inactivity_counter):
 def test_army_strength_planes_full_army_is_one():
     position = _full_army_position(Side.WHITE)
 
-    evaluator = CtfNNEvaluator(_dummy_model())
+    evaluator = CtfNNEvaluator(_dummy_model(), BATTLE_TENSOR_LAYOUT)
     encoded = evaluator.encode_position(position)
 
     for fp in _OUR_RANK_QUANTITY_FP + _THEIR_RANK_QUANTITY_FP:
@@ -415,7 +419,7 @@ def test_army_strength_planes_reflect_attrition(side_to_move):
     our_counts = _ATTRITION_COUNTS[side_to_move]
     their_counts = _ATTRITION_COUNTS[side_to_move.opponent]
 
-    evaluator = CtfNNEvaluator(_dummy_model())
+    evaluator = CtfNNEvaluator(_dummy_model(), BATTLE_TENSOR_LAYOUT)
     encoded = evaluator.encode_position(position)
 
     for rank, our_fp, their_fp in zip(_MOBILE_RANKS, _OUR_RANK_QUANTITY_FP, _THEIR_RANK_QUANTITY_FP, strict=True):
@@ -430,7 +434,7 @@ def test_army_strength_planes_equivalent_under_rotation(inactivity_counter):
     white_position = _matching_white_position(inactivity_counter)
     black_position = _matching_black_position(inactivity_counter)
 
-    evaluator = CtfNNEvaluator(_dummy_model())
+    evaluator = CtfNNEvaluator(_dummy_model(), BATTLE_TENSOR_LAYOUT)
     white_encoded = evaluator.encode_position(white_position)
     black_encoded = evaluator.encode_position(black_position)
 
@@ -455,17 +459,22 @@ def test_encode_rejects_a_position_with_a_flag_missing(missing_side, expected):
     }
     position = _position(board, side_to_move=Side.WHITE, inactivity_counter=0)
 
-    evaluator = CtfNNEvaluator(_dummy_model())
+    evaluator = CtfNNEvaluator(_dummy_model(), BATTLE_TENSOR_LAYOUT)
 
     with pytest.raises(ValueError, match=expected):
         evaluator.encode_position(position)
 
-def test_rotate_square_involution():
-    for column in range(STANDARD_144.columns):
-        for row in range(1, STANDARD_144.rows + 1):
+@pytest.mark.parametrize(
+    "layout",
+    [STANDARD_144, STANDARD_64],
+    ids=["standard_144", "standard_64"],
+)
+def test_rotate_square_involution(layout):
+    for column in range(layout.columns):
+        for row in range(1, layout.rows + 1):
             original_square = Square(column, row)
-            rotated_once = rotate_square(original_square)
-            rotated_twice = rotate_square(rotated_once)
+            rotated_once = rotate_square(original_square, layout)
+            rotated_twice = rotate_square(rotated_once, layout)
             assert original_square.column == rotated_twice.column
             assert original_square.row == rotated_twice.row
 
@@ -481,14 +490,20 @@ def test_rotate_square_rotates_180_degrees(rotation):
     column_original, row_original, column_expected, row_expected = rotation
 
     original_square = Square(column_original, row_original)
-    rotated_square = rotate_square(original_square)
+    rotated_square = rotate_square(original_square, STANDARD_144)
 
     assert rotated_square.column == column_expected
     assert rotated_square.row == row_expected
 
+def test_rotate_square_rotates_about_its_own_board():
+    # The same square rotates to two different places on two different boards --
+    # which is the whole reason the layout is a parameter rather than a constant.
+    assert str(rotate_square(Square(0, 1), STANDARD_144)) == "L12"
+    assert str(rotate_square(Square(0, 1), STANDARD_64)) == "H8"
+
 def test_rotate_ply_rotates_180_degrees():
     original = CtfPly(Square(2, 3), Square(2, 4))
-    rotated = rotate_ply(original)
+    rotated = rotate_ply(original, STANDARD_144)
 
     assert str(rotated) == "J10J9"
 
@@ -497,19 +512,26 @@ def test_rotate_ply_rotates_180_degrees():
     [1, -1],
     ids=["White", "Black"],
 )
-def test_policy_logit_location_for_ply_is_bijective(active_player_id):
+@pytest.mark.parametrize(
+    "tensor_layout",
+    [BATTLE_TENSOR_LAYOUT, SKIRMISH_TENSOR_LAYOUT],
+    ids=["battle", "skirmish"],
+)
+def test_policy_logit_location_for_ply_is_bijective(tensor_layout, active_player_id):
     # note: this does include illegal moves (from/to lakes, to off the board locations) that exist in the policy_logit
+    layout = tensor_layout.layout
+    action_space_shape = tensor_layout.action_space_shape
     filled: set[tuple[int,int,int]] = set()
-    for column in range(STANDARD_144.columns):
-        for row in range(1, STANDARD_144.rows + 1):
+    for column in range(layout.columns):
+        for row in range(1, layout.rows + 1):
             for row_delta, column_delta in MOVEMENT_INDEX.keys():
                 from_square = Square(column, row)
                 to_square = Square(column + column_delta, row + row_delta)
                 ply = CtfPly(from_square, to_square)
-                location = policy_logit_location_for_ply(ply, active_player_id)
-                assert 0 <= location[0] < ACTION_SPACE_SHAPE[0]
-                assert 0 <= location[1] < ACTION_SPACE_SHAPE[1]
-                assert 0 <= location[2] < ACTION_SPACE_SHAPE[2]
+                location = policy_logit_location_for_ply(ply, active_player_id, layout)
+                assert 0 <= location[0] < action_space_shape[0]
+                assert 0 <= location[1] < action_space_shape[1]
+                assert 0 <= location[2] < action_space_shape[2]
                 assert location not in filled
                 filled.add(location)
 
@@ -521,7 +543,7 @@ def test_policy_logit_location_for_ply_is_bijective(active_player_id):
 def test_decode_policy_returns_valid_policy_dict(side_values, monkeypatch):
     side, pos1, pos2, pos3, = side_values
 
-    evaluator = CtfNNEvaluator(_dummy_model())
+    evaluator = CtfNNEvaluator(_dummy_model(), BATTLE_TENSOR_LAYOUT)
 
     policy_logits = _setup_policy_logits()
     position = _setup_position_legal_plies(side, monkeypatch)
@@ -546,7 +568,7 @@ def test_decode_policy_returns_valid_policy_dict(side_values, monkeypatch):
 def test_decode_policy_ignores_masked_indices(side_values, monkeypatch):
     side, pos1, pos2, pos3, = side_values
 
-    evaluator = CtfNNEvaluator(_dummy_model())
+    evaluator = CtfNNEvaluator(_dummy_model(), BATTLE_TENSOR_LAYOUT)
 
     policy_logits_a = _setup_policy_logits(1234)
     policy_logits_b = _setup_policy_logits(2345)
@@ -568,7 +590,7 @@ def test_decode_policy_ignores_masked_indices(side_values, monkeypatch):
 def test_evaluator_with_actual_nn_returns_valid_evaluation(side_to_move):
     
     nn = small_network()
-    evaluator = CtfNNEvaluator(nn)
+    evaluator = CtfNNEvaluator(nn, BATTLE_TENSOR_LAYOUT)
 
     position = _base_position(side_to_move, 0)
     evaluation = evaluator.evaluate_position(position)
@@ -587,7 +609,7 @@ def test_evaluator_in_engine_with_actual_nn_returns_valid_ply(side_to_move):
     
     nn = small_network()
     engine: MCTSEngine[CtfPly, CtfPosition, CtfNNEvaluator] = MCTSEngine(
-        evaluator = CtfNNEvaluator(nn),
+        evaluator = CtfNNEvaluator(nn, BATTLE_TENSOR_LAYOUT),
         iterations = 100,
         temperature = 0.0
     )
@@ -601,3 +623,128 @@ def test_evaluator_in_engine_with_actual_nn_returns_valid_ply(side_to_move):
 
     # no pieces are in range to attack each other, so assert that it lands on a blank square
     assert selected_ply.destination not in position.board.keys() 
+
+# --- Configuration-driven encoding (story 37, step 8) ------------------------
+#
+# Everything above is Battle, which was the only board the encoder had. These
+# assert the part that is no longer a build constant: the tensor's extent comes
+# from the configured layout and the army-strength divisors from the configured
+# composition.
+
+def _skirmish_position(
+    board: dict, side_to_move: Side = Side.WHITE, inactivity_counter: int = 0
+) -> CtfPosition:
+    return CtfPosition(
+        board=MappingProxyType(board),
+        side_to_move=side_to_move,
+        inactivity_counter=inactivity_counter,
+        layout=STANDARD_64,
+    )
+
+def _skirmish_full_army_position() -> CtfPosition:
+    # 3 each of ranks 1-4 per side, laid along each home zone's back two rows,
+    # plus the two flags. The exact squares do not matter to these assertions;
+    # that they are on an 8x8 board and field a Skirmish army does.
+    board: dict[Square, tuple[Side, P]] = {
+        Square(0, 1): (Side.WHITE, P.FLAG),
+        Square(7, 8): (Side.BLACK, P.FLAG),
+    }
+    skirmish_ranks = (P.MASTER_OF_ARMS, P.CHAMPION, P.KNIGHT, P.HALBERDIER)
+    white_squares = (
+        Square(column, row) for row in (2, 3) for column in range(STANDARD_64.columns)
+    )
+    black_squares = (
+        Square(column, row) for row in (7, 6) for column in range(STANDARD_64.columns)
+    )
+    for rank in skirmish_ranks:
+        for _ in range(3):
+            board[next(white_squares)] = (Side.WHITE, rank)
+            board[next(black_squares)] = (Side.BLACK, rank)
+    return _skirmish_position(board)
+
+def test_encode_is_shaped_by_the_configured_board():
+    evaluator = CtfNNEvaluator(_dummy_model(), SKIRMISH_TENSOR_LAYOUT)
+
+    encoded = evaluator.encode_position(_skirmish_full_army_position())
+
+    assert tuple(encoded.shape) == SKIRMISH_TENSOR_LAYOUT.input_shape
+    assert tuple(encoded.shape) == (34, 8, 8)
+
+def test_encode_reads_lakes_from_the_configured_board():
+    # Skirmish's lakes sit on columns B/C and F/G of rows 4-5, which on Battle's
+    # board are open water-free squares — so a wrongly-shaped encoder would fill
+    # this plane somewhere else entirely.
+    evaluator = CtfNNEvaluator(_dummy_model(), SKIRMISH_TENSOR_LAYOUT)
+
+    encoded = evaluator.encode_position(_skirmish_full_army_position())
+
+    impassable = {
+        (row, column)
+        for row in range(STANDARD_64.rows)
+        for column in range(STANDARD_64.columns)
+        if encoded[FP_PASSABLE, row, column] == 0
+    }
+    assert impassable == {
+        (row, column) for row in (3, 4) for column in (1, 2, 5, 6)
+    }
+
+def test_army_strength_normalises_by_the_configured_composition():
+    # Skirmish fields 3 of each of ranks 1-4, so a full army reads 1.0 on those
+    # planes -- the same divisor Battle happens to use, which is why the ranks it
+    # does *not* field are the discriminating case below.
+    evaluator = CtfNNEvaluator(_dummy_model(), SKIRMISH_TENSOR_LAYOUT)
+
+    encoded = evaluator.encode_position(_skirmish_full_army_position())
+
+    for fp in (
+        FP_OUR_RANK_1_QUANTITY,
+        FP_OUR_RANK_2_QUANTITY,
+        FP_OUR_RANK_3_QUANTITY,
+        FP_OUR_RANK_4_QUANTITY,
+        FP_THEIR_RANK_1_QUANTITY,
+        FP_THEIR_RANK_2_QUANTITY,
+        FP_THEIR_RANK_3_QUANTITY,
+        FP_THEIR_RANK_4_QUANTITY,
+    ):
+        for row in range(STANDARD_64.rows):
+            for column in range(STANDARD_64.columns):
+                assert encoded[fp, row, column] == pytest.approx(1.0)
+
+def test_planes_for_ranks_the_composition_omits_are_present_and_zero():
+    # The plane layout is one contract across compositions (tensor_layout's
+    # TOTAL_FP_COUNT): Skirmish fields no Foot Soldier or Militia, so ranks 5 and
+    # 6 still have presence and quantity planes and every one of them reads zero.
+    # A divisor of 0 must not produce a NaN or an exception.
+    evaluator = CtfNNEvaluator(_dummy_model(), SKIRMISH_TENSOR_LAYOUT)
+
+    encoded = evaluator.encode_position(_skirmish_full_army_position())
+
+    for fp in (
+        FP_OUR_RANK_5_QUANTITY,
+        FP_OUR_RANK_6_QUANTITY,
+        FP_THEIR_RANK_5_QUANTITY,
+        FP_THEIR_RANK_6_QUANTITY,
+    ):
+        assert torch.all(encoded[fp] == 0.0)
+    assert encoded.isnan().sum() == 0
+
+def test_encode_rejects_a_position_from_another_board():
+    # An 8x8 board's squares are all valid 12x12 indices, so a Skirmish position
+    # would encode silently into a Battle tensor rather than failing.
+    evaluator = CtfNNEvaluator(_dummy_model(), BATTLE_TENSOR_LAYOUT)
+
+    with pytest.raises(ValueError, match="standard_144"):
+        evaluator.encode_position(_skirmish_full_army_position())
+
+def test_evaluator_with_actual_skirmish_nn_returns_valid_evaluation():
+    evaluator = CtfNNEvaluator(
+        small_network(SKIRMISH_TENSOR_LAYOUT), SKIRMISH_TENSOR_LAYOUT
+    )
+
+    position = _skirmish_full_army_position()
+    evaluation = evaluator.evaluate_position(position)
+
+    assert -1 <= evaluation.value <= 1
+    assert evaluation.policy is not None
+    assert set(evaluation.policy.keys()) == {str(ply) for ply in position.legal_plies}
+    assert sum(evaluation.policy.values()) == pytest.approx(1.0)

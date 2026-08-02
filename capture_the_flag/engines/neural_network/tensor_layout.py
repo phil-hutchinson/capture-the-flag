@@ -1,32 +1,35 @@
-from ...game_setup import BATTLE_SETUP
+"""The tensor contract between a game and the learned play engine.
 
-ENCODED_SETUP = BATTLE_SETUP
-ENCODED_LAYOUT = ENCODED_SETUP.layout
-ENCODED_COMPOSITION = ENCODED_SETUP.composition
-"""The board and army this tensor contract is shaped for.
+`TensorLayout` is that contract as a **value**: the input and action-space shapes
+a network is built at, and the engine-spec name a checkpoint trained against them
+is stamped with. It is derived from a `GameSetup`, so a run plays, encodes, and
+trains under one configuration rather than under a build constant — the plane
+layout below is the same for every setup, but its extent and its per-rank
+normalisers are not.
 
-Still a constant, and still Battle: the shapes below and the evaluator's
-per-rank normalisers are module- and class-level, so they cannot yet vary per
-run. Making them derive from the run's configuration -- and qualifying
-`ENGINE_SPEC_NAME` by layout so a checkpoint trained on one board cannot meet a
-differently-shaped input -- is step 8 of story 37. Named here rather than left as
-bare numbers so that step has one place to change.
+The plane indices, `TOTAL_FP_COUNT`, and `MOVEMENT_INDEX` stay module constants
+because they are the part of the contract that does *not* vary: every
+composition encodes into the same thirty-four planes, and every board addresses
+the same twelve movement offsets. That is deliberate rather than incidental — see
+`TOTAL_FP_COUNT` and `MOVEMENTS_PER_POSITION` below.
 
-Step 8 also has to answer what a per-rank quantity plane normalises by when the
-army fields none of that rank: `standard_skirmish` has no Foot Soldier, so the
-divisor is 0 and the plane has to read a constant rather than a ratio."""
+The specification these constants implement is `doc/neuralnetwork/eng-nn-3.md`.
+"""
 
-# The engine I/O spec this tensor layout implements. Checkpoints stamp this name
-# so a checkpoint saved against a superseded spec is rejected at load time
-# instead of silently mismapping onto the current, differently-shaped input (see
+from dataclasses import dataclass, field
+
+from ...board import BoardLayout
+from ...game_setup import GameSetup
+from ...pieces import ArmyComposition
+
+# The engine I/O spec this tensor layout implements. Checkpoints stamp it so a
+# checkpoint saved against a superseded spec is rejected at load time instead of
+# silently mismapping onto the current, differently-shaped input (see
 # ctf_checkpoint.py).
 #
 # ENG_NN_3 supersedes ENG_NN_2 (doc/neuralnetwork/eng-nn-2.md) because major 2's
 # diagonal attack is exactly the case doc/neuralnetwork/README.md names as
-# forcing a new spec: ply geometry the old action space cannot address. Its
-# spec document is minted at the end of story 37, once the rest of the contract
-# — board-parametric shapes and composition-driven quantity planes — has settled;
-# minting it now would publish a contract this story goes on to change.
+# forcing a new spec: ply geometry the old action space cannot address.
 ENGINE_SPEC_NAME = "ENG_NN_3"
 
 # Feature Planes:
@@ -39,7 +42,7 @@ FP_OUR_RANK_4 = 5
 FP_OUR_RANK_5 = 6
 FP_OUR_RANK_6 = 7
 FP_THEIR_FLAG = 8
-FP_THEIR_TOWER = 9 
+FP_THEIR_TOWER = 9
 FP_THEIR_RANK_1 = 10
 FP_THEIR_RANK_2 = 11
 FP_THEIR_RANK_3 = 12
@@ -67,6 +70,15 @@ FP_THEIR_RANK_5_QUANTITY = 32
 FP_THEIR_RANK_6_QUANTITY = 33
 
 TOTAL_FP_COUNT = 34
+"""The plane count, which is **one number across every composition**.
+
+An army fielding no Foot Soldier still encodes into a tensor with a Foot Soldier
+presence plane and a Foot Soldier quantity plane; both simply read zero
+throughout. Dropping the unused planes would shrink `standard_skirmish`'s input
+by four channels and make the two compositions two different contracts, under
+which the question of whether a Battle-trained trunk transfers to Skirmish could
+not even be asked. Keeping the layout fixed leaves that an open experiment rather
+than a foreclosed one, at the cost of four dead channels on the smaller army."""
 
 # Every offset a legal ply can have, in three groups: the one-square orthogonal
 # step, the two-square orthogonal step the unencumbered bonus allows, and the
@@ -98,6 +110,56 @@ MOVEMENT_INDEX = {
 }
 
 MOVEMENTS_PER_POSITION = len(MOVEMENT_INDEX)
-ACTION_SPACE_SHAPE = (MOVEMENTS_PER_POSITION, ENCODED_LAYOUT.rows, ENCODED_LAYOUT.columns)
-INPUT_SHAPE = (TOTAL_FP_COUNT, ENCODED_LAYOUT.rows, ENCODED_LAYOUT.columns)
+"""Movement offsets, which — like the plane count — do not vary by board.
 
+The offsets are square-to-square deltas, so the same twelve address every ply on
+every layout; only how many source squares they are addressed *from* changes."""
+
+
+@dataclass(frozen=True)
+class TensorLayout:
+    """The shapes and spec name one board and army encode to.
+
+    Held as a value rather than read from module constants because two rulesets
+    are live and their boards differ: a 12 x 12 encoder and an 8 x 8 one are two
+    incompatible tensor contracts, and a position from the wrong one would index
+    cleanly into the other rather than failing. Everything that builds a network,
+    encodes a position, or stamps a checkpoint takes one of these.
+
+    Board and composition are held separately rather than as the `GameSetup` they
+    came from: two setups resolved from different configurations that reach the
+    same board and army are the *same* tensor contract, and comparing them should
+    say so. `for_setup` is the constructor every seam actually uses.
+    """
+
+    layout: BoardLayout
+    composition: ArmyComposition
+
+    spec: str = field(init=False, compare=False, repr=False)
+    input_shape: tuple[int, int, int] = field(init=False, compare=False, repr=False)
+    action_space_shape: tuple[int, int, int] = field(
+        init=False, compare=False, repr=False
+    )
+
+    def __post_init__(self) -> None:
+        # Derived members are excluded from equality for the reason `BoardLayout`
+        # excludes its own: they are a function of the defining fields, so
+        # comparing them would compare the same thing twice.
+        object.__setattr__(
+            self, "spec", f"{ENGINE_SPEC_NAME}/{self.layout.layout_id}"
+        )
+        object.__setattr__(
+            self,
+            "input_shape",
+            (TOTAL_FP_COUNT, self.layout.rows, self.layout.columns),
+        )
+        object.__setattr__(
+            self,
+            "action_space_shape",
+            (MOVEMENTS_PER_POSITION, self.layout.rows, self.layout.columns),
+        )
+
+    @classmethod
+    def for_setup(cls, setup: GameSetup) -> "TensorLayout":
+        """The tensor contract a game played under `setup` encodes to."""
+        return cls(setup.layout, setup.composition)

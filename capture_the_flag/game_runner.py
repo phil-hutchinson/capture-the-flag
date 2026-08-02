@@ -124,7 +124,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     setup = setup_for_ruleset(args.ruleset)
     game_ui = CtfGameUI(setup=setup)
     context = PlayerContext(
-        game_ui=game_ui, placements_dir=args.placements_dir, rng=rng
+        game_ui=game_ui, placements_dir=args.placements_dir, rng=rng, setup=setup
     )
     # Machine seats render only when there is no human in the game (so a
     # machine-vs-machine game is watchable, but a human-vs-machine game renders

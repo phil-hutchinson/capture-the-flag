@@ -36,6 +36,7 @@ from capture_the_flag.record import (
     active_configuration,
 )
 from tests.engines.neural_network.small_networks import (
+    BATTLE_TENSOR_LAYOUT,
     SMALL_FEATURE_COUNT,
     SMALL_RESIDUAL_BLOCK_COUNT,
 )
@@ -151,7 +152,11 @@ def test_resume_rejects_a_run_whose_config_and_checkpoint_disagree(tmp_path):
     _write_run_config(run_dir, config, active_configuration())
     # A checkpoint at a *different* depth than the config claims.
     save_checkpoint(
-        CtfCrn(feature_count=SMALL_FEATURE_COUNT, residual_block_count=2),
+        CtfCrn(
+            BATTLE_TENSOR_LAYOUT,
+            feature_count=SMALL_FEATURE_COUNT,
+            residual_block_count=2,
+        ),
         checkpoint_path(run_dir, 1),
     )
 
@@ -181,6 +186,7 @@ def _assembled_run(tmp_path, configuration=None):
         _rewrite_run_config(run_dir, ruleset=configuration.as_stamp())
     save_checkpoint(
         CtfCrn(
+            BATTLE_TENSOR_LAYOUT,
             feature_count=SMALL_FEATURE_COUNT,
             residual_block_count=SMALL_RESIDUAL_BLOCK_COUNT,
         ),

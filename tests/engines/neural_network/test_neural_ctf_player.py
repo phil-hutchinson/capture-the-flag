@@ -28,7 +28,10 @@ from capture_the_flag.outcome import (
     REASON_NO_LEGAL_MOVE,
 )
 from capture_the_flag.player import RandomCtfPlayer
-from tests.engines.neural_network.small_networks import small_network
+from tests.engines.neural_network.small_networks import (
+    BATTLE_TENSOR_LAYOUT,
+    small_network,
+)
 
 _LEGAL_REASONS = frozenset(
     {REASON_FLAG_CAPTURED, REASON_INACTIVITY, REASON_NO_LEGAL_MOVE}
@@ -45,7 +48,7 @@ def test_neural_player_completes_full_match_against_random():
     # legality does not depend on the trunk's size.
     torch.manual_seed(0)
     engine = MCTSEngine(
-        evaluator=CtfNNEvaluator(small_network()),
+        evaluator=CtfNNEvaluator(small_network(), BATTLE_TENSOR_LAYOUT),
         iterations=25,
         temperature=0.0,
     )

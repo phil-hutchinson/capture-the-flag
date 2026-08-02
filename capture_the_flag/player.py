@@ -166,11 +166,18 @@ tournament, where there is no UI to drive a human seat."""
 class PlayerContext:
     """Shared resources a player kind may need at construction. Only the pieces a
     given kind uses are read: `human` needs the `game_ui` and `placements_dir`,
-    every kind takes the `rng` that seeds its placement (and random play)."""
+    `neural` needs the `setup`, every kind takes the `rng` that seeds its
+    placement (and random play)."""
 
     game_ui: CtfGameUI | None = None
     placements_dir: Path = DEFAULT_PLACEMENT_DIR
     rng: random.Random | None = None
+    setup: GameSetup | None = None
+    """The game being seated for. Only the `neural` kind reads it — its evaluator
+    and network are shaped by the board and army — and it is optional for the
+    same reason `game_ui` is: a context built to seat a random player has no need
+    to resolve one, and asking for it anyway would put a build default back where
+    the run's configuration belongs."""
 
 
 def make_player(
@@ -186,7 +193,9 @@ def make_player(
 
     `render_before_ply` is honoured by the machine kinds (a human seat always
     renders); `iterations`/`temperature` tune the `neural` kind only and fall
-    back to its defaults when `None`. The `neural` branch is imported lazily so
+    back to its defaults when `None`. The `neural` kind additionally requires
+    `context.setup`, since its network is built to the board it will play on. The
+    `neural` branch is imported lazily so
     the network stack (and its `torch` construction cost) is only pulled in when
     a neural player is actually seated.
     """
@@ -204,6 +213,8 @@ def make_player(
             name, rng=context.rng, render_before_ply=render_before_ply
         )
     if kind == "neural":
+        if context.setup is None:
+            raise ValueError("the 'neural' player kind requires a resolved game setup")
         from .engines.neural_network.neural_ctf_player import (
             DEFAULT_ITERATIONS,
             DEFAULT_TEMPERATURE,
@@ -212,6 +223,7 @@ def make_player(
 
         return build_neural_player(
             name,
+            context.setup,
             iterations=DEFAULT_ITERATIONS if iterations is None else iterations,
             temperature=DEFAULT_TEMPERATURE if temperature is None else temperature,
             rng=context.rng,

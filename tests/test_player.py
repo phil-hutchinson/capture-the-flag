@@ -38,10 +38,21 @@ def test_make_neural_player():
     )
 
     player = make_player(
-        "neural", "N", context=PlayerContext(rng=random.Random(1)), iterations=5
+        "neural",
+        "N",
+        context=PlayerContext(rng=random.Random(1), setup=BATTLE_SETUP),
+        iterations=5,
     )
     assert isinstance(player, NeuralCtfPlayer)
     assert len(player.get_placement(Side.BLACK, BATTLE_SETUP)) == 25
+
+
+def test_make_neural_player_needs_a_setup():
+    # A neural seat's network is built to the board it will play on, so there is
+    # no defensible default: refusing is the alternative to quietly seating a
+    # Battle-shaped network in a Skirmish game.
+    with pytest.raises(ValueError, match="game setup"):
+        make_player("neural", "N", context=PlayerContext(rng=random.Random(1)))
 
 
 def test_make_player_rejects_unknown_kind():

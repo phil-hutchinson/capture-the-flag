@@ -195,7 +195,7 @@ def _play_batch(
     else:
         white_name, black_name = white_kind.title(), black_kind.title()
 
-    context = PlayerContext(rng=rng)
+    context = PlayerContext(rng=rng, setup=setup)
     white_player = make_player(
         white_kind, white_name, context=context,
         iterations=iterations, temperature=temperature,

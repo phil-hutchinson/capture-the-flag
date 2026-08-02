@@ -26,6 +26,7 @@ from ...position import CtfPosition
 from ...side import Side
 from .ctf_crn import CtfCrn
 from .ctf_nn_evaluator import CtfNNEvaluator
+from .tensor_layout import TensorLayout
 
 DEFAULT_ITERATIONS = 100
 """MCTS iterations per ply for untrained play: small enough that a batch of
@@ -57,6 +58,7 @@ class NeuralCtfPlayer(AIPlayer[CtfPly, CtfPosition], CtfPlayer):
 
 def build_neural_player(
     name: str,
+    setup: GameSetup,
     *,
     network: CtfCrn | None = None,
     iterations: int = DEFAULT_ITERATIONS,
@@ -68,11 +70,19 @@ def build_neural_player(
     default, or one loaded from a checkpoint) wrapped in the evaluator and an
     `MCTSEngine`, seated behind a `NeuralCtfPlayer`.
 
+    `setup` is the board and army the seat is being filled for; it shapes the
+    evaluator and, when one is not supplied, the network. A supplied `network`
+    must have been built for the same setup — `load_neural_player` is handed the
+    same one it loads the checkpoint against, so the two agree by construction.
+
     The engine is the timed subclass, so an ordinary batch of games measures the
     same search boundary self-play does; with no timing session active it behaves
     exactly as the plain engine."""
+    tensor_layout = TensorLayout.for_setup(setup)
     engine: MCTSEngine[CtfPly, CtfPosition, CtfNNEvaluator] = TimedMCTSEngine(
-        evaluator=CtfNNEvaluator(network if network is not None else CtfCrn()),
+        evaluator=CtfNNEvaluator(
+            network if network is not None else CtfCrn(tensor_layout), tensor_layout
+        ),
         iterations=iterations,
         temperature=temperature,
     )

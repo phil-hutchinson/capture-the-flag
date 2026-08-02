@@ -23,7 +23,7 @@ from game_engine_core.models.position_evaluation import PositionEvaluation
 from game_engine_learning.neural_network_evaluator import NeuralNetworkEvaluator
 from torch import Tensor
 
-from ...board import BOARD_COLUMNS, BOARD_ROWS, LAKE_SQUARES, Square
+from ...board import Square
 from ...instrumentation.timing import region, timed
 from ...outcome import INACTIVITY_LIMIT
 from ...pieces import PieceType
@@ -40,6 +40,7 @@ from ...timing_regions import (
 )
 from .tensor_layout import (
     ACTION_SPACE_SHAPE,
+    ENCODED_LAYOUT,
     FP_INACTIVITY_COUNT,
     FP_OUR_FLAG,
     FP_OUR_FLAG_RELATIVE_COLUMN,
@@ -83,8 +84,15 @@ def rotate_square(square: Square) -> Square:
     """The 180-degree board rotation: the shared side-to-move orientation
     transform. It is its own inverse, so encoder (orienting the input) and
     decoder (mapping preferences back to global-frame plies) stay consistent by
-    applying the same function."""
-    return Square(11 - square.column, 13 - square.row)
+    applying the same function.
+
+    Rotation is about the board's extent, so it reads `ENCODED_LAYOUT` rather
+    than the position's own layout -- the two are the same board until step 8
+    makes the encoding configuration-driven."""
+    return Square(
+        ENCODED_LAYOUT.columns - 1 - square.column,
+        ENCODED_LAYOUT.rows + 1 - square.row,
+    )
 
 def rotate_ply(ply: CtfPly) -> CtfPly:
     return CtfPly(
@@ -103,8 +111,10 @@ def tensor_position(square: Square, active_player_id: Literal[1, -1]) -> tuple[i
     return square.row - 1, square.column
 
 
-_ROW_INDICES = torch.arange(BOARD_ROWS, dtype=torch.float32).unsqueeze(1)
-_COLUMN_INDICES = torch.arange(BOARD_COLUMNS, dtype=torch.float32).unsqueeze(0)
+_ROW_INDICES = torch.arange(ENCODED_LAYOUT.rows, dtype=torch.float32).unsqueeze(1)
+_COLUMN_INDICES = torch.arange(
+    ENCODED_LAYOUT.columns, dtype=torch.float32
+).unsqueeze(0)
 
 
 def _fill_flag_offset_planes(
@@ -120,8 +130,8 @@ def _fill_flag_offset_planes(
     broadcasts across it.
     """
     flag_row, flag_column = flag
-    encoded[row_plane] = (flag_row - _ROW_INDICES) / BOARD_ROWS
-    encoded[column_plane] = (flag_column - _COLUMN_INDICES) / BOARD_COLUMNS
+    encoded[row_plane] = (flag_row - _ROW_INDICES) / ENCODED_LAYOUT.rows
+    encoded[column_plane] = (flag_column - _COLUMN_INDICES) / ENCODED_LAYOUT.columns
 
 
 def policy_logit_location_for_ply(
@@ -232,7 +242,7 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
                 piece_strength[quantity_fp] += 1
         # Passable squares / Lake squares
         encoded[FP_PASSABLE, :, :].fill_(1)
-        for lake_square in LAKE_SQUARES:
+        for lake_square in ENCODED_LAYOUT.lake_squares:
             tensor_row, tensor_column = tensor_position(lake_square, position.active_player_id)
             encoded[FP_PASSABLE, tensor_row, tensor_column] = 0
         # Draw-by-inactivity counter

@@ -8,7 +8,7 @@ determinism property the story relies on for before/after comparisons.
 
 from types import MappingProxyType
 
-from capture_the_flag.board import Square
+from capture_the_flag.board import STANDARD_144, Square
 from capture_the_flag.engines.neural_network.ctf_position_factory import (
     CtfPositionFactory,
 )
@@ -43,6 +43,7 @@ def ongoing_position() -> CtfPosition:
         ),
         side_to_move=Side.WHITE,
         inactivity_counter=0,
+        layout=STANDARD_144,
     )
 
 
@@ -105,6 +106,7 @@ def test_a_short_circuiting_outcome_does_not_generate_plies() -> None:
         board=ongoing_position().board,
         side_to_move=Side.WHITE,
         inactivity_counter=INACTIVITY_LIMIT,
+        layout=STANDARD_144,
     )
     with timing_session("test") as session:
         assert drawn.outcome == 0

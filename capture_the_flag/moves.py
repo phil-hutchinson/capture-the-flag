@@ -19,7 +19,7 @@ one does.
 
 from typing import TYPE_CHECKING
 
-from .board import BOARD_COLUMNS, BOARD_ROWS, LAKE_SQUARES, Square
+from .board import Square
 from .pieces import Mobility, PieceType
 from .ply import CtfPly
 from .side import Side
@@ -67,17 +67,16 @@ def _reachable_squares(
     direction entirely (not itself included). A multi-square move therefore
     requires an empty intermediate path.
     """
+    layout = position.layout
     reachable: list[Square] = []
     for dc, dr in _DIRECTIONS:
         for distance in range(1, max_distance + 1):
             square = Square(
                 source.column + dc * distance, source.row + dr * distance
             )
-            if not (
-                0 <= square.column < BOARD_COLUMNS and 1 <= square.row <= BOARD_ROWS
-            ):
+            if not layout.contains(square):
                 break
-            if square in LAKE_SQUARES:
+            if layout.is_lake(square):
                 break
             occupant = position.board.get(square)
             if occupant is None:

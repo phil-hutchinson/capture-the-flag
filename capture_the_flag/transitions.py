@@ -44,4 +44,5 @@ def apply_ply(position: CtfPosition, ply: CtfPly) -> CtfPosition:
         board=MappingProxyType(new_board),
         side_to_move=opponent,
         inactivity_counter=new_inactivity_counter,
+        layout=position.layout,
     )

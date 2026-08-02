@@ -3,7 +3,7 @@
 import random
 from types import MappingProxyType
 
-from capture_the_flag.board import Square
+from capture_the_flag.board import STANDARD_144, Square
 from capture_the_flag.game_logging import CtfGameLogging
 from capture_the_flag.match import play_match
 from capture_the_flag.pieces import PieceType as P
@@ -30,6 +30,7 @@ def _position(extra: dict) -> CtfPosition:
         board=MappingProxyType(board),
         side_to_move=Side.WHITE,
         inactivity_counter=0,
+        layout=STANDARD_144,
     )
 
 
@@ -91,7 +92,7 @@ def test_every_logged_ply_in_a_real_game_is_extended_form():
     # ply, and the squares still match the plain identity string.
     white = RandomCtfPlayer("W", random.Random(1))
     black = RandomCtfPlayer("B", random.Random(2))
-    result = play_match(white, black).game_result
+    result = play_match(white, black, STANDARD_144).game_result
     assert result.game_log
     for annotation, _board in result.game_log:
         assert annotation.count("-") == 1

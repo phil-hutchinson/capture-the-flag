@@ -18,6 +18,7 @@ from pathlib import Path
 
 from game_engine_core.models.game_result import GameResult
 
+from .board import STANDARD_144
 from .game_ui import CtfGameUI
 from .match import play_match
 from .placement_file import DEFAULT_PLACEMENT_DIR
@@ -134,7 +135,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         temperature=args.temperature,
     )
 
-    match_result = play_match(white, black, game_ui=game_ui)
+    match_result = play_match(white, black, STANDARD_144, game_ui=game_ui)
     print()
     print(announce_result(match_result.game_result, args.white_name, args.black_name))
 

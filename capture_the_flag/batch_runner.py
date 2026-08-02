@@ -11,10 +11,12 @@ import random
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 
 from game_engine_core.tournament.tournament import Tournament
 
+from .board import STANDARD_144
 from .device import pipeline_device
 from .game_logging import CtfGameLogging
 from .instrumentation.timing import region
@@ -197,7 +199,10 @@ def _play_batch(
     )
     tournament = Tournament(
         players=[white_player, black_player],
-        position_factory=build_initial_position,
+        # The library's factory contract is two players and nothing else, so the
+        # board is bound here rather than passed per game. Still Battle until the
+        # run-time configuration selects it.
+        position_factory=partial(build_initial_position, layout=STANDARD_144),
         game_logging=CtfGameLogging(),
         games_per_pairing=num_games,
     )

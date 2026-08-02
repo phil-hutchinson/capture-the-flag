@@ -6,7 +6,7 @@ import torch.nn as nn
 from game_engine_core.engines.mcts_engine import MCTSEngine
 from torch import Tensor
 
-from capture_the_flag.board import BOARD_COLUMNS, BOARD_ROWS, Square
+from capture_the_flag.board import STANDARD_144, Square
 from capture_the_flag.engines.neural_network.ctf_nn_evaluator import (
     CtfNNEvaluator,
     policy_logit_location_for_ply,
@@ -69,6 +69,7 @@ def _position(board: dict, side_to_move: Side = Side.WHITE, inactivity_counter: 
         board=MappingProxyType(board),
         side_to_move=side_to_move,
         inactivity_counter=inactivity_counter,
+        layout=STANDARD_144,
     )
 
 def _matching_white_position(inactivity_counter: int = 0) -> CtfPosition:
@@ -174,7 +175,7 @@ def _ranked_pieces(side: Side, counts: dict[P, int], start_row: int) -> dict[Squ
     squares = (
         Square(column, row)
         for row in (start_row, start_row + 1)
-        for column in range(BOARD_COLUMNS)
+        for column in range(STANDARD_144.columns)
     )
     board: dict[Square, tuple[Side, P]] = {}
     for rank in _MOBILE_RANKS:
@@ -202,8 +203,8 @@ def _attrition_position(side_to_move: Side = Side.WHITE) -> CtfPosition:
     return _position(board, side_to_move=side_to_move)
 
 def _check_uniform_plane_value(encoded: Tensor, feature_plane: int, expected_value: float) -> None:
-    for row in range(BOARD_ROWS):
-        for column in range(BOARD_COLUMNS):
+    for row in range(STANDARD_144.rows):
+        for column in range(STANDARD_144.columns):
             assert encoded[feature_plane, row, column] == pytest.approx(expected_value)
 
 def _check_tensor_piece_fill(encoded: Tensor, expected_piece_placements: set[tuple[int, int, int]]) -> None:
@@ -225,19 +226,19 @@ def _check_flag_relative_planes(
     # defined board-wide, not just at sampled points.
     our_flag_row, our_flag_column = our_flag_position
     their_flag_row, their_flag_column = their_flag_position
-    for row in range(BOARD_ROWS):
-        for column in range(BOARD_COLUMNS):
+    for row in range(STANDARD_144.rows):
+        for column in range(STANDARD_144.columns):
             assert encoded[FP_OUR_FLAG_RELATIVE_ROW, row, column] == pytest.approx(
-                (our_flag_row - row) / BOARD_ROWS
+                (our_flag_row - row) / STANDARD_144.rows
             )
             assert encoded[FP_OUR_FLAG_RELATIVE_COLUMN, row, column] == pytest.approx(
-                (our_flag_column - column) / BOARD_COLUMNS
+                (our_flag_column - column) / STANDARD_144.columns
             )
             assert encoded[FP_THEIR_FLAG_RELATIVE_ROW, row, column] == pytest.approx(
-                (their_flag_row - row) / BOARD_ROWS
+                (their_flag_row - row) / STANDARD_144.rows
             )
             assert encoded[FP_THEIR_FLAG_RELATIVE_COLUMN, row, column] == pytest.approx(
-                (their_flag_column - column) / BOARD_COLUMNS
+                (their_flag_column - column) / STANDARD_144.columns
             )
 
 def _check_tensor_lake_fill(encoded: Tensor) -> None:
@@ -276,7 +277,7 @@ def _setup_policy_logits(seed = 987) -> Tensor:
 
 def _setup_position_legal_plies(side: Side, monkeypatch) -> CtfPosition:
     board = {}
-    position = CtfPosition(board, side, 0)
+    position = CtfPosition(board, side, 0, STANDARD_144)
     square_1_from = Square(0, 2) if side == Side.WHITE else Square(11, 11)
     square_1_to = Square(0, 4) if side == Side.WHITE else Square(11, 9)
     square_2_from = Square(3, 4) if side == Side.WHITE else Square(8, 9)
@@ -460,8 +461,8 @@ def test_encode_rejects_a_position_with_a_flag_missing(missing_side, expected):
         evaluator.encode_position(position)
 
 def test_rotate_square_involution():
-    for column in range(BOARD_COLUMNS):
-        for row in range(1, BOARD_ROWS + 1):
+    for column in range(STANDARD_144.columns):
+        for row in range(1, STANDARD_144.rows + 1):
             original_square = Square(column, row)
             rotated_once = rotate_square(original_square)
             rotated_twice = rotate_square(rotated_once)
@@ -499,8 +500,8 @@ def test_rotate_ply_rotates_180_degrees():
 def test_policy_logit_location_for_ply_is_bijective(active_player_id):
     # note: this does include illegal moves (from/to lakes, to off the board locations) that exist in the policy_logit
     filled: set[tuple[int,int,int]] = set()
-    for column in range(BOARD_COLUMNS):
-        for row in range(1, BOARD_ROWS + 1):
+    for column in range(STANDARD_144.columns):
+        for row in range(1, STANDARD_144.rows + 1):
             for row_delta, column_delta in MOVEMENT_INDEX.keys():
                 from_square = Square(column, row)
                 to_square = Square(column + column_delta, row + row_delta)

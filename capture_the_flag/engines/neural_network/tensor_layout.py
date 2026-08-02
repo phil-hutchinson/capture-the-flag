@@ -1,4 +1,13 @@
-from ...board import BOARD_COLUMNS, BOARD_ROWS
+from ...board import STANDARD_144
+
+ENCODED_LAYOUT = STANDARD_144
+"""The board this tensor contract is shaped for.
+
+Still a constant, and still Battle: the shapes below are module-level, so they
+cannot yet vary per run. Making them derive from the run's configuration -- and
+qualifying `ENGINE_SPEC_NAME` by layout so a checkpoint trained on one board
+cannot meet a differently-shaped input -- is step 8 of story 37. Named here
+rather than left as bare numbers so that step has one place to change."""
 
 # The engine I/O spec this tensor layout implements. Checkpoints stamp this name
 # so a checkpoint saved against a superseded spec is rejected at load time
@@ -82,6 +91,6 @@ MOVEMENT_INDEX = {
 }
 
 MOVEMENTS_PER_POSITION = len(MOVEMENT_INDEX)
-ACTION_SPACE_SHAPE = (MOVEMENTS_PER_POSITION, BOARD_ROWS, BOARD_COLUMNS)
-INPUT_SHAPE = (TOTAL_FP_COUNT, BOARD_ROWS, BOARD_COLUMNS)
+ACTION_SPACE_SHAPE = (MOVEMENTS_PER_POSITION, ENCODED_LAYOUT.rows, ENCODED_LAYOUT.columns)
+INPUT_SHAPE = (TOTAL_FP_COUNT, ENCODED_LAYOUT.rows, ENCODED_LAYOUT.columns)
 

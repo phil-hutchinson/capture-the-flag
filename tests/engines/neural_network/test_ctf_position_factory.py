@@ -6,7 +6,7 @@ a legal, fully-placed phase-2 starting position, and successive calls must diffe
 so self-play games actually diverge.
 """
 
-from capture_the_flag.board import BLACK_HOME_SQUARES, LAKE_SQUARES, WHITE_HOME_SQUARES
+from capture_the_flag.board import STANDARD_144
 from capture_the_flag.engines.neural_network.ctf_position_factory import (
     CtfPositionFactory,
 )
@@ -50,9 +50,9 @@ def test_factory_places_both_full_armies():
 def test_factory_keeps_each_side_in_its_home_zone_off_the_lakes():
     position = CtfPositionFactory()()
 
-    assert _squares_of(position, Side.WHITE) <= WHITE_HOME_SQUARES
-    assert _squares_of(position, Side.BLACK) <= BLACK_HOME_SQUARES
-    assert not (position.board.keys() & LAKE_SQUARES)
+    assert _squares_of(position, Side.WHITE) <= STANDARD_144.white_home_squares
+    assert _squares_of(position, Side.BLACK) <= STANDARD_144.black_home_squares
+    assert not (position.board.keys() & STANDARD_144.lake_squares)
 
 
 def test_successive_calls_differ():

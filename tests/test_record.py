@@ -6,6 +6,7 @@ import random
 
 import pytest
 
+from capture_the_flag.board import STANDARD_144
 from capture_the_flag.match import play_match
 from capture_the_flag.pieces import ARMY_ROSTER
 from capture_the_flag.player import RandomCtfPlayer
@@ -53,7 +54,7 @@ _TABLE = {
 def _play(seed: int):
     white = RandomCtfPlayer("Random White", random.Random(seed))
     black = RandomCtfPlayer("Random Black", random.Random(seed + 1))
-    return play_match(white, black, render_final_board=False)
+    return play_match(white, black, STANDARD_144, render_final_board=False)
 
 
 def test_write_record_has_the_documented_sections_in_order():

@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from capture_the_flag.board import BOARD_COLUMNS, BOARD_ROWS
+from capture_the_flag.board import STANDARD_144
 from capture_the_flag.engines.neural_network.ctf_crn import (
     MAX_FEATURE_COUNT,
     MAX_RESIDUAL_BLOCK_COUNT,
@@ -17,7 +17,7 @@ _BATCH_SIZE = 2
 
 def _random_input(seed = 987) -> torch.Tensor:
     torch.manual_seed(seed)
-    return torch.randint(0, 2, size=(_BATCH_SIZE, TOTAL_FP_COUNT, BOARD_ROWS, BOARD_COLUMNS)).float()
+    return torch.randint(0, 2, size=(_BATCH_SIZE, TOTAL_FP_COUNT, STANDARD_144.rows, STANDARD_144.columns)).float()
 
 
 def test_ctf_crn_basic_properties() -> None:

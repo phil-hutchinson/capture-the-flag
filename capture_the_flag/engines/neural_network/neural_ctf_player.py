@@ -17,6 +17,7 @@ from game_engine_core.engines.mcts_engine import MCTSEngine
 from game_engine_core.players.ai_player import AIPlayer
 from game_engine_core.protocols.game_engine import GameEngine
 
+from ...board import BoardLayout
 from ...instrumentation.timed_search import TimedMCTSEngine
 from ...placement import Placement, random_placement
 from ...player import CtfPlayer
@@ -48,10 +49,10 @@ class NeuralCtfPlayer(AIPlayer[CtfPly, CtfPosition], CtfPlayer):
         super().__init__(engine, name, render_before_ply)
         self._rng = rng if rng is not None else random.Random()
 
-    def get_placement(self, side: Side) -> Placement:
+    def get_placement(self, side: Side, layout: BoardLayout) -> Placement:
         """A random legal placement. Placement intelligence is out of scope for
         now."""
-        return random_placement(side, self._rng)
+        return random_placement(side, layout, self._rng)
 
 
 def build_neural_player(

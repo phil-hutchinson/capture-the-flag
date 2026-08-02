@@ -1,13 +1,18 @@
 """Placement files: a prepared phase-1 setup read from a text file.
 
-A placement file is 4 rows of 12 characters, written from the owning player's
-seat — the first line is the home row nearest the lakes, the last line the back
-rank, columns left to right as that player sees them. Each character is either a
-one-character piece symbol (`PieceType.symbol`: `1`-`6`, `T`, `F`) or `-` for an
-empty square. The full 4×12 grid is always written even though only 25 of the 48
-squares are filled, so every row is 12 characters, padding the rest with `-`. The
-same file therefore produces the same setup for either side; mapping it onto
-Black's home squares is a 180-degree rotation of the board frame.
+A placement file is one line per home-zone row, each as wide as the board,
+written from the owning player's seat — the first line is the home row nearest
+the lakes, the last line the back rank, columns left to right as that player sees
+them. Each character is either a one-character piece symbol (`PieceType.symbol`:
+`1`-`6`, `T`, `F`) or `-` for an empty square. The full grid is always written
+even though a home zone holds more squares than the army fills, padding the rest
+with `-`. The same file therefore produces the same setup for either side;
+mapping it onto Black's home squares is a 180-degree rotation of the board frame.
+
+**A file's shape identifies the board it is for**: Battle's home zone is 4 rows
+of 12 and Skirmish's 3 rows of 8, so a file written for one board is rejected
+against the other by the row-count and row-length checks, without needing a
+ruleset marker of its own.
 
 `parse_placement_file` turns file text into a `Placement`;
 `load_placement_file` first resolves a plain file name against the
@@ -21,7 +26,7 @@ reported as which piece types appear too many and too few times.
 from collections import Counter
 from pathlib import Path
 
-from .board import BLACK_HOME_ROWS, BOARD_COLUMNS, WHITE_HOME_ROWS, Square
+from .board import BoardLayout, Square
 from .pieces import ARMY_ROSTER, PIECE_BY_SYMBOL, PieceType
 from .placement import Placement
 from .side import Side
@@ -29,7 +34,6 @@ from .side import Side
 DEFAULT_PLACEMENT_DIR = Path("placements")
 """Default folder placement files are read from (gitignored)."""
 
-_HOME_ROW_COUNT = len(WHITE_HOME_ROWS)
 _EMPTY_SQUARE = "-"
 
 
@@ -37,10 +41,14 @@ class PlacementFileError(ValueError):
     """A placement file that cannot be used, with a player-facing message."""
 
 
-def _square_for(side: Side, line_index: int, char_index: int) -> Square:
+def _square_for(
+    side: Side, line_index: int, char_index: int, layout: BoardLayout
+) -> Square:
     if side is Side.WHITE:
-        return Square(char_index, WHITE_HOME_ROWS.stop - 1 - line_index)
-    return Square(BOARD_COLUMNS - 1 - char_index, BLACK_HOME_ROWS.start + line_index)
+        return Square(char_index, layout.white_home_rows.stop - 1 - line_index)
+    return Square(
+        layout.columns - 1 - char_index, layout.black_home_rows.start + line_index
+    )
 
 
 def _check_roster(placement: Placement) -> None:
@@ -64,27 +72,27 @@ def _check_roster(placement: Placement) -> None:
     )
 
 
-def parse_placement_file(text: str, side: Side) -> Placement:
-    """Parse placement-file `text` into a `Placement` for `side`.
+def parse_placement_file(text: str, side: Side, layout: BoardLayout) -> Placement:
+    """Parse placement-file `text` into a `Placement` for `side` on `layout`.
 
-    Raises `PlacementFileError` if the text is not 4 rows of 12 characters, each
-    a known piece symbol or `-` (empty), or if the filled squares do not match
-    the army roster.
+    Raises `PlacementFileError` if the text is not one row per home-zone row,
+    each as wide as the board and made of known piece symbols or `-` (empty), or
+    if the filled squares do not match the army roster.
     """
     lines = text.splitlines()
     while lines and lines[-1] == "":
         lines.pop()
-    if len(lines) != _HOME_ROW_COUNT:
+    if len(lines) != layout.home_rows:
         raise PlacementFileError(
-            f"Expected {_HOME_ROW_COUNT} rows of pieces, got {len(lines)}"
+            f"Expected {layout.home_rows} rows of pieces, got {len(lines)}"
         )
 
     placement: dict[Square, PieceType] = {}
     for line_index, line in enumerate(lines):
-        if len(line) != BOARD_COLUMNS:
+        if len(line) != layout.columns:
             raise PlacementFileError(
                 f"Row {line_index + 1} has {len(line)} characters, "
-                f"expected {BOARD_COLUMNS}"
+                f"expected {layout.columns}"
             )
         for char_index, symbol in enumerate(line):
             if symbol == _EMPTY_SQUARE:
@@ -96,14 +104,17 @@ def parse_placement_file(text: str, side: Side) -> Placement:
                     f"(expected one of {', '.join(PIECE_BY_SYMBOL)} or "
                     f"{_EMPTY_SQUARE!r} for empty)"
                 )
-            placement[_square_for(side, line_index, char_index)] = piece
+            placement[_square_for(side, line_index, char_index, layout)] = piece
 
     _check_roster(placement)
     return placement
 
 
 def load_placement_file(
-    name: str, side: Side, directory: Path = DEFAULT_PLACEMENT_DIR
+    name: str,
+    side: Side,
+    layout: BoardLayout,
+    directory: Path = DEFAULT_PLACEMENT_DIR,
 ) -> Placement:
     """Load the placement file called `name` from `directory` for `side`.
 
@@ -113,4 +124,4 @@ def load_placement_file(
     path = directory / name
     if not path.is_file():
         raise PlacementFileError(f"No placement file named {name!r} in {directory}/")
-    return parse_placement_file(path.read_text(encoding="utf-8"), side)
+    return parse_placement_file(path.read_text(encoding="utf-8"), side, layout)

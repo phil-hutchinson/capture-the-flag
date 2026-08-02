@@ -4,7 +4,7 @@ from types import MappingProxyType
 
 import pytest
 
-from capture_the_flag.board import Square
+from capture_the_flag.board import STANDARD_144, Square
 from capture_the_flag.game_ui import CtfGameUI
 from capture_the_flag.pieces import PieceType as P
 from capture_the_flag.ply import CtfPly, parse_ply
@@ -17,6 +17,7 @@ def _position(board: dict, side_to_move: Side = Side.WHITE) -> CtfPosition:
         board=MappingProxyType(board),
         side_to_move=side_to_move,
         inactivity_counter=0,
+        layout=STANDARD_144,
     )
 
 
@@ -41,7 +42,10 @@ def test_parse_ply_is_the_inverse_of_str():
 
 
 def test_parse_ply_rejects_malformed_text():
-    for text in ["", "A2", "A2A", "M2A3", "A2 A3", "A0A1", "A13A12"]:
+    # Row 0 and a non-letter column are malformed notation; an off-board but
+    # well-formed square (A13 on a 12-row board) is not the parser's business
+    # and is rejected downstream as an illegal move.
+    for text in ["", "A2", "A2A", "2A A3", "A2 A3", "A0A1"]:
         with pytest.raises(ValueError):
             parse_ply(text)
 

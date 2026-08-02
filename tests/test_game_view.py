@@ -3,6 +3,7 @@
 import random
 from dataclasses import replace
 
+from capture_the_flag.board import STANDARD_144
 from capture_the_flag.game_view import render_game_view
 from capture_the_flag.pieces import PieceType
 from capture_the_flag.placement import assemble_position, random_placement
@@ -11,8 +12,9 @@ from capture_the_flag.side import Side
 
 def _start_position():
     return assemble_position(
-        random_placement(Side.WHITE, random.Random(1)),
-        random_placement(Side.BLACK, random.Random(2)),
+        random_placement(Side.WHITE, STANDARD_144, random.Random(1)),
+        random_placement(Side.BLACK, STANDARD_144, random.Random(2)),
+        STANDARD_144,
     )
 
 

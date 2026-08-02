@@ -7,18 +7,18 @@ lands.
 
 from game_engine_core.evaluators.null_evaluator import NullEvaluator
 
-from capture_the_flag import BOARD_COLUMNS, BOARD_ROWS, LAKE_PATTERN
+from capture_the_flag import STANDARD_144
 
 
 def test_board_dimensions():
-    assert BOARD_COLUMNS == 12
-    assert BOARD_ROWS == 12
+    assert STANDARD_144.columns == 12
+    assert STANDARD_144.rows == 12
 
 
 def test_lake_pattern_spans_the_board():
-    assert len(LAKE_PATTERN) == BOARD_COLUMNS
+    assert len(STANDARD_144.lake_pattern) == STANDARD_144.columns
     # Three 2x2 lakes => six lake columns per lake row.
-    assert sum(LAKE_PATTERN) == 6
+    assert sum(STANDARD_144.lake_pattern) == 6
 
 
 def test_game_engine_core_dependency_available():

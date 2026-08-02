@@ -10,9 +10,7 @@ counter against its limit, so players can apply the inactivity rule
 """
 
 from collections import Counter
-from string import ascii_uppercase
 
-from .board import BOARD_COLUMNS, BOARD_ROWS
 from .outcome import INACTIVITY_LIMIT
 from .pieces import ARMY_ROSTER, PieceType
 from .position import CtfPosition
@@ -23,12 +21,12 @@ from .side import Side
 def _labelled_board(position: CtfPosition) -> str:
     # Row labels are 2 characters wide plus 2 of gap, so each column letter
     # sits over the middle character of its 3-character cell.
-    header = "    " + " ".join(
-        f" {letter} " for letter in ascii_uppercase[:BOARD_COLUMNS]
-    )
-    block_lines = render_position_block(position.board).splitlines()
+    layout = position.layout
+    header = "    " + " ".join(f" {letter} " for letter in layout.column_letters)
+    block_lines = render_position_block(position.board, layout).splitlines()
     rows = (
-        f"{BOARD_ROWS - index:>2}  {line}" for index, line in enumerate(block_lines)
+        f"{layout.rows - index:>2}  {line}"
+        for index, line in enumerate(block_lines)
     )
     return "\n".join([header, *rows])
 

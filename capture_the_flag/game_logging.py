@@ -20,7 +20,7 @@ class CtfGameLogging(GameLogging[CtfPly, CtfPosition]):
     """Game-record rendering for a `CtfPosition`."""
 
     def text_board(self, position: CtfPosition) -> str:
-        return render_position_block(position.board)
+        return render_position_block(position.board, position.layout)
 
     def ply_annotation(
         self,

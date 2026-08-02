@@ -2,7 +2,7 @@
 
 from types import MappingProxyType
 
-from capture_the_flag.board import Square
+from capture_the_flag.board import STANDARD_144, Square
 from capture_the_flag.outcome import (
     REASON_FLAG_CAPTURED,
     REASON_INACTIVITY,
@@ -27,6 +27,7 @@ def _position(
         board=MappingProxyType(board),
         side_to_move=side_to_move,
         inactivity_counter=inactivity_counter,
+        layout=STANDARD_144,
     )
 
 

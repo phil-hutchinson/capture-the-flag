@@ -13,20 +13,15 @@ import random
 from collections.abc import Mapping
 from types import MappingProxyType
 
-from .board import BLACK_HOME_SQUARES, WHITE_HOME_SQUARES, Square
+from .board import BoardLayout, Square
 from .pieces import ARMY_ROSTER, ARMY_SIZE, PieceType
 from .position import CtfPosition
 from .side import Side
 
 Placement = Mapping[Square, PieceType]
-"""One side's home-zone arrangement: 25 of its 48 home squares filled (the other
-23 left empty), one piece per square, matching `ARMY_ROSTER`, and with no two
-Towers within one square of each other (rules.md Section 3)."""
-
-_HOME_SQUARES: dict[Side, frozenset[Square]] = {
-    Side.WHITE: WHITE_HOME_SQUARES,
-    Side.BLACK: BLACK_HOME_SQUARES,
-}
+"""One side's home-zone arrangement: some of its home squares filled and the rest
+left empty, one piece per square, matching `ARMY_ROSTER`, and with no two Towers
+within one square of each other (rules.md Section 3)."""
 
 _TOWER_COUNT = ARMY_ROSTER[PieceType.TOWER]
 
@@ -47,7 +42,9 @@ def _towers_too_close(a: Square, b: Square) -> bool:
     return max(abs(a.column - b.column), abs(a.row - b.row)) <= 1
 
 
-def random_placement(side: Side, rng: random.Random | None = None) -> Placement:
+def random_placement(
+    side: Side, layout: BoardLayout, rng: random.Random | None = None
+) -> Placement:
     """A near-uniformly random legal placement for `side`: pieces dropped onto
     the board (never the inverse), Towers first so their spacing is easy to
     honour. Non-Tower arrangements are drawn uniformly; the greedy Tower-first
@@ -58,13 +55,15 @@ def random_placement(side: Side, rng: random.Random | None = None) -> Placement:
     reproducible output.
     """
     rng = rng if rng is not None else random.Random()
-    home = _HOME_SQUARES[side]
+    home = layout.home_squares(side)
     placement: dict[Square, PieceType] = {}
 
-    # Drop the six Towers first, shrinking the set of squares still legal for a
-    # Tower after each placement. Every Tower removes at most its nine-square
-    # closed neighbourhood, so from a 48-square home zone at least one legal
-    # square always survives for the sixth Tower -- the greedy walk never stalls.
+    # Drop the Towers first, shrinking the set of squares still legal for a Tower
+    # after each placement. Every Tower removes at most its nine-square closed
+    # neighbourhood, so the walk never stalls as long as the home zone has more
+    # than 9 x (towers - 1) squares -- Battle places 6 in 48, leaving at least 3
+    # candidates for the sixth. The bound is per-layout since major 2 and has to
+    # be re-checked for any new board and army pairing, not assumed from Battle.
     tower_candidates = set(home)
     for _ in range(_TOWER_COUNT):
         square = rng.choice(sorted(tower_candidates))
@@ -88,8 +87,10 @@ def random_placement(side: Side, rng: random.Random | None = None) -> Placement:
     return placement
 
 
-def _validate_placement(side: Side, placement: Placement) -> None:
-    home = _HOME_SQUARES[side]
+def _validate_placement(
+    side: Side, placement: Placement, layout: BoardLayout
+) -> None:
+    home = layout.home_squares(side)
     if not placement.keys() <= home:
         raise ValueError(
             f"{side.name} placement must lie entirely within its home zone"
@@ -107,13 +108,13 @@ def _validate_placement(side: Side, placement: Placement) -> None:
 
 
 def assemble_position(
-    white_placement: Placement, black_placement: Placement
+    white_placement: Placement, black_placement: Placement, layout: BoardLayout
 ) -> CtfPosition:
     """Build the phase-2 starting `CtfPosition` from a White and a Black
     placement: White to move, the inactivity counter at 0.
     """
-    _validate_placement(Side.WHITE, white_placement)
-    _validate_placement(Side.BLACK, black_placement)
+    _validate_placement(Side.WHITE, white_placement, layout)
+    _validate_placement(Side.BLACK, black_placement, layout)
 
     board: dict[Square, tuple[Side, PieceType]] = {}
     for square, piece in white_placement.items():
@@ -125,4 +126,5 @@ def assemble_position(
         board=MappingProxyType(board),
         side_to_move=Side.WHITE,
         inactivity_counter=0,
+        layout=layout,
     )

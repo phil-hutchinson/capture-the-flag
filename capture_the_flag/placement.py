@@ -60,9 +60,10 @@ def random_placement(
     # Drop the Towers first, shrinking the set of squares still legal for a Tower
     # after each placement. Every Tower removes at most its nine-square closed
     # neighbourhood, so the walk never stalls as long as the home zone has more
-    # than 9 x (towers - 1) squares -- Battle places 6 in 48, leaving at least 3
-    # candidates for the sixth. The bound is per-layout since major 2 and has to
-    # be re-checked for any new board and army pairing, not assumed from Battle.
+    # than 9 x (towers - 1) squares: Battle places 6 in 48, leaving at least 3
+    # candidates for the sixth, and Skirmish 3 in 24, leaving at least 6 for the
+    # third. The bound is per-setup since major 2 and has to be re-derived for any
+    # new board and army pairing, not assumed from Battle.
     tower_candidates = set(home)
     for _ in range(setup.composition.count(PieceType.TOWER)):
         square = rng.choice(sorted(tower_candidates))

@@ -9,8 +9,8 @@ from capture_the_flag.board import (
     STANDARD_144,
     Square,
 )
-from capture_the_flag.game_setup import BATTLE_SETUP
-from capture_the_flag.pieces import STANDARD_BATTLE, PieceType
+from capture_the_flag.game_setup import BATTLE_SETUP, setup_for_ruleset
+from capture_the_flag.pieces import STANDARD_BATTLE, STANDARD_SKIRMISH, PieceType
 from capture_the_flag.placement import Placement, assemble_position, random_placement
 from capture_the_flag.side import Side
 
@@ -169,3 +169,42 @@ def _force_adjacent_towers(placement: Placement, home) -> dict:
         result[target] = occupant
         return result
     raise AssertionError("expected a free neighbour of the anchor Tower")
+
+
+@pytest.mark.parametrize("side", [Side.WHITE, Side.BLACK])
+def test_random_skirmish_placement_fills_its_own_home_zone_and_roster(side):
+    setup = setup_for_ruleset("SKIRMISH")
+    for _ in range(20):
+        placement = random_placement(side, setup, random.Random())
+        assert placement.keys() <= setup.layout.home_squares(side)
+        assert len(placement) == 16  # 16 of the 24 home squares filled
+        assert _piece_counts(placement) == STANDARD_SKIRMISH.counts
+
+
+def test_the_skirmish_tower_walk_never_stalls():
+    # The greedy Tower-first walk is only safe while the home zone is big enough:
+    # each Tower removes at most its nine-square closed neighbourhood, so 3 into
+    # 24 leaves at least 6 candidates for the third. Battle's proof (6 into 48)
+    # does not carry over, so it is re-derived here rather than assumed.
+    setup = setup_for_ruleset("SKIRMISH")
+    for seed in range(300):
+        placement = random_placement(Side.WHITE, setup, random.Random(seed))
+        assert len(_towers(placement)) == 3
+        assert not _has_adjacent_towers(placement)
+
+
+def test_a_skirmish_placement_assembles_into_a_skirmish_position():
+    setup = setup_for_ruleset("SKIRMISH")
+    rng = random.Random(7)
+    position = assemble_position(
+        random_placement(Side.WHITE, setup, rng),
+        random_placement(Side.BLACK, setup, rng),
+        setup,
+    )
+    # The position carries the board it is played on, which is how move
+    # generation knows an 8 x 8 board from a 12 x 12 one.
+    assert position.layout is setup.layout
+    assert len(position.board) == 32  # both 16-piece armies
+    # Front ranks 3 rows apart, not Battle's 4: there is no neutral buffer.
+    assert max(s.row for s in position.board if s.row <= 3) == 3
+    assert min(s.row for s in position.board if s.row >= 6) == 6

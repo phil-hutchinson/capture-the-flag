@@ -2,7 +2,7 @@
 
 from types import MappingProxyType
 
-from capture_the_flag.board import STANDARD_144, Square
+from capture_the_flag.board import BOARD_LAYOUTS, STANDARD_144, Square
 from capture_the_flag.pieces import PieceType as P
 from capture_the_flag.position import CtfPosition
 from capture_the_flag.side import Side
@@ -228,3 +228,35 @@ def test_all_ply_strings_distinct_in_a_dense_position():
     strings = [str(ply) for ply in position.legal_plies]
     assert len(strings) == len(set(strings))
     assert len(strings) > 0
+
+
+def test_the_diagonal_squeeze_is_unreachable_on_every_published_board():
+    """A diagonal whose *two flanking squares* are both lakes would slip a piece
+    between two lakes, and `technical-notes.md` records in advance that it is not
+    allowed. No code implements that, because no published board can produce the
+    position — this is the test that keeps "unreachable" true.
+
+    A squeeze needs rows r and r+1 both lake rows *and* columns c and c+1 both
+    lake columns; with 2x2 lake blocks aligned to the same rows, that forces the
+    source and destination squares to be lakes as well. A future layout that
+    breaks the alignment — offset blocks, single-square lakes placed diagonally,
+    more than two lake rows — makes it reachable, and this test is what fails
+    first when one is added.
+    """
+    for layout in BOARD_LAYOUTS.values():
+        for column in range(layout.columns):
+            for row in range(1, layout.rows + 1):
+                source = Square(column, row)
+                if layout.is_lake(source):
+                    continue
+                for dc, dr in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
+                    destination = Square(column + dc, row + dr)
+                    if not layout.contains(destination) or layout.is_lake(destination):
+                        continue
+                    flanking = (
+                        Square(source.column, destination.row),
+                        Square(destination.column, source.row),
+                    )
+                    assert not all(layout.is_lake(s) for s in flanking), (
+                        f"{layout.layout_id}: {source}->{destination} is a squeeze"
+                    )

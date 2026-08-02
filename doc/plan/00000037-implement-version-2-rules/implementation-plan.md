@@ -186,6 +186,12 @@ Active set, which step 5 deferred to here because the build could not set it up.
 Everything that does not go through the neural engine becomes playable on
 Skirmish.
 
+The neural path is **not** yet: its shapes are still Battle's until step 8, and
+an 8 × 8 position's squares would index cleanly into a 12 × 12 tensor, so the
+wrong board would encode silently rather than fail. Add a guard in
+`encode_position` rejecting a position whose layout is not the encoded one, and
+remove it in step 8 when the shapes come from the configuration.
+
 Depends on: Step 6 (a second value is only reachable once a configuration selects
 it).
 

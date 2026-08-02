@@ -121,7 +121,7 @@ class Edition:
         return hash((self.edition_id, frozenset(self.flag_values.items())))
 
 
-ACTIVE_EDITIONS: frozenset[str] = frozenset({"2-0:BATTLE"})
+ACTIVE_EDITIONS: frozenset[str] = frozenset({"2-0:BATTLE", "2-0:SKIRMISH"})
 """The editions this build implements, and therefore the ones it can stamp.
 
 **A build implements every Active edition**, not one: since major 2 two rulesets
@@ -167,6 +167,13 @@ EDITIONS: dict[str, Edition] = {
             flag_values={
                 "BOARD_LAYOUT": "standard_144",
                 "ARMY_COMPOSITION": "standard_battle",
+            },
+        ),
+        Edition(
+            edition_id="2-0:SKIRMISH",
+            flag_values={
+                "BOARD_LAYOUT": "standard_64",
+                "ARMY_COMPOSITION": "standard_skirmish",
             },
         ),
         Edition(edition_id="1-2:PRE-RELEASE", flag_values={}),

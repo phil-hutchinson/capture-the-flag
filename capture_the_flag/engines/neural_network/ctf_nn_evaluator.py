@@ -211,6 +211,15 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
 
     @timed(ENCODE_POSITION)
     def encode_position(self, position: CtfPosition) -> Tensor:
+        # The encoding is still shaped for one board (see `tensor_layout`), and an
+        # 8x8 position's squares would index cleanly into a 12x12 tensor -- so
+        # without this the wrong board would encode silently rather than fail.
+        # Removed in step 8, when the shapes come from the run's configuration.
+        if position.layout is not ENCODED_LAYOUT:
+            raise ValueError(
+                f"this evaluator encodes {ENCODED_LAYOUT.layout_id} positions; "
+                f"got a {position.layout.layout_id} position"
+            )
         # tensor expected to be (batch, channels, height, width)
         # batch will be handled later - we just need to do the last three here
         encoded = torch.zeros(INPUT_SHAPE, dtype=torch.float32)

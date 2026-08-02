@@ -3,7 +3,7 @@ playable at all (rules.md Appendix A, "Combining these two")."""
 
 import pytest
 
-from capture_the_flag.board import STANDARD_144, BoardLayout
+from capture_the_flag.board import STANDARD_144, BoardLayout, Square
 from capture_the_flag.game_setup import (
     BATTLE_SETUP,
     GameSetup,
@@ -79,28 +79,37 @@ def test_resolve_setup_refuses_an_edition_it_has_never_heard_of():
         resolve_setup(RulesetConfiguration("9-9:BERSERKER"))
 
 
-def test_resolve_setup_refuses_a_published_label_this_build_cannot_play():
-    # `standard_64` is published in Appendix A and is a legitimate value of a
-    # real flag — `unsupported_aspects` is right not to object to it. It is the
-    # *build* that has no board for it yet, which is a different failure and gets
-    # its own message.
+def test_the_published_invalid_combination_is_refused():
+    # The combination the rules name where they introduce the two flags: the
+    # 25-piece Battle army on the 8 x 8 Skirmish board asks 25 pieces to occupy
+    # 24 home squares. Both labels are published and both are built here — it is
+    # the *pairing* that cannot be played, which is why this is the only check
+    # `GameSetup` can make and the only place it can make it.
     configuration = RulesetConfiguration(
         "2-0:BATTLE", {"BOARD_LAYOUT": "standard_64"}
     )
-    assert unsupported_aspects(configuration) == []
-    with pytest.raises(ValueError, match="implements no BOARD_LAYOUT 'standard_64'"):
+    assert unsupported_aspects(configuration) == []  # nothing unpublished here
+    with pytest.raises(ValueError, match="25 pieces into 24 home squares"):
         resolve_setup(configuration)
 
 
 def test_a_deviating_flag_actually_changes_what_is_resolved():
-    # The mechanism the flag model rests on: a configuration that deviates from
-    # its edition resolves to something different. Exercised through the army,
-    # since both published compositions are labels the flag knows.
+    # The mechanism the flag model rests on: a configuration deviating from its
+    # edition resolves to something its edition alone would not. Skirmish's army
+    # on Skirmish's board via a deviation from BATTLE is the same setup
+    # `2-0:SKIRMISH` names — reached by two routes, which is what makes flags
+    # rather than editions the unit of variation.
     deviating = RulesetConfiguration(
-        "2-0:BATTLE", {"ARMY_COMPOSITION": "standard_skirmish"}
+        "2-0:BATTLE",
+        {"BOARD_LAYOUT": "standard_64", "ARMY_COMPOSITION": "standard_skirmish"},
     )
-    with pytest.raises(ValueError, match="ARMY_COMPOSITION 'standard_skirmish'"):
-        resolve_setup(deviating)
+    resolved = resolve_setup(deviating)
+    skirmish = setup_for_ruleset("SKIRMISH")
+    assert resolved.layout is skirmish.layout
+    assert resolved.composition is skirmish.composition
+    # Same rules, different stamp: the deviation is recorded as what it is rather
+    # than silently renamed to the edition that happens to mean the same.
+    assert resolved.stamp != skirmish.stamp
 
 
 def test_a_ruleset_name_resolves_to_its_current_edition():
@@ -116,8 +125,28 @@ def test_a_ruleset_name_is_matched_case_insensitively():
 
 
 def test_an_unknown_ruleset_name_names_the_live_ones():
-    with pytest.raises(ValueError, match="unknown ruleset 'skirmish'"):
-        setup_for_ruleset("skirmish")
+    with pytest.raises(ValueError, match="unknown ruleset 'BERSERKER'"):
+        setup_for_ruleset("BERSERKER")
+
+
+def test_skirmish_resolves_to_its_published_board_and_army():
+    setup = setup_for_ruleset("SKIRMISH")
+    assert setup.stamp.edition == "2-0:SKIRMISH"
+    # 8 x 8, 3 home rows each side, 2 lake rows, no neutral buffer.
+    assert (setup.layout.columns, setup.layout.rows) == (8, 8)
+    assert setup.layout.white_home_rows == range(1, 4)
+    assert setup.layout.black_home_rows == range(6, 9)
+    assert setup.layout.lake_rows == (4, 5)
+    # Two separate 2 x 2 lakes on columns B/C and F/G.
+    assert setup.layout.lake_squares == {
+        Square(column, row) for row in (4, 5) for column in (1, 2, 5, 6)
+    }
+    # 16 pieces into 24 home squares — 67% filled, against Battle's 52%.
+    assert setup.composition.size == 16
+    assert len(setup.layout.white_home_squares) == 24
+    # Ranks 5 and 6 do not appear.
+    assert setup.composition.count(PieceType.FOOT_SOLDIER) == 0
+    assert setup.composition.count(PieceType.MILITIA) == 0
 
 
 def test_a_resolved_setup_carries_what_to_stamp_it_as():

@@ -202,8 +202,27 @@ STANDARD_144: BoardLayout = BoardLayout(
 )
 """The Battle board: 12x12, 4 home / 1 buffer / 2 lake / 1 buffer / 4 home."""
 
+STANDARD_64: BoardLayout = BoardLayout(
+    layout_id="standard_64",
+    columns=8,
+    rows=8,
+    home_rows=3,
+    lake_rows=(4, 5),
+    # The 12x12 pattern scaled down: two separate 2x2 lakes, single-column lanes
+    # at the two edges and one double-column lane through the interior
+    # (rules.md Section 2.1).
+    lake_pattern=(_O, _L, _L, _O, _O, _L, _L, _O),
+)
+"""The Skirmish board: 8x8, 3 home / 2 lake / 3 home.
+
+**No neutral buffer rows.** Each home zone sits directly against the lakes, so
+the two front ranks start 3 rows apart instead of Battle's 4 and contact happens
+sooner. That is deliberate — it is part of what makes Skirmish the faster game —
+and it is also what puts a home-zone square directly in front of every lane,
+which is the geometry the `TOWER_PLACEMENT` flag exists to address."""
+
 BOARD_LAYOUTS: dict[str, BoardLayout] = {
-    layout.layout_id: layout for layout in (STANDARD_144,)
+    layout.layout_id: layout for layout in (STANDARD_144, STANDARD_64)
 }
 """Every `BOARD_LAYOUT` value this build can actually play, keyed by its label.
 

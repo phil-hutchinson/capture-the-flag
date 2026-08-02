@@ -38,10 +38,11 @@ from game_engine_learning.training_loop import EpochLoss
 from torch.optim import Adam
 
 from ...device import ResolvedDevice, pipeline_device
+from ...game_setup import setup_for_ruleset
 from ...instrumentation.timing import TimingSession, region
 from ...record import (
+    DEFAULT_RULESET,
     RulesetConfiguration,
-    active_configuration,
     configuration_differences,
 )
 from ...run_environment import distribution_version, git_commit
@@ -108,6 +109,12 @@ class TrainingConfig:
     feature_count: int = DEFAULT_FEATURE_COUNT
     residual_block_count: int = DEFAULT_RESIDUAL_BLOCK_COUNT
     seed: int | None = None
+    ruleset: str = DEFAULT_RULESET
+    """Which published ruleset the run plays. A *name*, not an edition id: the
+    name is what a person selects and what stays true across a minor bump, while
+    the edition it resolves to is what every checkpoint is stamped with. A resume
+    re-resolves the name, so if the pointer has moved since, the checkpoint's own
+    stamp is what catches the disagreement."""
 
 
 def train_generations(
@@ -133,6 +140,10 @@ def train_generations(
     if config.generations < 1:
         raise ValueError(f"generations must be at least 1, got {config.generations}")
 
+    # Resolved before anything is written, so a run naming a ruleset this build
+    # cannot set up fails immediately rather than after creating a run directory.
+    setup = setup_for_ruleset(config.ruleset)
+
     position_factory: CtfPositionFactory | None = None
     if config.seed is not None:
         # Seed every stochastic source so the run is reproducible given the same
@@ -142,7 +153,9 @@ def train_generations(
         # OS entropy).
         torch.manual_seed(config.seed)
         random.seed(config.seed)
-        position_factory = CtfPositionFactory(random.Random(config.seed))
+        position_factory = CtfPositionFactory(
+            random.Random(config.seed), setup=setup
+        )
 
     resolved_device = pipeline_device()
 
@@ -152,16 +165,16 @@ def train_generations(
             residual_block_count=config.residual_block_count,
         )
         run_dir = new_run_directory(base_dir)
-        _write_run_config(run_dir, config)
+        _write_run_config(run_dir, config, setup.stamp)
         settings = asdict(config)
         reported = _run_generations(
             network,
             run_dir,
             config,
-            # A fresh run is by definition played under what this code currently
-            # implements, and stamps its checkpoints with it; only a resume has
-            # some other configuration to carry.
-            configuration=active_configuration(),
+            # A fresh run is by definition played under the configuration it
+            # selected, and stamps its checkpoints with it; only a resume has some
+            # other configuration to carry.
+            configuration=setup.stamp,
             start_generation=1,
             position_factory=position_factory,
             progress=progress,
@@ -465,7 +478,9 @@ def _check_ruleset_agrees(
         )
 
 
-def _write_run_config(run_dir: Path, config: TrainingConfig) -> None:
+def _write_run_config(
+    run_dir: Path, config: TrainingConfig, configuration: RulesetConfiguration
+) -> None:
     """Write the reproducibility record: the config, the rules the run was played
     under, the environment it ran against (dependency versions and this repo's
     commit), and the start time.
@@ -479,7 +494,7 @@ def _write_run_config(run_dir: Path, config: TrainingConfig) -> None:
     record = {
         "created": datetime.now().isoformat(timespec="seconds"),
         "config": asdict(config),
-        "ruleset": active_configuration().as_stamp(),
+        "ruleset": configuration.as_stamp(),
         "versions": {
             "game_engine_core": distribution_version("game-engine-core"),
             "capture_the_flag": distribution_version("capture-the-flag"),

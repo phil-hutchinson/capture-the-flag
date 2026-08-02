@@ -148,7 +148,7 @@ def test_resume_rejects_a_run_whose_config_and_checkpoint_disagree(tmp_path):
     anything the loop computes."""
     run_dir = new_run_directory(tmp_path)
     config = TrainingConfig(feature_count=SMALL_FEATURE_COUNT, residual_block_count=3)
-    _write_run_config(run_dir, config)
+    _write_run_config(run_dir, config, active_configuration())
     # A checkpoint at a *different* depth than the config claims.
     save_checkpoint(
         CtfCrn(feature_count=SMALL_FEATURE_COUNT, residual_block_count=2),
@@ -176,7 +176,7 @@ def _assembled_run(tmp_path, configuration=None):
         feature_count=SMALL_FEATURE_COUNT,
         residual_block_count=SMALL_RESIDUAL_BLOCK_COUNT,
     )
-    _write_run_config(run_dir, config)
+    _write_run_config(run_dir, config, active_configuration())
     if configuration is not None:
         _rewrite_run_config(run_dir, ruleset=configuration.as_stamp())
     save_checkpoint(

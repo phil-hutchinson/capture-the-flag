@@ -4,7 +4,12 @@ playable at all (rules.md Appendix A, "Combining these two")."""
 import pytest
 
 from capture_the_flag.board import STANDARD_144, BoardLayout
-from capture_the_flag.game_setup import BATTLE_SETUP, GameSetup, resolve_setup
+from capture_the_flag.game_setup import (
+    BATTLE_SETUP,
+    GameSetup,
+    resolve_setup,
+    setup_for_ruleset,
+)
 from capture_the_flag.pieces import STANDARD_BATTLE, ArmyComposition, PieceType
 from capture_the_flag.record import (
     RulesetConfiguration,
@@ -96,3 +101,40 @@ def test_a_deviating_flag_actually_changes_what_is_resolved():
     )
     with pytest.raises(ValueError, match="ARMY_COMPOSITION 'standard_skirmish'"):
         resolve_setup(deviating)
+
+
+def test_a_ruleset_name_resolves_to_its_current_edition():
+    # The pointer the vocabulary describes: a ruleset name is mutable, an edition
+    # is not, so `BATTLE` means whichever `<major>-<minor>:BATTLE` is Active now.
+    setup = setup_for_ruleset("BATTLE")
+    assert setup.stamp.edition == "2-0:BATTLE"
+    assert setup == BATTLE_SETUP
+
+
+def test_a_ruleset_name_is_matched_case_insensitively():
+    assert setup_for_ruleset("battle") == setup_for_ruleset("BATTLE")
+
+
+def test_an_unknown_ruleset_name_names_the_live_ones():
+    with pytest.raises(ValueError, match="unknown ruleset 'skirmish'"):
+        setup_for_ruleset("skirmish")
+
+
+def test_a_resolved_setup_carries_what_to_stamp_it_as():
+    assert BATTLE_SETUP.stamp.render() == "2-0:BATTLE"
+
+
+def test_a_hand_built_setup_has_nothing_to_stamp_itself_as():
+    # A board and an army are independent flags, so a playable pairing can exist
+    # that no published edition names. It plays; it cannot be recorded, because
+    # there is no honest thing to write in the Ruleset tag.
+    ad_hoc = GameSetup(
+        layout=_SMALL_BOARD,
+        composition=ArmyComposition(
+            composition_id="two_pieces",
+            counts={PieceType.MASTER_OF_ARMS: 1, PieceType.FLAG: 1},
+        ),
+    )
+    assert ad_hoc.configuration is None
+    with pytest.raises(ValueError, match="nothing to stamp it as"):
+        _ = ad_hoc.stamp

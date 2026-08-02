@@ -141,6 +141,24 @@ Battle's values (`standard_144`, `standard_battle`), so Battle *is* what the
 rules resolve to in the absence of a choice.
 """
 
+ACTIVE_RULESETS: dict[str, str] = {
+    edition_id.split(":", 1)[1]: edition_id for edition_id in sorted(ACTIVE_EDITIONS)
+}
+"""Each live ruleset name and the edition it currently points at.
+
+This is the pointer the vocabulary describes: a **ruleset** is a mutable name and
+an **edition** is immutable, so `BATTLE` means whichever `<major>-<minor>:BATTLE`
+is Active right now. Derived from `ACTIVE_EDITIONS` rather than written out, so
+publishing a new edition of a ruleset moves its pointer with no second edit to
+forget. Runners take a ruleset name from the command line and resolve it here;
+every artifact they write is stamped with the *edition*, never the name, which
+would only pin a pointer.
+"""
+
+DEFAULT_RULESET = DEFAULT_EDITION.split(":", 1)[1]
+"""The ruleset name a runner plays when it is not told which — `DEFAULT_EDITION`
+as a name, so the two cannot drift apart."""
+
 EDITIONS: dict[str, Edition] = {
     edition.edition_id: edition
     for edition in (
@@ -258,6 +276,21 @@ class RulesetConfiguration:
         ):
             raise ValueError(f"'flags' must map flag ids to value labels, got {flags!r}")
         return canonicalize(cls(edition=edition, flags=dict(flags)))
+
+
+def edition_for_ruleset(ruleset: str) -> str:
+    """The edition `ruleset` currently points at, matched case-insensitively.
+
+    Raises `ValueError` naming the live rulesets, since this is the seam a
+    mistyped command-line argument arrives through.
+    """
+    edition = ACTIVE_RULESETS.get(ruleset.upper())
+    if edition is None:
+        raise ValueError(
+            f"unknown ruleset {ruleset!r}; this build plays "
+            f"{', '.join(sorted(ACTIVE_RULESETS))}"
+        )
+    return edition
 
 
 def active_configuration(edition: str = DEFAULT_EDITION) -> RulesetConfiguration:
@@ -480,6 +513,7 @@ def _build_move_sequence(game_log: Sequence[tuple[str, str]]) -> str:
 def write_record(
     game_result: GameResult,
     *,
+    configuration: RulesetConfiguration,
     white_name: str | None = None,
     black_name: str | None = None,
     event: str | None = None,
@@ -496,8 +530,10 @@ def write_record(
     position's `outcome_reason`, e.g. `Flag Captured`). `Ruleset`, `Result`,
     and `ResultReason` are always present: `Ruleset` records the rules the game
     was actually played under, as the full edition id plus any deviating flags
-    (`active_configuration().render()`) — never a bare ruleset name, which would
-    only name a moving pointer.
+    (`configuration.render()`) — never a bare ruleset name, which would only name
+    a moving pointer. It is passed in rather than read from a build constant:
+    since major 2 a build implements several editions and the game was played
+    under whichever one this run selected.
 
     Tag values are escaped for the `[Name "value"]` syntax (see
     `_escape_tag_value`): `\\` and `"` are backslash-escaped and newlines are
@@ -517,7 +553,7 @@ def write_record(
         for name, value in optional_tags
         if value is not None
     ]
-    header_lines.append(f'[Ruleset "{_escape_tag_value(active_configuration().render())}"]')
+    header_lines.append(f'[Ruleset "{_escape_tag_value(configuration.render())}"]')
     header_lines.append(f'[Result "{_RESULT_TAGS[game_result.outcome]}"]')
     header_lines.append(f'[ResultReason "{_escape_tag_value(game_result.result_reason)}"]')
 

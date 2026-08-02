@@ -18,11 +18,11 @@ from game_engine_core.tournament.tournament import Tournament
 
 from .device import pipeline_device
 from .game_logging import CtfGameLogging
-from .game_setup import BATTLE_SETUP
+from .game_setup import GameSetup, setup_for_ruleset
 from .instrumentation.timing import region
 from .match import build_initial_position
 from .player import MACHINE_PLAYER_KINDS, PlayerContext, make_player
-from .record import write_record
+from .record import ACTIVE_RULESETS, DEFAULT_RULESET, write_record
 from .timing_record import (
     TIMING_ON_BY_DEFAULT,
     TIMING_RECORD_STEM,
@@ -75,6 +75,7 @@ def run_batch(
     iterations: int | None = None,
     temperature: float | None = None,
     timing: bool = TIMING_ON_BY_DEFAULT,
+    ruleset: str = DEFAULT_RULESET,
 ) -> BatchSummary:
     """Play `num_games` matches between the two chosen machine kinds, writing one
     game-record file per match into `output_dir` (created if needed), and return
@@ -87,6 +88,9 @@ def run_batch(
     Phase-1 placement is supplied through the widened position factory
     (`build_initial_position`); scheduling, side alternation, and the game loop
     all come from `Tournament`.
+
+    `ruleset` names which published ruleset the batch plays; every record it
+    writes is stamped with the edition that name currently resolves to.
 
     `white_kind`/`black_kind` must be machine kinds (`MACHINE_PLAYER_KINDS`);
     `iterations`/`temperature` tune neural players only. Passing `seed` makes the
@@ -108,6 +112,7 @@ def run_batch(
     # was over. Outside the `timing` branch for the same reason — precision is a
     # property of the run, not of whether the run was measured.
     resolved_device = pipeline_device()
+    setup = setup_for_ruleset(ruleset)
 
     with timing_run(ROOT_BATCH, enabled=timing) as session:
         summary = _play_batch(
@@ -118,6 +123,7 @@ def run_batch(
             black_kind=black_kind,
             iterations=iterations,
             temperature=temperature,
+            setup=setup,
         )
 
     if session is not None:
@@ -160,6 +166,7 @@ def _play_batch(
     black_kind: str,
     iterations: int | None,
     temperature: float | None,
+    setup: GameSetup,
 ) -> BatchSummary:
     """The batch itself: seat the players, play the games, write the records."""
     if num_games < 1:
@@ -200,9 +207,9 @@ def _play_batch(
     tournament = Tournament(
         players=[white_player, black_player],
         # The library's factory contract is two players and nothing else, so the
-        # setup is bound here rather than passed per game. Still Battle until the
-        # run-time configuration selects it.
-        position_factory=partial(build_initial_position, setup=BATTLE_SETUP),
+        # setup is bound here rather than passed per game -- every game in a batch
+        # is played under one configuration.
+        position_factory=partial(build_initial_position, setup=setup),
         game_logging=CtfGameLogging(),
         games_per_pairing=num_games,
     )
@@ -234,6 +241,7 @@ def _play_batch(
 
             text = write_record(
                 game_result,
+                configuration=setup.stamp,
                 white_name=record.players[1],
                 black_name=record.players[-1],
                 round_number=str(game_number),
@@ -302,6 +310,17 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="ply-selection temperature for neural players (default: engine default)",
     )
     parser.add_argument(
+        "--ruleset",
+        default=DEFAULT_RULESET,
+        choices=sorted(ACTIVE_RULESETS),
+        type=str.upper,
+        help=(
+            "which published ruleset to play (default: %(default)s); each "
+            "resolves to its current edition, which is what artifacts are "
+            "stamped with"
+        ),
+    )
+    parser.add_argument(
         "--timing",
         action=argparse.BooleanOptionalAction,
         default=TIMING_ON_BY_DEFAULT,
@@ -325,6 +344,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         iterations=args.iterations,
         temperature=args.temperature,
         timing=args.timing,
+        ruleset=args.ruleset,
     )
     print(summary.format())
 

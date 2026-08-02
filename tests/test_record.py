@@ -63,6 +63,7 @@ def test_write_record_has_the_documented_sections_in_order():
     match_result = _play(1)
     record = write_record(
         match_result.game_result,
+        configuration=BATTLE_SETUP.stamp,
         white_name="White",
         black_name="Black",
         event="Event",
@@ -97,7 +98,7 @@ def test_write_record_has_the_documented_sections_in_order():
 
 def test_write_record_omits_unpopulated_tags():
     match_result = _play(5)
-    record = write_record(match_result.game_result)
+    record = write_record(match_result.game_result, configuration=BATTLE_SETUP.stamp)
     expected_result = _RESULT_TAGS[match_result.game_result.outcome]
 
     header = record.strip("\n").split("\n\n")[0]
@@ -110,7 +111,11 @@ def test_write_record_omits_unpopulated_tags():
 
 def test_write_record_omits_tags_individually():
     match_result = _play(5)
-    record = write_record(match_result.game_result, white_name="White")
+    record = write_record(
+        match_result.game_result,
+        configuration=BATTLE_SETUP.stamp,
+        white_name="White",
+    )
     expected_result = _RESULT_TAGS[match_result.game_result.outcome]
 
     header = record.strip("\n").split("\n\n")[0]
@@ -126,7 +131,7 @@ def test_write_record_always_includes_ruleset_tag():
     # The Ruleset tag is mandatory even when no roster tags are supplied, so the
     # rules a stored game was played under are recoverable from the record alone.
     match_result = _play(5)
-    record = write_record(match_result.game_result)
+    record = write_record(match_result.game_result, configuration=BATTLE_SETUP.stamp)
     assert _RULESET_TAG in record
     # The full edition id, never a bare ruleset name: the name is a pointer that
     # moves, so it would not pin anything.
@@ -135,7 +140,7 @@ def test_write_record_always_includes_ruleset_tag():
 
 def test_write_record_result_reflects_absolute_outcome():
     match_result = _play(5)
-    record = write_record(match_result.game_result)
+    record = write_record(match_result.game_result, configuration=BATTLE_SETUP.stamp)
     expected_result = _RESULT_TAGS[match_result.game_result.outcome]
     assert f'[Result "{expected_result}"]' in record
 
@@ -145,7 +150,7 @@ def test_write_record_result_reason_reflects_the_ending():
     # the old "Unknown" placeholder.
     match_result = _play(5)
     reason = match_result.game_result.result_reason
-    record = write_record(match_result.game_result)
+    record = write_record(match_result.game_result, configuration=BATTLE_SETUP.stamp)
     assert reason
     assert '[ResultReason "Unknown"]' not in record
     assert f'[ResultReason "{reason}"]' in record
@@ -155,6 +160,7 @@ def test_write_record_escapes_quotes_and_backslashes_in_tag_values():
     match_result = _play(5)
     record = write_record(
         match_result.game_result,
+        configuration=BATTLE_SETUP.stamp,
         white_name='Ann "Ace" \\ Smith',
         event="Line1\nLine2",
     )
@@ -179,7 +185,7 @@ def test_write_record_lone_final_white_ply_on_odd_length_games():
         game_result = dataclasses.replace(match_result.game_result, game_log=game_log)
         match_result = dataclasses.replace(match_result, game_result=game_result)
 
-    record = write_record(match_result.game_result)
+    record = write_record(match_result.game_result, configuration=BATTLE_SETUP.stamp)
     move_sequence = record.strip("\n").split("\n\n")[2]
     last_line = move_sequence.splitlines()[-1]
     # A lone final White ply: "N. <ply>" with no second ply on that line.

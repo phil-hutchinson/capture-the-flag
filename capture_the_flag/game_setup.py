@@ -22,17 +22,46 @@ board or army (the Tower placement rule) join it here.
 
 from dataclasses import dataclass
 
-from .board import BOARD_LAYOUTS, STANDARD_144, BoardLayout
-from .pieces import ARMY_COMPOSITIONS, STANDARD_BATTLE, ArmyComposition
-from .record import RulesetConfiguration, resolve_flag, unsupported_aspects
+from .board import BOARD_LAYOUTS, BoardLayout
+from .pieces import ARMY_COMPOSITIONS, ArmyComposition
+from .record import (
+    RulesetConfiguration,
+    active_configuration,
+    edition_for_ruleset,
+    resolve_flag,
+    unsupported_aspects,
+)
 
 
 @dataclass(frozen=True)
 class GameSetup:
-    """A board and an army that can actually be played together."""
+    """A board and an army that can actually be played together, and — when one
+    names it — the configuration they were resolved from.
+
+    `configuration` is what every artifact this setup produces is stamped with:
+    the record's `Ruleset` tag, the checkpoint's `ruleset` key, the run config.
+    It is optional because **not every playable pairing is a published one**. A
+    board and an army are independent flags, so a valid pairing can exist that no
+    edition names — the rules say as much where they introduce the two flags —
+    and such a setup is playable but not stampable. `resolve_setup` always fills
+    it; a hand-built `GameSetup` leaves it `None`, and `stamp` is what turns
+    trying to record one into a named error rather than a silent mislabel.
+    """
 
     layout: BoardLayout
     composition: ArmyComposition
+    configuration: RulesetConfiguration | None = None
+
+    @property
+    def stamp(self) -> RulesetConfiguration:
+        """The configuration to record this setup as, or a named error."""
+        if self.configuration is None:
+            raise ValueError(
+                f"this {self.layout.layout_id} / "
+                f"{self.composition.composition_id} setup was not resolved from a "
+                "published configuration, so there is nothing to stamp it as"
+            )
+        return self.configuration
 
     def __post_init__(self) -> None:
         home_squares = len(self.layout.white_home_squares)
@@ -44,8 +73,14 @@ class GameSetup:
             )
 
 
-BATTLE_SETUP = GameSetup(layout=STANDARD_144, composition=STANDARD_BATTLE)
-"""The 12 x 12 board and 25-piece army — what `2-0:BATTLE` resolves to."""
+def setup_for_ruleset(ruleset: str) -> GameSetup:
+    """The setup for a live ruleset name — the runners' entry point.
+
+    A name rather than an edition id because that is what a person types and what
+    stays true across a minor bump; the edition it resolves to is what gets
+    stamped.
+    """
+    return resolve_setup(active_configuration(edition_for_ruleset(ruleset)))
 
 
 def resolve_setup(configuration: RulesetConfiguration) -> GameSetup:
@@ -90,4 +125,13 @@ def resolve_setup(configuration: RulesetConfiguration) -> GameSetup:
     return GameSetup(
         layout=BOARD_LAYOUTS[layout_id],
         composition=ARMY_COMPOSITIONS[composition_id],
+        configuration=configuration,
     )
+
+
+BATTLE_SETUP = setup_for_ruleset("BATTLE")
+"""The 12 x 12 board and 25-piece army — what `2-0:BATTLE` resolves to.
+
+The default a runner plays when it is not told which ruleset to use, and not an
+arbitrary pick: both published flags default to Battle's values, so Battle is
+what the rules resolve to in the absence of a choice."""

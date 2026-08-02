@@ -40,18 +40,34 @@ an engine spec's compatible-rulesets list: that list is the *set* of rulesets an
 I/O contract can serve, many-to-one, while this stamp is the single *point* in
 that set these weights actually occupy.
 
-Its three outcomes on load mirror the reasoning above, one per case:
+Its outcomes on load mirror the reasoning above, one per case:
 
 - **absent** — rejected. A checkpoint from before ruleset stamping cannot be
   verified at all, and defaulting it would assert something unknown.
-- **present and implementable** — *adopted*, so a resumed run continues under the
-  configuration it was trained under rather than under current defaults, exactly
-  as the architecture already is. A checkpoint trained with a flag on resumes
-  with that flag on even if the current default is off, and the checkpoints that
-  resume goes on to write carry the adopted configuration rather than the active
-  one — that is what `save_checkpoint`'s `configuration` argument is for.
-- **present and not implementable** — rejected, naming the flag. This is the case
-  where the running code cannot be the code that trained these weights.
+- **present and not implementable** — rejected, naming the edition or the flag.
+  This is the case where the running code cannot be the code that trained these
+  weights. A *historical* edition lands here and is refused because it is **not
+  Active**: the rules moved on, so a run continuing from it would be playing rules
+  its weights never saw. That is a statement about the rules having changed, not
+  about a build carrying only one edition — a build implements every Active
+  edition, and refuses only the ones it no longer plays.
+- **present, implementable, and not the configuration this run is playing** —
+  rejected. Two Active editions are live, so "this code can implement it" no
+  longer implies "these weights belong in this game": a Skirmish-trained network
+  seated in a Battle game is implementable and wrong. `unsupported_aspects`
+  cannot see this, because nothing about the stamp is beyond the build; only the
+  run's own configuration can say so, which is why the load path takes the setup
+  it is loading *for*.
+- **present, implementable, and the run's own** — *adopted*, so a resumed run
+  continues under the configuration it was trained under rather than under
+  current defaults, exactly as the architecture already is. A checkpoint trained
+  with a flag on resumes with that flag on even if the current default is off,
+  and the checkpoints that resume goes on to write carry the adopted
+  configuration rather than the active one — that is what `save_checkpoint`'s
+  `configuration` argument is for. A resume reaches this case by construction: it
+  reads the stamp first and resolves the run's setup *from* it, so adoption is
+  what makes the comparison trivially pass rather than something the comparison
+  gets in the way of.
 
 Backward compatibility is not the goal here; knowing whether the network matches
 the variant in play is, and failing clearly when it does not, rather than running
@@ -84,7 +100,7 @@ import torch
 from ...game_setup import GameSetup
 from ...record import (
     RulesetConfiguration,
-    active_configuration,
+    configuration_differences,
     unsupported_aspects,
 )
 from .ctf_crn import CtfCrn
@@ -111,7 +127,7 @@ _RESIDUAL_BLOCK_COUNT_KEY = "residual_block_count"
 
 
 def save_checkpoint(
-    network: CtfCrn, path: Path, *, configuration: RulesetConfiguration | None = None
+    network: CtfCrn, path: Path, *, configuration: RulesetConfiguration
 ) -> None:
     """Write `network`'s weights to `path` (weights only, no optimizer state),
     stamped with the engine spec they were produced under, the architecture
@@ -123,20 +139,21 @@ def save_checkpoint(
     shape, so the network is the only thing that can state it without a chance of
     disagreeing with the tensors being written beside it.
 
-    `configuration` is that last stamp, defaulting to `active_configuration()` —
-    what a run starting fresh is training under. A resumed run passes the
-    configuration it adopted from the checkpoint it continued from instead, so
-    the generations it appends carry the rules they were actually trained under
-    rather than whatever the current active edition happens to be. Defaulting it
-    here rather than requiring it keeps every caller that genuinely is training
-    under current rules unchanged.
+    `configuration` is that last stamp, and it is **required**. It once defaulted
+    to the active configuration, which was harmless while one edition was live and
+    is not now: a Skirmish-shaped network stamped with Battle's edition is an
+    artifact that contradicts itself, and no default can tell the two apart —
+    a network knows the board and army it was built for, but not which published
+    configuration selected them. The caller is the only one that knows, and it
+    always does: a fresh run passes what it resolved, and a resume passes the
+    configuration it adopted from the checkpoint it continued from, so the
+    generations it appends carry the rules they were actually trained under rather
+    than whatever the current active edition happens to be.
 
     Build `path` with `game_engine_learning.checkpoints.checkpoint_path` so the
     file lands in a run directory under the shared naming convention. The parent
     directory is created if it does not already exist.
     """
-    if configuration is None:
-        configuration = active_configuration()
     path.parent.mkdir(parents=True, exist_ok=True)
     checkpoint = {
         _CHECKPOINT_SPEC_KEY: network.tensor_layout.spec,
@@ -155,9 +172,14 @@ def checkpoint_configuration(path: Path) -> RulesetConfiguration:
 
     Separate from `load_network` because a resume needs the configuration to
     carry forward and to cross-check its run config against, without any interest
-    in the weights. Applies the same three outcomes `load_network` does — absent
+    in the weights. Applies the build-level outcomes `load_network` does — absent
     is rejected, unusable is rejected, unimplementable is rejected — so a
     configuration this returns is always one this code can actually play under.
+
+    It does **not** apply `load_network`'s comparison against the run, because
+    there is nothing to compare against yet: this is how a resume finds out what
+    it is playing. The comparison happens on the way back in, when the setup
+    resolved from this configuration reaches `load_network`.
 
     A resume calling both reads the file twice, which is deliberate: it keeps
     `load_network` returning exactly what its name says, and a second read of a
@@ -185,7 +207,10 @@ def _loaded_checkpoint(path: Path) -> dict[str, Any]:
 
 
 def _stamped_configuration(
-    checkpoint: Mapping[str, object], path: Path
+    checkpoint: Mapping[str, object],
+    path: Path,
+    *,
+    playing: RulesetConfiguration | None = None,
 ) -> RulesetConfiguration:
     """Read, validate, and adopt the ruleset stamp of an already-loaded checkpoint.
 
@@ -194,6 +219,14 @@ def _stamped_configuration(
     active configuration is only what a *fresh* run starts from. `save_checkpoint`
     takes it back as its `configuration` argument, which is what carries the
     adoption through to the generations a resume appends.
+
+    `playing`, when given, is the configuration the caller is actually going to
+    play under, and the stamp must equal it. That check is separate from
+    `unsupported_aspects` and cannot be folded into it: with two Active editions
+    live, a stamp can be entirely implementable and still be the wrong rules for
+    *this* game, and no build-level question can tell the two apart. It is
+    optional because `checkpoint_configuration` has nothing to compare against —
+    reading the stamp is precisely how a resume decides what it is playing.
     """
     if _CHECKPOINT_RULESET_KEY not in checkpoint:
         raise ValueError(
@@ -214,6 +247,17 @@ def _stamped_configuration(
             f"implement: {'; '.join(aspects)}. The network would be evaluating "
             "under rules it was not trained for."
         )
+    if playing is not None:
+        differences = configuration_differences(
+            configuration, playing, left_label=str(path), right_label="this run"
+        )
+        if differences:
+            raise ValueError(
+                f"{path} was trained under {configuration.render()!r}, but this "
+                f"run plays {playing.render()!r}: {'; '.join(differences)}. Both "
+                "are rulesets this code implements; the network is simply not the "
+                "one for this game."
+            )
     return configuration
 
 
@@ -234,11 +278,14 @@ def load_network(path: Path, setup: GameSetup) -> CtfCrn:
     trained at a different width or depth reloads at its own size instead of
     failing to fit a default-sized container.
 
-    The ruleset stamp is checked too, and rejected if absent or beyond what this
-    code implements — a rules-only change leaves the spec stamp untouched, so
-    without this check the weights would load cleanly into a network evaluating
-    under rules they were never trained for. Use `checkpoint_configuration` to
-    read the stamped configuration itself.
+    The ruleset stamp is checked too, and rejected if absent, beyond what this
+    code implements, or simply **not what `setup` is playing**. A rules-only
+    change leaves the spec stamp untouched, so without this the weights would load
+    cleanly into a network evaluating under rules they were never trained for —
+    and since two Active editions are live, "this code implements it" is no longer
+    enough on its own. The comparison is against the run's configuration rather
+    than a build constant precisely because the build now holds more than one.
+    Use `checkpoint_configuration` to read the stamped configuration itself.
     """
     tensor_layout = TensorLayout.for_setup(setup)
     checkpoint = _loaded_checkpoint(path)
@@ -252,8 +299,9 @@ def load_network(path: Path, setup: GameSetup) -> CtfCrn:
     if stamped_spec != tensor_layout.spec:
         raise ValueError(
             f"{path} was saved against spec {stamped_spec!r}, but this run "
-            f"implements {tensor_layout.spec!r}. Checkpoints are not compatible "
-            "across engine-spec changes or across boards; retrain from scratch."
+            f"implements {tensor_layout.spec!r}. Weights are only valid for the "
+            "spec and board they were produced against; load a checkpoint for "
+            "this run's ruleset, or retrain from scratch."
         )
     if _CHECKPOINT_ARCHITECTURE_KEY not in checkpoint:
         # Guessing an architecture would risk loading weights into a network of
@@ -275,7 +323,7 @@ def load_network(path: Path, setup: GameSetup) -> CtfCrn:
             f"{_FEATURE_COUNT_KEY!r} and {_RESIDUAL_BLOCK_COUNT_KEY!r}, got "
             f"{architecture!r}."
         )
-    _stamped_configuration(checkpoint, path)
+    _stamped_configuration(checkpoint, path, playing=setup.stamp)
     network = CtfCrn(
         tensor_layout,
         feature_count=architecture[_FEATURE_COUNT_KEY],

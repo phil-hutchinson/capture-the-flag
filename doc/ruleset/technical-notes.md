@@ -253,17 +253,28 @@ editions precisely because it is stated parametrically in the board and roster;
 that is a claim about the contract, and says nothing about whether one set of
 weights can move between them.
 
-On load, a checkpoint whose configuration the running code can implement is
-**adopted**: a resumed run continues under the stamped configuration rather than
-under current defaults, so a run trained with a flag on resumes with it on even
-if the default has since changed. Adoption reaches the artifacts, not just the
-decision to proceed — the checkpoints a resume appends are stamped with the
+On load, a checkpoint's configuration is **adopted** where there is something to
+adopt it for: a resumed run reads the stamp first and continues under it rather
+than under current defaults, so a run trained with a flag on resumes with it on
+even if the default has since changed. Adoption reaches the artifacts, not just
+the decision to proceed — the checkpoints a resume appends are stamped with the
 configuration it adopted, so a run's later generations are never re-tagged with
-an edition they were not trained under. Rejection is reserved for a configuration
-the running code cannot implement at all (which includes a *historical* edition,
-per the guarantee above), and for one that is missing — an unstamped artifact
-cannot say what it was trained under, and defaulting it would assert something
-unknown.
+an edition they were not trained under. Everything a resume then does, up to and
+including the board its weights are rehydrated into, follows from the adopted
+configuration rather than from any current default.
+
+Rejection covers three cases. A configuration the running code **cannot
+implement** at all, which includes a *historical* edition, per the guarantee
+above. A configuration that is **missing** — an unstamped artifact cannot say
+what it was trained under, and defaulting it would assert something unknown. And
+a configuration that is implementable but **not the one being played**: with two
+Active editions live, "this build can implement it" no longer implies "these
+weights belong in this game," and a Skirmish-trained network seated in a Battle
+game is refused on that ground alone. That last check is against the run's own
+configuration, not a build-level constant — the build holds both, so only the run
+can say which of them is in play. Adoption and this check do not conflict: a
+resume's run configuration *is* the adopted one, so the comparison is what a
+resume passes trivially and a mis-seated checkpoint fails.
 
 A configuration is also **canonicalized when read**: a stamp that lists a flag at
 the value it would resolve to anyway is normalised to one that omits it. The two

@@ -158,6 +158,7 @@ def test_resume_rejects_a_run_whose_config_and_checkpoint_disagree(tmp_path):
             residual_block_count=2,
         ),
         checkpoint_path(run_dir, 1),
+        configuration=active_configuration(),
     )
 
     with pytest.raises(ValueError, match="inconsistent"):
@@ -171,19 +172,19 @@ def _assembled_run(tmp_path, configuration=None):
     anything the generations loop computes, so assembling the directory directly
     keeps them out of the `slow` suite.
 
-    `configuration`, if given, is what both records carry — standing in for a run
-    conducted under something other than the current active configuration, which
-    is the only way to tell adoption from re-stamping while one edition and no
-    flags are published.
+    `configuration` is what both records carry, defaulting to the active one.
+    Supplying something else stands in for a run conducted under other rules,
+    which is the only way to tell adoption from re-stamping — the two coincide
+    whenever a run happens to be under the current default.
     """
     run_dir = new_run_directory(tmp_path)
     config = TrainingConfig(
         feature_count=SMALL_FEATURE_COUNT,
         residual_block_count=SMALL_RESIDUAL_BLOCK_COUNT,
     )
-    _write_run_config(run_dir, config, active_configuration())
-    if configuration is not None:
-        _rewrite_run_config(run_dir, ruleset=configuration.as_stamp())
+    if configuration is None:
+        configuration = active_configuration()
+    _write_run_config(run_dir, config, configuration)
     save_checkpoint(
         CtfCrn(
             BATTLE_TENSOR_LAYOUT,

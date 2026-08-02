@@ -51,69 +51,11 @@ from:
 
 ## Proposals
 
-### `TOWER_PLACEMENT`
+*(none)*
 
-**Identifier.** `TOWER_PLACEMENT`
-
-**Value labels.** `spacing_only` | `spacing_and_lanes`
-
-**Default.** `spacing_only` — exactly the placement rule as published: no two
-Towers adjacent, including diagonally, and no other restriction on where a Tower
-goes. Turning the flag on for no edition changes no existing play and no existing
-record.
-
-**What `spacing_and_lanes` does.** The spacing rule, *and* a Tower may not stand
-on a square orthogonally adjacent to a **lane square** — a square in a lake row
-that is not itself a lake. Nothing about any other piece changes; the numbered
-pieces and the Flag stay unrestricted.
-
-The set is **derived from the board, not listed per board.** That matters because
-the two published boards give completely different answers to it:
-
-- On **Skirmish** (`standard_64`) the lanes are columns A, D, E, H, and each home
-  zone's front rank sits directly against a lake row. The restriction closes
-  A3, D3, E3, H3 for White and A6, D6, E6, H6 for Black — four of twenty-four
-  home squares each. B3, C3, F3, G3 stay open: those columns are lake in the lake
-  rows, so nothing behind them is in front of a lane.
-- On **Battle** (`standard_144`) it closes **nothing at all**. A neutral buffer
-  row separates each home zone from the lake rows, so no home square is
-  orthogonally adjacent to a lane square. The flag is well-defined there and is
-  simply inert.
-
-A layout enumerating its own closed squares would have to be right about that
-twice, and wrong once for every board added later. Deriving it means a new layout
-gets the rule correct by construction — including getting "closes nothing" right,
-which is the answer for any board with a buffer row.
-
-**Why.** Skirmish's home zone abuts the lakes, which puts a home square in the
-mouth of every lane. That interacts badly with two other rules at once:
-
-- A Tower can only be removed by an **orthogonal** attack (diagonal attacks are
-  restricted to movable pieces), and any attack on a Tower is a **draw** — the
-  attacker dies too.
-- A lane at its narrowest is one square wide, so a piece crossing it can be
-  attacked from, and can attack, only along the lane.
-
-A Tower in a lane mouth is therefore a tollbooth: the only way past is to walk a
-piece into it and lose that piece, and the approach is single-file so the trade
-cannot be set up favourably. Three Towers against four lanes means a player can
-plug three of them — spacing permitting, A3/D3/H3 or A3/E3/H3 — and reduce the
-opening to which lane was left. Battle has the same Towers and the same lanes but
-a buffer row, so the lane mouth is a neutral square nobody may occupy at
-placement, and the position never arises.
-
-The flag exists to test whether closing those squares makes Skirmish openings
-more varied without touching anything else. It is deliberately narrow: it removes
-a placement option rather than changing how Towers or lanes behave, so a game
-played under it is legible to anyone who knows the base rules.
-
-**What was rejected.** A *connectivity* rule — "a placement must leave some path
-across the board" — was considered and rejected for step 11's write-up in
-`technical-notes.md`. It states the intent more directly but is far worse as a
-rule: it is a property of the two placements *together*, which secret simultaneous
-placement cannot check, and it would need a path definition of its own that the
-rest of the rules do not have. The geometric restriction is checkable by one
-player alone, at the moment they place the piece.
-
-**Status.** Branch open (story 37, step 10). Graduating to Appendix A in step 11,
-together with the `2-1:SKIRMISH` edition that sets it to `spacing_and_lanes`.
+`TOWER_PLACEMENT` was proposed here and **graduated to
+[`rules.md`](rules.md) Appendix A** with story 00000037, which published
+`2-1:SKIRMISH` setting it to `spacing_and_lanes`. Its identifier and value labels
+are permanent from that point; the reasoning behind it, and the connectivity rule
+rejected in its favour, moved to
+[`technical-notes.md`](technical-notes.md).

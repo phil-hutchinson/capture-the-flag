@@ -394,7 +394,7 @@ def test_load_network_rejects_a_checkpoint_stamped_with_a_historical_edition(
     assert "historical edition" in message
     # The Active set it is measured against, not a single build constant.
     assert "2-0:BATTLE" in message
-    assert "2-0:SKIRMISH" in message
+    assert "2-1:SKIRMISH" in message
 
 
 def test_load_network_accepts_a_checkpoint_under_the_ruleset_it_was_trained_for(

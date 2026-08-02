@@ -97,16 +97,21 @@ def test_a_deviating_flag_actually_changes_what_is_resolved():
     # The mechanism the flag model rests on: a configuration deviating from its
     # edition resolves to something its edition alone would not. Skirmish's army
     # on Skirmish's board via a deviation from BATTLE is the same setup
-    # `2-0:SKIRMISH` names — reached by two routes, which is what makes flags
+    # `2-1:SKIRMISH` names — reached by two routes, which is what makes flags
     # rather than editions the unit of variation.
     deviating = RulesetConfiguration(
         "2-0:BATTLE",
-        {"BOARD_LAYOUT": "standard_64", "ARMY_COMPOSITION": "standard_skirmish"},
+        {
+            "BOARD_LAYOUT": "standard_64",
+            "ARMY_COMPOSITION": "standard_skirmish",
+            "TOWER_PLACEMENT": "spacing_and_lanes",
+        },
     )
     resolved = resolve_setup(deviating)
     skirmish = setup_for_ruleset("SKIRMISH")
     assert resolved.layout is skirmish.layout
     assert resolved.composition is skirmish.composition
+    assert resolved.tower_placement == skirmish.tower_placement
     # Same rules, different stamp: the deviation is recorded as what it is rather
     # than silently renamed to the edition that happens to mean the same.
     assert resolved.stamp != skirmish.stamp
@@ -131,7 +136,7 @@ def test_an_unknown_ruleset_name_names_the_live_ones():
 
 def test_skirmish_resolves_to_its_published_board_and_army():
     setup = setup_for_ruleset("SKIRMISH")
-    assert setup.stamp.edition == "2-0:SKIRMISH"
+    assert setup.stamp.edition == "2-1:SKIRMISH"
     # 8 x 8, 3 home rows each side, 2 lake rows, no neutral buffer.
     assert (setup.layout.columns, setup.layout.rows) == (8, 8)
     assert setup.layout.white_home_rows == range(1, 4)

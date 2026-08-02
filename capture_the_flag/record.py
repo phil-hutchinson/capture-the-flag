@@ -128,13 +128,17 @@ class Edition:
         return hash((self.edition_id, frozenset(self.flag_values.items())))
 
 
-ACTIVE_EDITIONS: frozenset[str] = frozenset({"2-0:BATTLE", "2-0:SKIRMISH"})
+ACTIVE_EDITIONS: frozenset[str] = frozenset({"2-0:BATTLE", "2-1:SKIRMISH"})
 """The editions this build implements, and therefore the ones it can stamp.
 
 **A build implements every Active edition**, not one: since major 2 two rulesets
 are published in parallel and the configuration is selected at run time, so this
-is a set rather than a single pointer. `2-0:SKIRMISH` joins it once the engine
-can set up its board and army.
+is a set rather than a single pointer.
+
+**The minors advance independently.** Skirmish is at minor 1 and Battle at minor
+0 because the Tower lane restriction changed Skirmish's play and not Battle's;
+the shared major says only that both are played under the same rules text. A
+notation break is the one thing that moves both at once.
 
 Note the dash in an edition id — it is a compound label, not a decimal, so a
 minor 10 would not sort before a minor 2.
@@ -174,6 +178,15 @@ EDITIONS: dict[str, Edition] = {
             flag_values={
                 "BOARD_LAYOUT": "standard_144",
                 "ARMY_COMPOSITION": "standard_battle",
+                "TOWER_PLACEMENT": "spacing_only",
+            },
+        ),
+        Edition(
+            edition_id="2-1:SKIRMISH",
+            flag_values={
+                "BOARD_LAYOUT": "standard_64",
+                "ARMY_COMPOSITION": "standard_skirmish",
+                "TOWER_PLACEMENT": "spacing_and_lanes",
             },
         ),
         Edition(
@@ -181,6 +194,7 @@ EDITIONS: dict[str, Edition] = {
             flag_values={
                 "BOARD_LAYOUT": "standard_64",
                 "ARMY_COMPOSITION": "standard_skirmish",
+                "TOWER_PLACEMENT": "spacing_only",
             },
         ),
         Edition(edition_id="1-2:PRE-RELEASE", flag_values={}),
@@ -196,9 +210,14 @@ Membership is therefore *not* implementability: a historical entry is a label
 this code can recognise, not a ruleset it can run. `unsupported_aspects` draws
 that line.
 
-`1-2:PRE-RELEASE` sets no flag values because it predates both flags, so each
+`1-2:PRE-RELEASE` sets no flag values because it predates all three flags, so each
 resolves to its own registry default — which is exactly the behavior it was
 played under, since a flag's default is always what preceded it.
+
+`2-0:SKIRMISH` states `TOWER_PLACEMENT=spacing_only` explicitly even though that
+is also the registry default. It is what `rules.md` Appendix B publishes for it,
+and the point of an edition is that it fixes every flag rather than leaning on
+defaults that a later flag introduction could otherwise appear to move.
 """
 
 

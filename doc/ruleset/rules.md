@@ -156,6 +156,17 @@ with no special abilities.
 - **No two towers may be placed next to each other**, including on a diagonal. 
   (This means the eight squares immediately surrounding it, or fewer at board
   edges or next to lakes.)
+- **In Skirmish, no tower may stand directly in front of a lane.** The lanes are
+  the gaps the lakes leave open ([Section 2.1](#21-the-board)) — on the Skirmish
+  board, column A, columns D–E, and column H. The home square immediately in
+  front of each of those columns is closed to towers: **A3, D3, E3 and H3** for
+  the player whose back rank is row 1, and **A6, D6, E6 and H6** for the other.
+  Every other home square stays open, **B3, C3, F3 and G3** included — those sit
+  behind the lakes, not behind a lane.
+
+  **This does not apply in Battle.** Battle's home zones are separated from the
+  lake rows by an empty buffer row, so no home square is directly in front of a
+  lane and there is nothing for the rule to close.
 - There are **no restrictions on where pieces other than towers are placed**,
   subject to the rule that they must be placed in their home zone.
 - **Sides are assigned before placement begins** (by lot or by tournament
@@ -363,6 +374,10 @@ moves that make no genuine attempt at progress.
 - **Encumbered** — a piece with at least one enemy piece in one of its eight surrounding squares.
 - **Formation bonus** — a bonus granted to a piece that has a friendly piece of equal rank 
   within one square (orthogonal or diagonal).
+- **Lane** — a gap the lakes leave open through the lake rows: a run of columns
+  crossing the middle of the board with no lake in it, and so the only way from
+  one half of the board to the other. Battle has four (column A, columns D–E,
+  columns H–I, column L) and Skirmish three (column A, columns D–E, column H).
 - **Movable piece** — a numbered piece (any rank). Towers and the Flag are not
   movable pieces. Only movable pieces may be attacked diagonally.
 - **Diagonal attack** — an attack on a movable enemy piece standing one square
@@ -451,7 +466,34 @@ Selects the army each player commands.
 
 Both armies are listed in full in [Section 2.2](#22-the-pieces).
 
-### Combining these two
+### `TOWER_PLACEMENT`
+
+**Values:** `spacing_only` | `spacing_and_lanes` — **default `spacing_only`**
+
+Selects which restrictions apply to where Towers may be placed
+([Section 3](#3-setup--phase-1-placement)).
+
+| Value | Restrictions on Tower placement |
+|---|---|
+| `spacing_only` | No two Towers next to each other, including on a diagonal. |
+| `spacing_and_lanes` | The same, **and** no Tower directly in front of a lane. |
+
+**Directly in front of a lane** means a home square orthogonally adjacent to a
+square that lies in a lake row and is not itself a lake.
+
+That definition is about the board, so which squares it closes depends entirely
+on which board is in play:
+
+| Board | Squares closed to Towers |
+|---|---|
+| `standard_64` | A3, D3, E3, H3 and A6, D6, E6, H6 — four per home zone |
+| `standard_144` | none — an empty buffer row separates each home zone from the lake rows |
+
+`spacing_and_lanes` is therefore a real restriction on the Skirmish board and no
+restriction whatever on the Battle board. Nothing else about Towers changes under
+either value, and no other piece is affected by either.
+
+### Combining these
 
 `BOARD_LAYOUT` and `ARMY_COMPOSITION` are set independently, so it is possible to
 name a combination that **cannot be played**: an army must fit in its home zone,
@@ -463,6 +505,10 @@ This restriction is about *playing* a game. It does not apply to reading a
 recorded one: a record shows the board it was played on, and a record may begin
 from a position part-way through a game that had no placement phase to be valid
 or invalid.
+
+`TOWER_PLACEMENT` is unrestricted in this sense: it combines with any board and
+any army. It can be *inert* — as `spacing_and_lanes` is on `standard_144` — but
+it is never invalid.
 
 ---
 
@@ -491,13 +537,24 @@ change what it meant, it only stops it from being the one currently played.
 
 | Edition | Variant values | In plain terms | Status |
 |---|---|---|---|
-| `2-0:BATTLE` | `BOARD_LAYOUT=standard_144`, `ARMY_COMPOSITION=standard_battle` | 12 × 12 board; 25-piece army across six ranks | active |
-| `2-0:SKIRMISH` | `BOARD_LAYOUT=standard_64`, `ARMY_COMPOSITION=standard_skirmish` | 8 × 8 board; 16-piece army across four ranks | active |
+| `2-0:BATTLE` | `BOARD_LAYOUT=standard_144`, `ARMY_COMPOSITION=standard_battle`, `TOWER_PLACEMENT=spacing_only` | 12 × 12 board; 25-piece army across six ranks; Tower spacing only | active |
+| `2-1:SKIRMISH` | `BOARD_LAYOUT=standard_64`, `ARMY_COMPOSITION=standard_skirmish`, `TOWER_PLACEMENT=spacing_and_lanes` | 8 × 8 board; 16-piece army across four ranks; no Tower in front of a lane | active |
 
 Both rulesets are offered and maintained together. They share this entire rules
-text and differ only in the two variant values shown. **Skirmish** is the
+text and differ only in the three variant values shown. **Skirmish** is the
 recommended starting point for a new player (see
 [Section 1](#two-rulesets)); **Battle** is the larger game.
+
+**The two minor numbers advance independently.** They share a major because they
+share this rules text, but a change published for one ruleset does not renumber
+the other: Skirmish moved to minor 1 when the Tower lane restriction was
+published, and Battle stayed at minor 0 because nothing about Battle changed. A
+major bump is the only thing that moves both at once.
+
+Note that `2-0:BATTLE` sets `TOWER_PLACEMENT=spacing_only` while `2-1:SKIRMISH`
+sets `spacing_and_lanes`. Every edition fixes a value for **every** variant, so
+the setting was already part of `2-0:BATTLE` at its default before it appeared in
+this column; spelling it out changes nothing about what that edition means.
 
 The "in plain terms" column restates the variant values for readability. The
 variant values are what the edition actually fixes.
@@ -506,7 +563,13 @@ variant values are what the edition actually fixes.
 
 | Edition | Variant values | In plain terms | Status |
 |---|---|---|---|
-| `1-2:PRE-RELEASE` | *(predates both variants; resolves to their defaults)* | 12 × 12 board; 25-piece army across six ranks | retired |
+| `2-0:SKIRMISH` | `BOARD_LAYOUT=standard_64`, `ARMY_COMPOSITION=standard_skirmish`, `TOWER_PLACEMENT=spacing_only` | 8 × 8 board; 16-piece army across four ranks; Tower spacing only | superseded |
+| `1-2:PRE-RELEASE` | *(predates all three variants; resolves to their defaults)* | 12 × 12 board; 25-piece army across six ranks | retired |
+
+`2-0:SKIRMISH` was the first published Skirmish edition. It was superseded by
+`2-1:SKIRMISH` when the Tower lane restriction was added; the two are identical
+in every other respect, and a game recorded under `2-0:SKIRMISH` was played with
+towers allowed in front of the lanes.
 
 `PRE-RELEASE` was the ruleset used while the game was being shaped before
 release. It was retired when Battle and Skirmish were published. Being a major-1

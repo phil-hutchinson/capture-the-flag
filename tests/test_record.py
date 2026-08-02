@@ -210,7 +210,7 @@ def test_every_active_edition_resolves_to_the_army_it_publishes():
     # apart, so making it green is not evidence of having done the right one.
     published_armies = {
         "2-0:BATTLE": STANDARD_BATTLE.counts,
-        "2-0:SKIRMISH": STANDARD_SKIRMISH.counts,
+        "2-1:SKIRMISH": STANDARD_SKIRMISH.counts,
     }
     for edition_id in ACTIVE_EDITIONS:
         setup = resolve_setup(active_configuration(edition_id))
@@ -223,8 +223,8 @@ def test_every_active_edition_resolves_to_the_army_it_publishes():
 def test_active_configuration_names_the_active_edition_with_no_deviations():
     configuration = active_configuration()
     assert configuration.edition == DEFAULT_EDITION
-    # Every Active edition sets both published flags explicitly, so a flag at its
-    # resolved value is omitted and no real configuration carries a deviation.
+    # Every Active edition sets all three published flags explicitly, so a flag at
+    # its resolved value is omitted and no real configuration carries a deviation.
     assert configuration.flags == {}
 
 

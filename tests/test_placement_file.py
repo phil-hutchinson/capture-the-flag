@@ -11,7 +11,7 @@ from capture_the_flag.board import (
 )
 from capture_the_flag.game_setup import (
     BATTLE_SETUP,
-    SPACING_AND_LANES,
+    SPACING_ONLY,
     setup_for_ruleset,
 )
 from capture_the_flag.pieces import STANDARD_BATTLE, PieceType
@@ -138,8 +138,10 @@ def test_parsed_placement_has_a_flag_on_the_board():
 # `PlacementFileError` is printed and re-prompted, while the plain `ValueError`
 # `assemble_position` raises would end the game.
 
+# The published Skirmish edition already sets the flag on; the spacing-only
+# variant has to be constructed to show the same file being accepted under it.
 _SKIRMISH = setup_for_ruleset("SKIRMISH")
-_SKIRMISH_LANES_ON = dataclasses.replace(_SKIRMISH, tower_placement=SPACING_AND_LANES)
+_SKIRMISH_SPACING_ONLY = dataclasses.replace(_SKIRMISH, tower_placement=SPACING_ONLY)
 
 # A legal Skirmish file, front rank first: Towers on the back rank at A1, D1 and
 # G1, the Flag beside them, and the twelve numbered pieces above.
@@ -162,21 +164,23 @@ SKIRMISH_LANE_TOWER_TEXT = "\n".join(
 
 
 def test_a_valid_skirmish_file_parses_under_both_tower_rules():
-    for setup in (_SKIRMISH, _SKIRMISH_LANES_ON):
+    for setup in (_SKIRMISH_SPACING_ONLY, _SKIRMISH):
         placement = parse_placement_file(SKIRMISH_TEXT, Side.WHITE, setup)
         assert _piece_counts(placement)[PieceType.TOWER] == 3
 
 
 def test_a_lane_mouth_tower_is_rejected_under_spacing_and_lanes():
     with pytest.raises(PlacementFileError, match="in front of a lane") as rejection:
-        parse_placement_file(SKIRMISH_LANE_TOWER_TEXT, Side.WHITE, _SKIRMISH_LANES_ON)
+        parse_placement_file(SKIRMISH_LANE_TOWER_TEXT, Side.WHITE, _SKIRMISH)
     # The offending square by name: a file is a grid of characters, so "a Tower is
     # badly placed" is not something a player can act on.
     assert "A3" in str(rejection.value)
 
 
 def test_a_lane_mouth_tower_is_accepted_under_spacing_only():
-    placement = parse_placement_file(SKIRMISH_LANE_TOWER_TEXT, Side.WHITE, _SKIRMISH)
+    placement = parse_placement_file(
+        SKIRMISH_LANE_TOWER_TEXT, Side.WHITE, _SKIRMISH_SPACING_ONLY
+    )
 
     assert placement[parse_square("A3")] is PieceType.TOWER
 
@@ -186,7 +190,7 @@ def test_the_lane_rule_follows_the_side_the_file_is_read_for():
     # closes is A6 rather than A3 — the restriction is per side, derived from the
     # same geometry.
     with pytest.raises(PlacementFileError, match="in front of a lane") as rejection:
-        parse_placement_file(SKIRMISH_LANE_TOWER_TEXT, Side.BLACK, _SKIRMISH_LANES_ON)
+        parse_placement_file(SKIRMISH_LANE_TOWER_TEXT, Side.BLACK, _SKIRMISH)
     assert "H6" in str(rejection.value)
 
 

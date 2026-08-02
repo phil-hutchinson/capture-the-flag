@@ -15,6 +15,42 @@ editions of the same number under `PRE-RELEASE`: version `1.2` is edition
 
 ---
 
+## Edition 2-1:SKIRMISH — Story 00000037 — 2026-08-02
+
+**Skirmish only.** `2-0:BATTLE` is unchanged and stays Active; `2-0:SKIRMISH`
+moves to the Historical table, superseded. Consumers that only read Battle
+records need do nothing.
+
+- **A new placement restriction in Skirmish: no tower directly in front of a
+  lane.** The four squares in each Skirmish home zone that sit immediately in
+  front of an open column through the lake rows — **A3, D3, E3, H3** and **A6,
+  D6, E6, H6** — are closed to towers. Every other home square stays open,
+  including B3, C3, F3 and G3, which sit behind the lakes rather than behind a
+  lane. The tower spacing rule is unchanged and applies as well. See
+  [Section 3](rules.md#3-setup--phase-1-placement).
+- **The restriction is a published variant, `TOWER_PLACEMENT`,** with values
+  `spacing_only` (the default, and what every earlier edition played) and
+  `spacing_and_lanes`. It joins Appendix A. Because the closed set is defined
+  geometrically — a home square orthogonally adjacent to a non-lake square in a
+  lake row — `spacing_and_lanes` closes **nothing at all** on the Battle board,
+  whose home zones are separated from the lakes by a buffer row.
+- **`2-0:BATTLE` now spells out `TOWER_PLACEMENT=spacing_only` in Appendix B.**
+  Nothing about that edition changed: an edition has always fixed a value for
+  every variant, and this one was at its default before it had a name.
+- **The glossary gains _lane_** — a gap the lakes leave open through the lake
+  rows. Battle has four, Skirmish three. This names something the rules already
+  described in [Section 2.1](rules.md#21-the-board); no rule changed with it.
+- **Nothing about play in progress changed.** Movement, combat, and the ending
+  conditions are untouched, and **the notation is unaffected** — a placement
+  restriction produces no new kind of ply. A record stamped `2-1:SKIRMISH` reads
+  exactly as one stamped `2-0:SKIRMISH` does.
+- **The minor numbers of the two rulesets now differ**, which is the first time
+  that has happened: Skirmish is at `2-1` and Battle at `2-0`. They still share
+  major 2 because they share this rules text. A consumer must not assume the two
+  Active editions carry the same minor.
+
+---
+
 ## Editions 2-0:BATTLE and 2-0:SKIRMISH — Story 00000034 — 2026-07-30
 
 **A major bump, and a breaking one.** Consumers must update. Two editions are

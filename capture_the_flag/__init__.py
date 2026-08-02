@@ -13,24 +13,29 @@ match wrapper that plays a complete game. Training code lands in later stories.
 """
 
 from .board import (
-    BLACK_HOME_SQUARES,
-    BOARD_COLUMNS,
-    BOARD_ROWS,
-    LAKE_PATTERN,
-    LAKE_SQUARES,
-    WHITE_HOME_SQUARES,
+    BOARD_LAYOUTS,
+    STANDARD_64,
+    STANDARD_144,
+    BoardLayout,
     Square,
-    orthogonal_neighbors,
     parse_square,
     path_between,
 )
 from .combat import CombatResult, resolve_combat
 from .game_logging import CtfGameLogging
+from .game_setup import BATTLE_SETUP, GameSetup, resolve_setup, setup_for_ruleset
 from .game_ui import CtfGameUI
 from .game_view import render_game_view
 from .match import MatchResult, build_initial_position, play_match
 from .outcome import compute_outcome, compute_outcome_reason
-from .pieces import ARMY_ROSTER, ARMY_SIZE, Mobility, PieceType
+from .pieces import (
+    ARMY_COMPOSITIONS,
+    STANDARD_BATTLE,
+    STANDARD_SKIRMISH,
+    ArmyComposition,
+    Mobility,
+    PieceType,
+)
 from .placement import Placement, assemble_position, random_placement
 from .placement_file import (
     DEFAULT_PLACEMENT_DIR,
@@ -48,7 +53,8 @@ from .player import (
 from .ply import CtfPly, parse_ply
 from .position import CtfPosition
 from .record import (
-    ACTIVE_EDITION,
+    ACTIVE_EDITIONS,
+    DEFAULT_EDITION,
     RulesetConfiguration,
     active_configuration,
     write_record,
@@ -58,22 +64,25 @@ from .side import Side
 from .transitions import apply_ply
 
 __all__ = [
-    "ACTIVE_EDITION",
-    "ARMY_ROSTER",
-    "ARMY_SIZE",
-    "BLACK_HOME_SQUARES",
-    "BOARD_COLUMNS",
-    "BOARD_ROWS",
-    "LAKE_PATTERN",
-    "LAKE_SQUARES",
-    "WHITE_HOME_SQUARES",
+    "ACTIVE_EDITIONS",
+    "ARMY_COMPOSITIONS",
+    "BATTLE_SETUP",
+    "BOARD_LAYOUTS",
+    "DEFAULT_EDITION",
     "DEFAULT_PLACEMENT_DIR",
+    "STANDARD_64",
+    "STANDARD_144",
+    "STANDARD_BATTLE",
+    "STANDARD_SKIRMISH",
+    "ArmyComposition",
+    "BoardLayout",
     "CombatResult",
     "CtfGameLogging",
     "CtfGameUI",
     "CtfPlayer",
     "CtfPly",
     "CtfPosition",
+    "GameSetup",
     "HumanCtfPlayer",
     "MatchResult",
     "Mobility",
@@ -93,7 +102,6 @@ __all__ = [
     "compute_outcome_reason",
     "load_placement_file",
     "make_player",
-    "orthogonal_neighbors",
     "parse_placement_file",
     "parse_ply",
     "parse_position_block",
@@ -104,5 +112,7 @@ __all__ = [
     "render_game_view",
     "render_position_block",
     "resolve_combat",
+    "resolve_setup",
+    "setup_for_ruleset",
     "write_record",
 ]

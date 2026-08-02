@@ -2,7 +2,7 @@
 
 from types import MappingProxyType
 
-from capture_the_flag.board import Square
+from capture_the_flag.board import BOARD_LAYOUTS, STANDARD_144, Square
 from capture_the_flag.pieces import PieceType as P
 from capture_the_flag.position import CtfPosition
 from capture_the_flag.side import Side
@@ -13,6 +13,7 @@ def _position(board: dict, side_to_move: Side = Side.WHITE) -> CtfPosition:
         board=MappingProxyType(board),
         side_to_move=side_to_move,
         inactivity_counter=0,
+        layout=STANDARD_144,
     )
 
 
@@ -54,13 +55,15 @@ def test_two_square_move_needs_a_clear_intermediate_square():
 
 def test_encumbered_piece_is_limited_to_one_square():
     # A diagonally-adjacent enemy at E3 encumbers D2 without blocking any
-    # orthogonal step, so every legal move is a single square.
+    # orthogonal step, so every legal move is a single square -- including the
+    # diagonal attack on the piece doing the encumbering, which is itself one
+    # square.
     board = {
         Square(3, 2): (Side.WHITE, P.FOOT_SOLDIER),
         Square(4, 3): (Side.BLACK, P.MILITIA),
     }
     position = _position(board)
-    assert _own_plies(position, "D2") == {"D2D3", "D2D1", "D2E2", "D2C2"}
+    assert _own_plies(position, "D2") == {"D2D3", "D2D1", "D2E2", "D2C2", "D2E3"}
 
 
 def test_encumbered_piece_can_still_attack_an_adjacent_enemy():
@@ -98,9 +101,14 @@ def test_sacrificial_attack_is_legal_regardless_of_rank():
 
 
 def test_immobile_pieces_have_no_plies():
+    # Each immobile piece has an enemy on its diagonal, so this also pins down
+    # that the diagonal is a direction a *mover* gains, not one that gives a
+    # Tower or the Flag something to do.
     board = {
         Square(5, 5): (Side.WHITE, P.TOWER),
+        Square(4, 4): (Side.BLACK, P.MILITIA),
         Square(0, 1): (Side.WHITE, P.FLAG),
+        Square(1, 2): (Side.BLACK, P.KNIGHT),
     }
     position = _position(board)
     assert position.legal_plies == ()
@@ -116,6 +124,92 @@ def test_movement_blocked_and_bounded_by_a_lake():
     assert "F5F4" in strings  # one square south
     assert "F5F3" in strings  # two squares south (unencumbered)
     assert "F5G5" in strings
+
+
+def test_diagonal_attack_available_in_all_four_directions():
+    # Enemies on every diagonal of D3. Each is attackable, and each encumbers
+    # D3, so the orthogonal steps are one square apiece.
+    board = {
+        Square(3, 3): (Side.WHITE, P.FOOT_SOLDIER),
+        Square(2, 2): (Side.BLACK, P.MILITIA),
+        Square(4, 2): (Side.BLACK, P.MILITIA),
+        Square(2, 4): (Side.BLACK, P.MILITIA),
+        Square(4, 4): (Side.BLACK, P.MILITIA),
+    }
+    position = _position(board)
+    assert _own_plies(position, "D3") == {
+        "D3D4",
+        "D3D2",
+        "D3E3",
+        "D3C3",
+        "D3C2",  # the four diagonal attacks
+        "D3E2",
+        "D3C4",
+        "D3E4",
+    }
+
+
+def test_no_diagonal_move_onto_an_empty_square():
+    # C4 and E4 are empty, so neither is a destination: the diagonal is an
+    # attacking direction and nothing else.
+    position = _position({Square(3, 3): (Side.WHITE, P.FOOT_SOLDIER)})
+    strings = _own_plies(position, "D3")
+    assert "D3C4" not in strings
+    assert "D3E4" not in strings
+    assert "D3C2" not in strings
+    assert "D3E2" not in strings
+
+
+def test_towers_and_the_flag_cannot_be_attacked_diagonally():
+    # A Tower on E4 and the enemy Flag on C4 both encumber D3 -- so the
+    # orthogonal steps shorten to one square -- but neither is a legal diagonal
+    # target. This is what leaves the Flag capturable only from an orthogonally
+    # adjacent square (rules.md Section 5.1).
+    board = {
+        Square(3, 3): (Side.WHITE, P.FOOT_SOLDIER),
+        Square(4, 4): (Side.BLACK, P.TOWER),
+        Square(2, 4): (Side.BLACK, P.FLAG),
+    }
+    position = _position(board)
+    assert _own_plies(position, "D3") == {"D3D4", "D3D2", "D3E3", "D3C3"}
+
+
+def test_unencumbered_bonus_never_extends_a_diagonal():
+    # F5 is two squares diagonally from D3 -- outside the eight surrounding
+    # squares, so D3 is unencumbered and does get its two-square orthogonal
+    # moves. It gets no two-square diagonal, because there is no such thing.
+    board = {
+        Square(3, 3): (Side.WHITE, P.FOOT_SOLDIER),
+        Square(5, 5): (Side.BLACK, P.MILITIA),
+    }
+    position = _position(board)
+    strings = _own_plies(position, "D3")
+    assert "D3D5" in strings  # the two-square orthogonal bonus is in play
+    assert "D3F5" not in strings  # but never on the diagonal
+    assert "D3E4" not in strings  # nor a step towards it onto an empty square
+
+
+def test_diagonal_attack_past_a_lake_corner():
+    # B6 is a lake, A6 and B5 are not. A one-square diagonal has no intermediate
+    # square to clear, so only the attacked square itself must be open: the
+    # attack skirts the lake corner and is legal (rules.md Section 4.3).
+    board = {
+        Square(0, 6): (Side.WHITE, P.FOOT_SOLDIER),
+        Square(1, 5): (Side.BLACK, P.MILITIA),
+    }
+    position = _position(board)
+    assert "A6B5" in _own_plies(position, "A6")
+
+
+def test_diagonal_sacrificial_attack_is_legal():
+    # Relative strength never restricts an attack, on the diagonal as anywhere
+    # else: the Militia may throw itself at a Master-of-Arms.
+    board = {
+        Square(3, 3): (Side.WHITE, P.MILITIA),
+        Square(4, 4): (Side.BLACK, P.MASTER_OF_ARMS),
+    }
+    position = _position(board)
+    assert "D3E4" in _own_plies(position, "D3")
 
 
 def test_all_ply_strings_distinct_in_a_dense_position():
@@ -134,3 +228,35 @@ def test_all_ply_strings_distinct_in_a_dense_position():
     strings = [str(ply) for ply in position.legal_plies]
     assert len(strings) == len(set(strings))
     assert len(strings) > 0
+
+
+def test_the_diagonal_squeeze_is_unreachable_on_every_published_board():
+    """A diagonal whose *two flanking squares* are both lakes would slip a piece
+    between two lakes, and `technical-notes.md` records in advance that it is not
+    allowed. No code implements that, because no published board can produce the
+    position — this is the test that keeps "unreachable" true.
+
+    A squeeze needs rows r and r+1 both lake rows *and* columns c and c+1 both
+    lake columns; with 2x2 lake blocks aligned to the same rows, that forces the
+    source and destination squares to be lakes as well. A future layout that
+    breaks the alignment — offset blocks, single-square lakes placed diagonally,
+    more than two lake rows — makes it reachable, and this test is what fails
+    first when one is added.
+    """
+    for layout in BOARD_LAYOUTS.values():
+        for column in range(layout.columns):
+            for row in range(1, layout.rows + 1):
+                source = Square(column, row)
+                if layout.is_lake(source):
+                    continue
+                for dc, dr in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
+                    destination = Square(column + dc, row + dr)
+                    if not layout.contains(destination) or layout.is_lake(destination):
+                        continue
+                    flanking = (
+                        Square(source.column, destination.row),
+                        Square(destination.column, source.row),
+                    )
+                    assert not all(layout.is_lake(s) for s in flanking), (
+                        f"{layout.layout_id}: {source}->{destination} is a squeeze"
+                    )

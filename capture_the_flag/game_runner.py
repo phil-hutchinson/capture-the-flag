@@ -18,10 +18,12 @@ from pathlib import Path
 
 from game_engine_core.models.game_result import GameResult
 
+from .game_setup import setup_for_ruleset
 from .game_ui import CtfGameUI
 from .match import play_match
 from .placement_file import DEFAULT_PLACEMENT_DIR
 from .player import PLAYER_KINDS, PlayerContext, make_player
+from .record import ACTIVE_RULESETS, DEFAULT_RULESET
 
 
 def announce_result(result: GameResult, white_name: str, black_name: str) -> str:
@@ -79,6 +81,17 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="seed placement, random play, and neural network init for reproducibility",
     )
     parser.add_argument(
+        "--ruleset",
+        default=DEFAULT_RULESET,
+        choices=sorted(ACTIVE_RULESETS),
+        type=str.upper,
+        help=(
+            "which published ruleset to play (default: %(default)s); each "
+            "resolves to its current edition, which is what artifacts are "
+            "stamped with"
+        ),
+    )
+    parser.add_argument(
         "--iterations",
         type=int,
         default=None,
@@ -108,9 +121,10 @@ def main(argv: Sequence[str] | None = None) -> None:
 
             torch.manual_seed(args.seed)
 
-    game_ui = CtfGameUI()
+    setup = setup_for_ruleset(args.ruleset)
+    game_ui = CtfGameUI(setup=setup)
     context = PlayerContext(
-        game_ui=game_ui, placements_dir=args.placements_dir, rng=rng
+        game_ui=game_ui, placements_dir=args.placements_dir, rng=rng, setup=setup
     )
     # Machine seats render only when there is no human in the game (so a
     # machine-vs-machine game is watchable, but a human-vs-machine game renders
@@ -134,7 +148,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         temperature=args.temperature,
     )
 
-    match_result = play_match(white, black, game_ui=game_ui)
+    match_result = play_match(white, black, setup, game_ui=game_ui)
     print()
     print(announce_result(match_result.game_result, args.white_name, args.black_name))
 

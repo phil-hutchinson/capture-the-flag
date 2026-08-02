@@ -5,7 +5,7 @@ from types import MappingProxyType
 
 import pytest
 
-from capture_the_flag.board import Square
+from capture_the_flag.board import STANDARD_144, Square
 from capture_the_flag.combat import CombatResult, resolve_combat
 from capture_the_flag.pieces import PieceType as P
 from capture_the_flag.position import CtfPosition
@@ -22,6 +22,7 @@ def _position(board: dict) -> CtfPosition:
         board=MappingProxyType(board),
         side_to_move=Side.WHITE,
         inactivity_counter=0,
+        layout=STANDARD_144,
     )
 
 

@@ -8,7 +8,7 @@ the rest of the project.
 
 ## Rulesets, editions, and flags
 
-- **Active editions:** `2-0:BATTLE` and `2-0:SKIRMISH`. The full list, active and
+- **Active editions:** `2-0:BATTLE` and `2-1:SKIRMISH`. The full list, active and
   historical, is [`rules.md`](rules.md) Appendix B; the revision history is
   [`changelog.md`](changelog.md).
 - `rules.md` is the **single source of truth** for the ruleset: the engine
@@ -34,10 +34,12 @@ the rest of the project.
   no flag distinguishing it. Diagonal attack is baseline at major 2 and absent at
   major 1, under no flag, which is why `1-2:PRE-RELEASE` and `2-0:BATTLE` are not
   comparable by flag values despite naming the same board and army.
-- **Minor is namespaced per ruleset; major is global.** `BATTLE` advancing to
-  `2-1` leaves `SKIRMISH` at `2-0`. A notation break moves every live ruleset to
-  the next major at once, since a major is a property of the notation and the
-  baseline rather than of any one ruleset.
+- **Minor is namespaced per ruleset; major is global.** This is now demonstrated
+  rather than hypothetical: `SKIRMISH` advanced to `2-1` for the Tower lane
+  restriction and `BATTLE` stayed at `2-0`, because nothing about Battle's play
+  changed. A notation break moves every live ruleset to the next major at once,
+  since a major is a property of the notation and the baseline rather than of any
+  one ruleset.
 - The rules are also consumed by a separate front-end player application, which
   tracks the changelog to know when and how to update — a reason the edition
   registry and changelog are load-bearing, not decorative.
@@ -122,18 +124,20 @@ behavior-preserving by default, and testable on a branch without publishing an
 edition per attempt.
 
 Composition is the sharpest case for the checkpoint pin: the learned evaluator
-normalizes its per-rank quantity features by `army_count`, so changing a count
-changes what those inputs *mean* while leaving the tensor shape — and therefore
-`ENGINE_SPEC_NAME` — untouched. A network trained at one composition would load
-silently into another. The ruleset stamp is what refuses it.
+normalizes its per-rank quantity features by the resolved `ARMY_COMPOSITION`, so
+changing a count changes what those inputs *mean* while leaving the tensor shape
+— and therefore the engine-spec stamp — untouched. A network trained at one
+composition would load silently into another. The ruleset stamp is what refuses
+it.
 
 **Board layout is sharper still.** `BOARD_LAYOUT` changes the spatial extent of
-the input, so unlike a composition change it generally *does* move the tensor
-shape and so is caught by `ENGINE_SPEC_NAME` as well. That makes it the one case
-where the two stamps overlap — which is redundancy rather than a problem, and no
-reason to lean on the spec stamp: a layout change that preserved the grid
-dimensions while moving the lakes or the home-zone depth would leave the shape
-untouched and needs the ruleset stamp to catch it.
+the input, and the engine-spec stamp is deliberately qualified by it
+(`ENG_NN_3/standard_64`), so a checkpoint trained on one board is caught by that
+stamp too. That makes it the one case where the two stamps overlap — which is
+redundancy rather than a problem, and no reason to lean on the spec stamp: a
+layout change that preserved the grid dimensions while moving the lakes or the
+home-zone depth would produce the same shape under a different `layout_id`, and
+it is the qualifier and the ruleset stamp, not the shape, that catch it.
 
 **Not every flag combination is playable.** `BOARD_LAYOUT` and
 `ARMY_COMPOSITION` are independent, so a configuration can name an army that does
@@ -176,6 +180,75 @@ this file. **When a `BOARD_LAYOUT` value that makes the squeeze reachable is fir
 published, this stops being true**: `rules.md` gains a sentence stating the rule,
 and the changelog records it as a clarification rather than a rules change, since
 this note settled it first.
+
+#### `TOWER_PLACEMENT` — the geometric definition, and the alternative rejected
+
+`rules.md` Appendix A states the `spacing_and_lanes` restriction in one sentence:
+a Tower may not stand on a home square **orthogonally adjacent to a square that
+lies in a lake row and is not itself a lake**. Stated precisely, in the terms
+`BOARD_LAYOUT` is defined in:
+
+> Let *L* be the set of **lane squares** — every square `(c, r)` where `r` is one
+> of the layout's lake rows and column `c` is open in the lake pattern. The
+> restriction closes, in each home zone, every square that shares an edge with a
+> member of *L*.
+
+Three consequences are worth stating because each is load-bearing:
+
+- **The restriction is derived per layout, never enumerated.** On `standard_64`
+  it closes A3, D3, E3, H3 and A6, D6, E6, H6; on `standard_144` it closes
+  nothing, because a buffer row stands between each home zone and the lake rows.
+  A layout that listed its own closed squares would have to be right about that
+  twice today and once more for every board added later — and "closes nothing" is
+  the easy answer to get wrong by omission.
+- **The lane's *width* does not matter.** Every column of a lane is a lane square,
+  so the double-column lane D–E closes both D3 and E3. Nothing about the rule
+  counts columns, which is what keeps it correct on a layout with wider gaps.
+- **It is a home-zone question only in effect, not in definition.** *L*'s
+  neighbourhood also reaches buffer rows and the other lane row, but no piece is
+  placed there, so intersecting with the home zone is what makes the rule
+  actionable rather than part of what it says.
+
+**Why the restriction exists.** Skirmish's home zones abut the lake rows, which
+puts a home square in the mouth of every lane. Two other rules then combine
+badly: a Tower can only be removed by an **orthogonal** attack, since diagonal
+attacks are restricted to movable pieces, and any attack on a Tower is a draw
+that removes the attacker too. A lane at its narrowest is one square wide, so the
+approach is single-file and the trade cannot be set up favourably. A Tower in a
+lane mouth is therefore a tollbooth: the only way past is to walk a piece into it
+and lose that piece.
+
+Three Towers cover Skirmish's four lane-mouth squares almost completely. Note the
+counts differ on purpose: Skirmish has **three lanes** (column A, columns D–E,
+column H — the glossary sense) but **four mouth squares**, because the
+double-column lane D–E has one in front of each of its columns. A3, D3 and H3 are
+pairwise far enough apart to satisfy the spacing rule, so a player can close both
+single-column lanes outright and half of the double-column one, leaving E3 as the
+only untolled way in. (The spacing rule is what stops them closing the double
+lane entirely — D3 and E3 are adjacent.) Battle has the same Towers and the same
+lanes but a buffer row, so each lane mouth is a neutral square nobody may occupy
+at placement and the position never arises.
+
+**The rejected alternative: a connectivity rule.** "A placement must leave a path
+across the board" states the intent more directly and was considered first. It
+was rejected on three counts, the first of which is fatal:
+
+1. **It is not checkable at placement time.** Whether a path exists is a property
+   of the two placements *together*, and placement is secret and simultaneous —
+   neither player can evaluate it, and no referee sees both boards until the
+   reveal. A rule a player cannot apply while following it is not a placement
+   rule.
+2. **It would need a path definition the rules do not otherwise have.** Passable
+   for whom, through which pieces, at what point in the game? Every answer adds
+   machinery to a rulebook that currently gets by with "lakes are impassable."
+3. **It is a global property with no local reading.** A player could not look at
+   a square and say whether a Tower may go there, which is exactly what the
+   geometric restriction gives them.
+
+The geometric rule is strictly weaker — it does not guarantee a crossing exists,
+only that no Tower is placed where it would toll one — and that is the right
+trade for a rule that has to be applied by one player, alone, at the moment they
+place the piece.
 
 ### What forces a major bump
 
@@ -244,21 +317,35 @@ ordering when comparing.
 Such a list is the *set* of rulesets an I/O contract can serve, many-to-one; a
 checkpoint's tag is the single *point* in that set its weights actually occupy. A
 network is only valid for the rules it was trained under, and the engine spec
-stamp (`ENGINE_SPEC_NAME`) does not cover this — it names the tensor *shape*
-contract, so a rules-only change leaves it untouched and the weights would load
-cleanly into a network evaluating under rules they never saw.
+stamp does not cover this — it names the tensor *shape* contract, so a rules-only
+change leaves it untouched and the weights would load cleanly into a network
+evaluating under rules they never saw. `ENG_NN_3` is compatible with both Active
+editions precisely because it is stated parametrically in the board and roster;
+that is a claim about the contract, and says nothing about whether one set of
+weights can move between them.
 
-On load, a checkpoint whose configuration the running code can implement is
-**adopted**: a resumed run continues under the stamped configuration rather than
-under current defaults, so a run trained with a flag on resumes with it on even
-if the default has since changed. Adoption reaches the artifacts, not just the
-decision to proceed — the checkpoints a resume appends are stamped with the
+On load, a checkpoint's configuration is **adopted** where there is something to
+adopt it for: a resumed run reads the stamp first and continues under it rather
+than under current defaults, so a run trained with a flag on resumes with it on
+even if the default has since changed. Adoption reaches the artifacts, not just
+the decision to proceed — the checkpoints a resume appends are stamped with the
 configuration it adopted, so a run's later generations are never re-tagged with
-an edition they were not trained under. Rejection is reserved for a configuration
-the running code cannot implement at all (which includes a *historical* edition,
-per the guarantee above), and for one that is missing — an unstamped artifact
-cannot say what it was trained under, and defaulting it would assert something
-unknown.
+an edition they were not trained under. Everything a resume then does, up to and
+including the board its weights are rehydrated into, follows from the adopted
+configuration rather than from any current default.
+
+Rejection covers three cases. A configuration the running code **cannot
+implement** at all, which includes a *historical* edition, per the guarantee
+above. A configuration that is **missing** — an unstamped artifact cannot say
+what it was trained under, and defaulting it would assert something unknown. And
+a configuration that is implementable but **not the one being played**: with two
+Active editions live, "this build can implement it" no longer implies "these
+weights belong in this game," and a Skirmish-trained network seated in a Battle
+game is refused on that ground alone. That last check is against the run's own
+configuration, not a build-level constant — the build holds both, so only the run
+can say which of them is in play. Adoption and this check do not conflict: a
+resume's run configuration *is* the adopted one, so the comparison is what a
+resume passes trivially and a mis-seated checkpoint fails.
 
 A configuration is also **canonicalized when read**: a stamp that lists a flag at
 the value it would resolve to anyway is normalised to one that omits it. The two

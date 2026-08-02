@@ -34,12 +34,20 @@ active editions in `capture_the_flag/record.py`. That table is what stamps every
 game record and every checkpoint, so a stale value silently mis-tags everything
 written after the change.
 
-**There are two active editions** — `2-0:BATTLE` and `2-0:SKIRMISH` — and a
+**There are two active editions** — `2-0:BATTLE` and `2-1:SKIRMISH` — and a
 change that alters play generally has to be considered for both. They share
-`rules.md` in its entirety and differ only in their `BOARD_LAYOUT` and
-`ARMY_COMPOSITION` values, so a rules change that is not about the board or the
-army almost certainly affects both, and publishing a new edition of one but not
-the other should be a deliberate decision rather than an oversight.
+`rules.md` in its entirety and differ only in their `BOARD_LAYOUT`,
+`ARMY_COMPOSITION` and `TOWER_PLACEMENT` values, so a rules change that is not
+about the board, the army, or Tower placement almost certainly affects both, and
+publishing a new edition of one but not the other should be a deliberate decision
+rather than an oversight.
+
+**Their minor numbers differ, and that is normal.** Minor is namespaced per
+ruleset: Skirmish went to `2-1` for the Tower lane restriction while Battle
+stayed at `2-0`, because Battle's play did not change. Do not "tidy" the two back
+into step — republishing an edition whose rules did not change would falsify
+every record and checkpoint already stamped with it. Only a notation break moves
+both majors at once.
 
 ### The document leads; the code follows
 

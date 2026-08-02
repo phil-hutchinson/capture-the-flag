@@ -17,7 +17,7 @@ import torch
 from torch.optim import Adam
 
 from capture_the_flag.engines.neural_network.ctf_training import train_one_generation
-from tests.engines.neural_network.small_networks import small_network
+from tests.engines.neural_network.small_networks import BATTLE_SETUP, small_network
 
 
 @pytest.mark.slow
@@ -34,6 +34,7 @@ def test_overfits_one_self_play_batch() -> None:
     history = train_one_generation(
         network,
         optimizer,
+        setup=BATTLE_SETUP,
         n_games=3,
         epochs=40,
         self_play_iterations=15,

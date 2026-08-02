@@ -11,6 +11,7 @@ from typing import Protocol
 from game_engine_core.engines.random_engine import RandomEngine
 from game_engine_core.protocols.player import Player
 
+from .game_setup import GameSetup
 from .game_ui import CtfGameUI
 from .placement import Placement, random_placement
 from .placement_file import (
@@ -34,8 +35,13 @@ class CtfPlayer(Player[CtfPly, CtfPosition], Protocol):
     `StandardGame`, which drives `select_ply` as usual.
     """
 
-    def get_placement(self, side: Side) -> Placement:
-        """This player's phase-1 home-zone placement for `side`."""
+    def get_placement(self, side: Side, setup: GameSetup) -> Placement:
+        """This player's phase-1 home-zone placement for `side` under `setup`.
+
+        The board and army are passed in rather than held by the player: they are
+        properties of the game being played, not of who is playing it, so one
+        player can be seated for either ruleset.
+        """
         ...
 
 
@@ -62,8 +68,8 @@ class RandomCtfPlayer:
     def render_before_ply(self) -> bool:
         return self._render_before_ply
 
-    def get_placement(self, side: Side) -> Placement:
-        return random_placement(side, self._rng)
+    def get_placement(self, side: Side, setup: GameSetup) -> Placement:
+        return random_placement(side, setup, self._rng)
 
     def select_ply(self, position: CtfPosition) -> CtfPly:
         return self._engine.select_ply(position)
@@ -116,7 +122,7 @@ class HumanCtfPlayer:
     def render_before_ply(self) -> bool:
         return True
 
-    def get_placement(self, side: Side) -> Placement:
+    def get_placement(self, side: Side, setup: GameSetup) -> Placement:
         prompt = (
             f"{self._name} ({side.name.title()}) — placement file name in "
             f"{self._placement_dir}/, or 'random': "
@@ -124,10 +130,12 @@ class HumanCtfPlayer:
         while True:
             text = self._input(prompt).strip()
             if text.lower() == "random":
-                placement = random_placement(side, self._rng)
+                placement = random_placement(side, setup, self._rng)
                 break
             try:
-                placement = load_placement_file(text, side, self._placement_dir)
+                placement = load_placement_file(
+                    text, side, setup, self._placement_dir
+                )
                 break
             except PlacementFileError as error:
                 self._print(str(error))
@@ -158,11 +166,18 @@ tournament, where there is no UI to drive a human seat."""
 class PlayerContext:
     """Shared resources a player kind may need at construction. Only the pieces a
     given kind uses are read: `human` needs the `game_ui` and `placements_dir`,
-    every kind takes the `rng` that seeds its placement (and random play)."""
+    `neural` needs the `setup`, every kind takes the `rng` that seeds its
+    placement (and random play)."""
 
     game_ui: CtfGameUI | None = None
     placements_dir: Path = DEFAULT_PLACEMENT_DIR
     rng: random.Random | None = None
+    setup: GameSetup | None = None
+    """The game being seated for. Only the `neural` kind reads it — its evaluator
+    and network are shaped by the board and army — and it is optional for the
+    same reason `game_ui` is: a context built to seat a random player has no need
+    to resolve one, and asking for it anyway would put a build default back where
+    the run's configuration belongs."""
 
 
 def make_player(
@@ -178,7 +193,9 @@ def make_player(
 
     `render_before_ply` is honoured by the machine kinds (a human seat always
     renders); `iterations`/`temperature` tune the `neural` kind only and fall
-    back to its defaults when `None`. The `neural` branch is imported lazily so
+    back to its defaults when `None`. The `neural` kind additionally requires
+    `context.setup`, since its network is built to the board it will play on. The
+    `neural` branch is imported lazily so
     the network stack (and its `torch` construction cost) is only pulled in when
     a neural player is actually seated.
     """
@@ -196,6 +213,8 @@ def make_player(
             name, rng=context.rng, render_before_ply=render_before_ply
         )
     if kind == "neural":
+        if context.setup is None:
+            raise ValueError("the 'neural' player kind requires a resolved game setup")
         from .engines.neural_network.neural_ctf_player import (
             DEFAULT_ITERATIONS,
             DEFAULT_TEMPERATURE,
@@ -204,6 +223,7 @@ def make_player(
 
         return build_neural_player(
             name,
+            context.setup,
             iterations=DEFAULT_ITERATIONS if iterations is None else iterations,
             temperature=DEFAULT_TEMPERATURE if temperature is None else temperature,
             rng=context.rng,

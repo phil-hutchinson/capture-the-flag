@@ -58,8 +58,16 @@ def resolve_combat(
     """Resolve an attack from `attacker` onto `defender` in `position`.
 
     Assumes `attacker` and `defender` are a legal attack (see `moves.py`):
-    orthogonally in line and occupied by opposing sides. The attacker is always
-    a mobile, numbered piece (Towers and the Flag never attack).
+    orthogonally in line, or immediately diagonal, and occupied by opposing
+    sides. The attacker is always a mobile, numbered piece (Towers and the Flag
+    never attack).
+
+    **Nothing here depends on the direction the attack came from.** Rank, equal
+    rank, and the formation bonus resolve a diagonal attack exactly as they
+    resolve an orthogonal one, so diagonal attack (baseline since major 2) needed
+    no change in this module. The two outcomes a diagonal attack cannot produce
+    -- Flag capture and Tower destruction -- are excluded at generation time by
+    the movable-target rule, not here.
     """
     attacker_side, attacker_piece = position.board[attacker]
     defender_side, defender_piece = position.board[defender]

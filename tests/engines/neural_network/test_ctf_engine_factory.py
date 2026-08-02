@@ -10,12 +10,15 @@ from game_engine_core.engines.mcts_engine import MCTSEngine
 
 from capture_the_flag.engines.neural_network.ctf_engine_factory import CtfEngineFactory
 from capture_the_flag.engines.neural_network.ctf_nn_evaluator import CtfNNEvaluator
-from tests.engines.neural_network.small_networks import small_network
+from tests.engines.neural_network.small_networks import (
+    BATTLE_TENSOR_LAYOUT,
+    small_network,
+)
 
 
 def _evaluator() -> CtfNNEvaluator:
     # Nothing here searches, so the cheapest real network will do.
-    return CtfNNEvaluator(small_network())
+    return CtfNNEvaluator(small_network(), BATTLE_TENSOR_LAYOUT)
 
 
 def test_call_builds_mcts_engine_over_the_configured_evaluator():

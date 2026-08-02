@@ -14,7 +14,11 @@ from typing import NamedTuple
 
 from .board import Square, parse_square
 
-_PLY_PATTERN = re.compile(r"([A-L]\d{1,2})([A-L]\d{1,2})")
+# Columns are lettered from A and rows numbered from 1 on every board, so the
+# pattern spans the full 26-column coordinate frame rather than any one layout's
+# extent. Whether a parsed square is on the board being played is settled by
+# legality, not by the shape of the notation (see `board.parse_square`).
+_PLY_PATTERN = re.compile(r"([A-Z]\d{1,2})([A-Z]\d{1,2})")
 
 
 class CtfPly(NamedTuple):

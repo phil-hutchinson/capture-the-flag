@@ -2,15 +2,20 @@ import pytest
 import torch
 from torch import Tensor
 
+from capture_the_flag.board import STANDARD_144
 from capture_the_flag.engines.neural_network.ctf_policy_target import (
-    ctf_policy_loss,
+    ctf_policy_loss_for,
     transform_policy_to_white_perspective,
-)
-from capture_the_flag.engines.neural_network.tensor_layout import (
-    ACTION_SPACE_SHAPE,
 )
 from capture_the_flag.position import CtfPosition
 from capture_the_flag.side import Side
+from tests.engines.neural_network.small_networks import (
+    BATTLE_TENSOR_LAYOUT,
+    SKIRMISH_TENSOR_LAYOUT,
+)
+
+ACTION_SPACE_SHAPE = BATTLE_TENSOR_LAYOUT.action_space_shape
+ctf_policy_loss = ctf_policy_loss_for(BATTLE_TENSOR_LAYOUT)
 
 
 def _create_policy_logits_bottom_left(a1a2: float, a1a3: float, b1b2: float, b1b3: float) -> Tensor:
@@ -25,7 +30,7 @@ def _create_policy_logits_bottom_left(a1a2: float, a1a3: float, b1b2: float, b1b
 
 
 def test_transform_policy_to_white_perspective_transforms_black():
-    position = CtfPosition({}, Side.BLACK, 0)
+    position = CtfPosition({}, Side.BLACK, 0, STANDARD_144)
 
     policy_orig: dict[str, float] = {
         "A3A4": 3.0,
@@ -41,7 +46,7 @@ def test_transform_policy_to_white_perspective_transforms_black():
     assert policy_conv["G3E3"] == 5.0
 
 def test_transform_policy_to_white_perspective_leaves_white_unchanged():
-    position = CtfPosition({}, Side.WHITE, 0)
+    position = CtfPosition({}, Side.WHITE, 0, STANDARD_144)
 
     policy_orig: dict[str, float] = {
         "A3A4": 3.0,
@@ -57,14 +62,14 @@ def test_transform_policy_to_white_perspective_leaves_white_unchanged():
     assert policy_conv["F10H10"] == 5.0
 
 def test_transform_and_loss_pipeline_correct():
-    black_position = CtfPosition({}, Side.BLACK, 0)
+    black_position = CtfPosition({}, Side.BLACK, 0, STANDARD_144)
     black_target: dict[str, float] = {
         "C3C4": 2.5,
         "F10H10": 7.0,
     }
     black_target_conv = transform_policy_to_white_perspective(black_position, black_target)
 
-    white_position = CtfPosition({}, Side.WHITE, 0)
+    white_position = CtfPosition({}, Side.WHITE, 0, STANDARD_144)
     white_target: dict[str, float] = {
         "J10J9": 2.5,
         "G3E3": 7.0,
@@ -128,3 +133,17 @@ def test_ctf_policy_loss_means_over_batch():
     grouped_loss = ctf_policy_loss(torch.stack([logits_1, logits_2, logits_3]),[policy_1, policy_2, policy_3])
 
     assert (loss_1 + loss_2 + loss_3) / 3 == pytest.approx(grouped_loss)
+
+def test_ctf_policy_loss_is_bound_to_its_board():
+    # The targets arrive as bare `str(ply)` keys, so the board they are laid out
+    # against comes from the tensor layout the loss was built for -- an 8x8
+    # action space here, and a source square that only exists on Battle's board
+    # cannot be indexed into it.
+    skirmish_loss = ctf_policy_loss_for(SKIRMISH_TENSOR_LAYOUT)
+    logits = torch.rand(size=SKIRMISH_TENSOR_LAYOUT.action_space_shape).unsqueeze(0)
+
+    loss = skirmish_loss(logits, [{"A1A2": 0.5, "H8H7": 0.5}])
+    assert loss.item() > 0
+
+    with pytest.raises(IndexError):
+        skirmish_loss(logits, [{"L10L9": 1.0}])

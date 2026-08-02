@@ -32,13 +32,22 @@ from capture_the_flag.engines.neural_network.ctf_position_factory import (
     CtfPositionFactory,
 )
 from capture_the_flag.engines.neural_network.neural_ctf_player import NeuralCtfPlayer
-from capture_the_flag.engines.neural_network.tensor_layout import ENGINE_SPEC_NAME
 from capture_the_flag.record import (
-    ACTIVE_EDITION,
+    DEFAULT_EDITION,
     RulesetConfiguration,
     active_configuration,
 )
-from tests.engines.neural_network.small_networks import small_network
+from tests.engines.neural_network.small_networks import (
+    BATTLE_SETUP,
+    BATTLE_TENSOR_LAYOUT,
+    SKIRMISH_SETUP,
+    SKIRMISH_TENSOR_LAYOUT,
+    small_network,
+)
+
+_SPEC = BATTLE_TENSOR_LAYOUT.spec
+_BATTLE = BATTLE_SETUP.stamp
+_SKIRMISH = SKIRMISH_SETUP.stamp
 
 
 def test_saved_network_round_trips_to_identical_evaluation(tmp_path: Path):
@@ -47,14 +56,14 @@ def test_saved_network_round_trips_to_identical_evaluation(tmp_path: Path):
     # not the input's.
     torch.manual_seed(0)
     original = small_network()
-    position = CtfPositionFactory()()
+    position = CtfPositionFactory(setup=BATTLE_SETUP)()
 
-    original_eval = CtfNNEvaluator(original).evaluate_position(position)
+    original_eval = CtfNNEvaluator(original, BATTLE_TENSOR_LAYOUT).evaluate_position(position)
 
     path = checkpoint_path(tmp_path, 0)
-    save_checkpoint(original, path)
+    save_checkpoint(original, path, configuration=_BATTLE)
 
-    restored_eval = CtfNNEvaluator(load_network(path)).evaluate_position(position)
+    restored_eval = CtfNNEvaluator(load_network(path, BATTLE_SETUP), BATTLE_TENSOR_LAYOUT).evaluate_position(position)
 
     # Weights and BatchNorm buffers all live in the state dict, and evaluation is
     # a deterministic no-grad forward pass, so the reload must reproduce the
@@ -67,7 +76,7 @@ def test_discover_checkpoints_returns_saved_files_in_iteration_order(tmp_path: P
     network = small_network()
     # Save out of order to prove discovery sorts by iteration, not by write time.
     for iteration in (0, 5, 2):
-        save_checkpoint(network, checkpoint_path(tmp_path, iteration))
+        save_checkpoint(network, checkpoint_path(tmp_path, iteration), configuration=_BATTLE)
 
     discovered = discover_checkpoints(tmp_path)
 
@@ -79,20 +88,20 @@ def test_checkpoint_loads_into_a_playable_seat(tmp_path: Path):
     # The AC's "any checkpoint can be loaded and used as a playing engine": the
     # loader composes the full evaluator + engine + player seat from the file.
     path = checkpoint_path(tmp_path, 0)
-    save_checkpoint(small_network(), path)
+    save_checkpoint(small_network(), path, configuration=_BATTLE)
 
-    player = load_neural_player(path, name="loaded")
+    player = load_neural_player(path, "loaded", BATTLE_SETUP)
 
     assert isinstance(player, NeuralCtfPlayer)
 
 
 def test_saved_checkpoint_is_stamped_with_the_current_engine_spec(tmp_path: Path):
     path = checkpoint_path(tmp_path, 0)
-    save_checkpoint(small_network(), path)
+    save_checkpoint(small_network(), path, configuration=_BATTLE)
 
     raw = torch.load(path, map_location="cpu", weights_only=True)
 
-    assert raw["spec"] == ENGINE_SPEC_NAME
+    assert raw["spec"] == _SPEC
 
 
 def test_load_network_rejects_a_checkpoint_stamped_for_a_different_spec(tmp_path: Path):
@@ -101,7 +110,7 @@ def test_load_network_rejects_a_checkpoint_stamped_for_a_different_spec(tmp_path
     torch.save({"spec": "ENG_NN_99", "state_dict": small_network().state_dict()}, path)
 
     with pytest.raises(ValueError, match="ENG_NN_99"):
-        load_network(path)
+        load_network(path, BATTLE_SETUP)
 
 
 def test_load_network_rejects_a_checkpoint_from_before_spec_stamping(tmp_path: Path):
@@ -111,12 +120,16 @@ def test_load_network_rejects_a_checkpoint_from_before_spec_stamping(tmp_path: P
     torch.save(small_network().state_dict(), path)
 
     with pytest.raises(ValueError, match="engine-spec stamp"):
-        load_network(path)
+        load_network(path, BATTLE_SETUP)
 
 
 def test_saved_checkpoint_is_stamped_with_the_networks_architecture(tmp_path: Path):
     path = checkpoint_path(tmp_path, 0)
-    save_checkpoint(CtfCrn(feature_count=12, residual_block_count=3), path)
+    save_checkpoint(
+        CtfCrn(BATTLE_TENSOR_LAYOUT, feature_count=12, residual_block_count=3),
+        path,
+        configuration=_BATTLE,
+    )
 
     raw = torch.load(path, map_location="cpu", weights_only=True)
 
@@ -128,15 +141,15 @@ def test_load_network_rebuilds_at_the_stamped_architecture(tmp_path: Path):
     # under code whose defaults are something else entirely, because the file —
     # not the current default — decides the shape the weights go back into.
     torch.manual_seed(0)
-    original = CtfCrn(feature_count=12, residual_block_count=3)
+    original = CtfCrn(BATTLE_TENSOR_LAYOUT, feature_count=12, residual_block_count=3)
     path = checkpoint_path(tmp_path, 0)
-    save_checkpoint(original, path)
+    save_checkpoint(original, path, configuration=_BATTLE)
 
-    restored = load_network(path)
+    restored = load_network(path, BATTLE_SETUP)
 
     assert restored.feature_count == 12
     assert restored.residual_block_count == 3
-    assert restored.feature_count != CtfCrn().feature_count  # genuinely non-default
+    assert restored.feature_count != CtfCrn(BATTLE_TENSOR_LAYOUT).feature_count  # genuinely non-default
     original_state = original.state_dict()
     restored_state = restored.state_dict()
     assert restored_state.keys() == original_state.keys()
@@ -151,11 +164,11 @@ def test_default_built_checkpoint_round_trips_at_the_default_architecture(
     # The default architecture is the one training actually uses, so it gets its
     # own round-trip rather than riding on the small networks the other tests
     # build. Constructing it is the cost here, not a forward pass.
-    original = CtfCrn()
+    original = CtfCrn(BATTLE_TENSOR_LAYOUT)
     path = checkpoint_path(tmp_path, 0)
-    save_checkpoint(original, path)
+    save_checkpoint(original, path, configuration=_BATTLE)
 
-    restored = load_network(path)
+    restored = load_network(path, BATTLE_SETUP)
 
     assert restored.feature_count == original.feature_count
     assert restored.residual_block_count == original.residual_block_count
@@ -167,11 +180,11 @@ def test_load_network_rejects_a_checkpoint_with_no_architecture_stamp(tmp_path: 
     path = checkpoint_path(tmp_path, 0)
     network = small_network()
     torch.save(
-        {"spec": ENGINE_SPEC_NAME, "state_dict": network.state_dict()}, path
+        {"spec": _SPEC, "state_dict": network.state_dict()}, path
     )
 
     with pytest.raises(ValueError, match="architecture stamp"):
-        load_network(path)
+        load_network(path, BATTLE_SETUP)
 
 
 def test_load_network_rejects_a_malformed_architecture_stamp(tmp_path: Path):
@@ -180,7 +193,7 @@ def test_load_network_rejects_a_malformed_architecture_stamp(tmp_path: Path):
     path = checkpoint_path(tmp_path, 0)
     torch.save(
         {
-            "spec": ENGINE_SPEC_NAME,
+            "spec": _SPEC,
             "architecture": {"feature_count": 8},  # depth missing
             "state_dict": small_network().state_dict(),
         },
@@ -188,7 +201,7 @@ def test_load_network_rejects_a_malformed_architecture_stamp(tmp_path: Path):
     )
 
     with pytest.raises(ValueError, match="malformed"):
-        load_network(path)
+        load_network(path, BATTLE_SETUP)
 
 
 def _architecture_of(network: CtfCrn) -> dict[str, int]:
@@ -203,7 +216,7 @@ def _checkpoint_without_ruleset(network: CtfCrn) -> dict[str, object]:
     stamping — the shape every file under `training-runs/` had before this
     story."""
     return {
-        "spec": ENGINE_SPEC_NAME,
+        "spec": _SPEC,
         "architecture": _architecture_of(network),
         "state_dict": network.state_dict(),
     }
@@ -211,18 +224,18 @@ def _checkpoint_without_ruleset(network: CtfCrn) -> dict[str, object]:
 
 def test_saved_checkpoint_is_stamped_with_the_ruleset_configuration(tmp_path: Path):
     path = checkpoint_path(tmp_path, 0)
-    save_checkpoint(small_network(), path)
+    save_checkpoint(small_network(), path, configuration=_BATTLE)
 
     raw = torch.load(path, map_location="cpu", weights_only=True)
 
     # Structured, not concatenated: comparison over the parts is what produces a
     # rejection message naming the offending flag.
-    assert raw["ruleset"] == {"edition": ACTIVE_EDITION, "flags": {}}
+    assert raw["ruleset"] == {"edition": DEFAULT_EDITION, "flags": {}}
 
 
 def test_checkpoint_configuration_reads_back_what_was_stamped(tmp_path: Path):
     path = checkpoint_path(tmp_path, 0)
-    save_checkpoint(small_network(), path)
+    save_checkpoint(small_network(), path, configuration=_BATTLE)
 
     assert checkpoint_configuration(path) == active_configuration()
 
@@ -251,7 +264,7 @@ def test_a_file_that_is_not_a_checkpoint_is_diagnosed_the_same_either_way(
     torch.save([1, 2, 3], path)
 
     with pytest.raises(ValueError, match="not a checkpoint") as from_load:
-        load_network(path)
+        load_network(path, BATTLE_SETUP)
     with pytest.raises(ValueError, match="not a checkpoint") as from_configuration:
         checkpoint_configuration(path)
 
@@ -266,7 +279,7 @@ def test_load_network_rejects_a_checkpoint_from_before_ruleset_stamping(tmp_path
     torch.save(_checkpoint_without_ruleset(small_network()), path)
 
     with pytest.raises(ValueError, match="ruleset stamp"):
-        load_network(path)
+        load_network(path, BATTLE_SETUP)
 
 
 def test_checkpoint_configuration_rejects_a_checkpoint_from_before_stamping(
@@ -285,27 +298,27 @@ def test_load_network_rejects_a_malformed_ruleset_stamp(tmp_path: Path):
     path = checkpoint_path(tmp_path, 0)
     network = small_network()
     torch.save(
-        {**_checkpoint_without_ruleset(network), "ruleset": ACTIVE_EDITION}, path
+        {**_checkpoint_without_ruleset(network), "ruleset": DEFAULT_EDITION}, path
     )
 
     with pytest.raises(ValueError, match="ruleset stamp is malformed"):
-        load_network(path)
+        load_network(path, BATTLE_SETUP)
 
 
 def test_load_network_rejects_a_configuration_this_code_cannot_implement(
     tmp_path: Path,
 ):
     # A checkpoint from a variant branch, arriving at a build that has no such
-    # flag. ENGINE_SPEC_NAME cannot catch this — a rules change leaves the tensor
-    # shape untouched — so without the ruleset stamp these weights would load
-    # cleanly and evaluate under rules they were never trained for.
+    # flag. The engine-spec stamp cannot catch this — a rules change leaves the
+    # tensor shape untouched — so without the ruleset stamp these weights would
+    # load cleanly and evaluate under rules they were never trained for.
     path = checkpoint_path(tmp_path, 0)
     network = small_network()
     torch.save(
         {
             **_checkpoint_without_ruleset(network),
             "ruleset": {
-                "edition": ACTIVE_EDITION,
+                "edition": DEFAULT_EDITION,
                 "flags": {"MOVABLE_TOWERS": "on"},
             },
         },
@@ -313,5 +326,118 @@ def test_load_network_rejects_a_configuration_this_code_cannot_implement(
     )
 
     with pytest.raises(ValueError, match="MOVABLE_TOWERS") as rejection:
-        load_network(path)
+        load_network(path, BATTLE_SETUP)
     assert "no such flag" in str(rejection.value)
+
+
+def test_the_spec_stamp_is_qualified_by_the_board_it_was_trained_on(tmp_path: Path):
+    # One spec document, two boards, two incompatible sets of weights — so the
+    # stamp names the board as well as the contract.
+    battle_path = checkpoint_path(tmp_path / "battle", 0)
+    skirmish_path = checkpoint_path(tmp_path / "skirmish", 0)
+    save_checkpoint(small_network(BATTLE_TENSOR_LAYOUT), battle_path, configuration=_BATTLE)
+    save_checkpoint(
+        small_network(SKIRMISH_TENSOR_LAYOUT), skirmish_path, configuration=_SKIRMISH
+    )
+
+    battle_stamp = torch.load(battle_path, map_location="cpu", weights_only=True)["spec"]
+    skirmish_stamp = torch.load(skirmish_path, map_location="cpu", weights_only=True)[
+        "spec"
+    ]
+
+    assert battle_stamp == "ENG_NN_3/standard_144"
+    assert skirmish_stamp == "ENG_NN_3/standard_64"
+
+
+def test_load_network_rejects_a_checkpoint_trained_on_another_board(tmp_path: Path):
+    # The failure the qualified stamp exists for. Without it the load would fail
+    # deep inside `load_state_dict` on a policy-head shape, or — for a layout
+    # change that preserved the dimensions — not fail at all.
+    path = checkpoint_path(tmp_path, 0)
+    save_checkpoint(small_network(SKIRMISH_TENSOR_LAYOUT), path, configuration=_SKIRMISH)
+
+    with pytest.raises(ValueError, match="standard_64") as rejection:
+        load_network(path, BATTLE_SETUP)
+    assert "standard_144" in str(rejection.value)
+
+
+def test_load_network_rebuilds_at_the_board_it_is_loaded_for(tmp_path: Path):
+    path = checkpoint_path(tmp_path, 0)
+    save_checkpoint(small_network(SKIRMISH_TENSOR_LAYOUT), path, configuration=_SKIRMISH)
+
+    restored = load_network(path, SKIRMISH_SETUP)
+
+    assert restored.tensor_layout == SKIRMISH_TENSOR_LAYOUT
+
+
+def test_load_network_rejects_a_checkpoint_stamped_with_a_historical_edition(
+    tmp_path: Path,
+):
+    # `1-2:PRE-RELEASE` is still a *known* edition — it has to be, or a stamped
+    # artifact could not name anything meaningful — but it is not Active. The
+    # refusal is on that ground: the rules moved on, so these weights never saw
+    # the ones being played. Not on the ground that a build holds one edition;
+    # this one holds two and refuses the one it no longer plays.
+    path = checkpoint_path(tmp_path, 0)
+    network = small_network()
+    torch.save(
+        {
+            **_checkpoint_without_ruleset(network),
+            "ruleset": {"edition": "1-2:PRE-RELEASE", "flags": {}},
+        },
+        path,
+    )
+
+    with pytest.raises(ValueError, match="1-2:PRE-RELEASE") as rejection:
+        load_network(path, BATTLE_SETUP)
+    message = str(rejection.value)
+    assert "historical edition" in message
+    # The Active set it is measured against, not a single build constant.
+    assert "2-0:BATTLE" in message
+    assert "2-1:SKIRMISH" in message
+
+
+def test_load_network_accepts_a_checkpoint_under_the_ruleset_it_was_trained_for(
+    tmp_path: Path,
+):
+    path = checkpoint_path(tmp_path, 0)
+    save_checkpoint(small_network(SKIRMISH_TENSOR_LAYOUT), path, configuration=_SKIRMISH)
+
+    restored = load_network(path, SKIRMISH_SETUP)
+
+    assert restored.tensor_layout == SKIRMISH_TENSOR_LAYOUT
+
+
+def test_load_network_rejects_a_flag_deviation_the_run_does_not_share(tmp_path: Path):
+    # The case neither of the other two checks can reach. Battle's board with
+    # Skirmish's army is a published flag at a published value, so
+    # `unsupported_aspects` has no objection; the board is unchanged, so the spec
+    # stamp matches exactly. The tensors are the same shape and the rules are
+    # different — the silent failure the ruleset stamp exists for.
+    path = checkpoint_path(tmp_path, 0)
+    trained_under = RulesetConfiguration(
+        DEFAULT_EDITION, {"ARMY_COMPOSITION": "standard_skirmish"}
+    )
+    save_checkpoint(small_network(), path, configuration=trained_under)
+
+    raw = torch.load(path, map_location="cpu", weights_only=True)
+    assert raw["spec"] == _SPEC  # the spec check cannot see this
+
+    with pytest.raises(ValueError, match="ARMY_COMPOSITION") as rejection:
+        load_network(path, BATTLE_SETUP)
+    message = str(rejection.value)
+    # Both sides named: the deviation the file carries, and the run that carries
+    # none (the flag sits at its edition value there, so it renders as absent).
+    assert "standard_skirmish" in message
+    assert "no deviation" in message
+    assert "this code implements" in message  # both are fine; this pairing is not
+
+
+def test_checkpoint_configuration_does_not_compare_against_a_run(tmp_path: Path):
+    # Adoption depends on this: a resume reads the stamp to find out what it is
+    # playing, so this entry point has nothing to compare against and must not
+    # invent one. It still applies every build-level check.
+    path = checkpoint_path(tmp_path, 0)
+    save_checkpoint(small_network(SKIRMISH_TENSOR_LAYOUT), path, configuration=_SKIRMISH)
+
+    assert checkpoint_configuration(path) == _SKIRMISH

@@ -6,7 +6,9 @@ empty home squares rendered as `---`, plus the documented lake columns
 (B, C, F, G, J, K).
 """
 
-from capture_the_flag.board import Square
+import pytest
+
+from capture_the_flag.board import STANDARD_144, Square
 from capture_the_flag.pieces import PieceType as P
 from capture_the_flag.rendering import parse_position_block, render_position_block
 from capture_the_flag.side import Side
@@ -62,11 +64,11 @@ def _build_board() -> dict[Square, tuple[Side, P]]:
 
 
 def test_render_position_block_matches_golden_example():
-    assert render_position_block(_build_board()) == EXPECTED_BLOCK
+    assert render_position_block(_build_board(), STANDARD_144) == EXPECTED_BLOCK
 
 
 def test_render_position_block_has_twelve_lines_of_twelve_cells():
-    lines = render_position_block(_build_board()).split("\n")
+    lines = render_position_block(_build_board(), STANDARD_144).split("\n")
     assert len(lines) == 12
     for line in lines:
         cells = line.split(" ")
@@ -76,13 +78,31 @@ def test_render_position_block_has_twelve_lines_of_twelve_cells():
 
 def test_parse_position_block_round_trips_through_render():
     board = _build_board()
-    rendered = render_position_block(board)
+    rendered = render_position_block(board, STANDARD_144)
     parsed = parse_position_block(rendered)
     assert parsed == board
-    assert render_position_block(parsed) == rendered
+    assert render_position_block(parsed, STANDARD_144) == rendered
 
 
 def test_parse_position_block_accepts_crlf():
-    rendered = render_position_block(_build_board())
+    rendered = render_position_block(_build_board(), STANDARD_144)
     crlf_text = rendered.replace("\n", "\r\n")
     assert parse_position_block(crlf_text) == _build_board()
+
+
+def test_parse_position_block_reads_its_own_dimensions():
+    # The block states its size: three rows of four cells parse as a 4x3 board
+    # with no layout supplied. This is the size-parametric property major 2's
+    # notation exists to provide.
+    block = "\n".join(["--- *F* --- ---", "XXX --- --- [T]", "[1] --- --- ---"])
+    parsed = parse_position_block(block)
+    assert parsed == {
+        Square(1, 3): (Side.BLACK, P.FLAG),
+        Square(3, 2): (Side.WHITE, P.TOWER),
+        Square(0, 1): (Side.WHITE, P.MASTER_OF_ARMS),
+    }
+
+
+def test_parse_position_block_rejects_a_ragged_grid():
+    with pytest.raises(ValueError, match="must be rectangular"):
+        parse_position_block("--- --- ---\n--- ---")

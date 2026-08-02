@@ -32,6 +32,7 @@ from .engines.neural_network.ctf_training_run import (
     resume_generations,
     train_generations,
 )
+from .record import ACTIVE_RULESETS, DEFAULT_RULESET
 from .timing_record import TIMING_ON_BY_DEFAULT, TIMING_RECORD_STEM
 
 _DEFAULTS = TrainingConfig()
@@ -128,6 +129,17 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--features",
     )
     parser.add_argument(
+        "--ruleset",
+        default=DEFAULT_RULESET,
+        choices=sorted(ACTIVE_RULESETS),
+        type=str.upper,
+        help=(
+            "which published ruleset to play (default: %(default)s); each "
+            "resolves to its current edition, which is what artifacts are "
+            "stamped with"
+        ),
+    )
+    parser.add_argument(
         "--seed",
         type=int,
         default=None,
@@ -194,7 +206,9 @@ def main(argv: Sequence[str] | None = None) -> None:
         for dest, field in _TRAINING_FLAGS.values()
         if getattr(args, dest) is not None
     }
-    config = replace(_DEFAULTS, generations=args.generations, **overrides)
+    config = replace(
+        _DEFAULTS, generations=args.generations, ruleset=args.ruleset, **overrides
+    )
     run_dir = train_generations(
         config, base_dir=args.output_dir, progress=_print_progress, timing=args.timing
     )

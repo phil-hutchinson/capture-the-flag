@@ -16,6 +16,7 @@ from collections.abc import Callable
 
 from game_engine_learning.self_play_collector import SelfPlayCollector
 
+from ...game_setup import GameSetup
 from ...position import CtfPosition
 from .ctf_engine_factory import CtfEngineFactory
 from .ctf_nn_evaluator import CtfNNEvaluator
@@ -25,10 +26,15 @@ from .ctf_position_factory import CtfPositionFactory
 
 def build_self_play_collector(
     evaluator: CtfNNEvaluator,
+    setup: GameSetup,
     engine_factory: CtfEngineFactory | None = None,
     position_factory: Callable[[], CtfPosition] | None = None,
 ) -> SelfPlayCollector:
-    """Wire a `SelfPlayCollector` around `evaluator`.
+    """Wire a `SelfPlayCollector` around `evaluator`, playing games under `setup`.
+
+    `setup` is what the default position factory starts its games from, and it
+    must be the board and army `evaluator` encodes — the collector hands each
+    position it produces straight to the encoder.
 
     `engine_factory` and `position_factory` are injectable so callers can tune
     the self-play search budget / temperature and (later) swap in a curriculum
@@ -40,6 +46,6 @@ def build_self_play_collector(
     return SelfPlayCollector(
         evaluator=evaluator,
         engine_factory=engine_factory or CtfEngineFactory(evaluator),
-        position_factory=position_factory or CtfPositionFactory(),
+        position_factory=position_factory or CtfPositionFactory(setup=setup),
         policy_transform=transform_policy_to_white_perspective,
     )

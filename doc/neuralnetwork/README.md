@@ -18,10 +18,13 @@ or an external front end driving an AI opponent from an exported model.
 
 - **Name** — the spec's identifier, `ENG_NN_{n}`.
 - **Compatible rulesets** — a list of ruleset combinations, each a complete
-  `(version, name, flags)` triple (e.g. version `1.2`, name `PRE-RELEASE`,
-  flags none). Compatibility is listed per combination, not as independent
-  lists of versions and flags — a flag compatible under one version may not
-  be under another.
+  `(edition, deviating flags)` pair (e.g. edition `2-0:BATTLE`, flags none).
+  Compatibility is listed per combination, not as independent lists of editions
+  and flags — a flag compatible under one edition may not be under another.
+  A spec may be stated **parametrically** in facts a ruleset fixes (board
+  dimensions, roster counts), in which case one document covers several
+  combinations; it is then the *artifact's* stamp, not the spec name, that says
+  which one a given set of weights occupies.
 - **Input** — the input tensor's shape and the meaning of every axis and
   feature plane, including perspective conventions (inputs are always from
   the side to move's viewpoint) and how board coordinates map to tensor

@@ -4,14 +4,25 @@
 `SelfPlayCollector` calls once per game. It must return
 a legal, fully-placed phase-2 starting position, and successive calls must differ
 so self-play games actually diverge.
+
+The setup is a constructor argument rather than a default, so each of these runs
+against both published ones: a factory that quietly built Battle positions for a
+Skirmish run would put the wrong board in front of the encoder.
 """
 
-from capture_the_flag.board import BLACK_HOME_SQUARES, LAKE_SQUARES, WHITE_HOME_SQUARES
+import pytest
+
 from capture_the_flag.engines.neural_network.ctf_position_factory import (
     CtfPositionFactory,
 )
-from capture_the_flag.pieces import ARMY_ROSTER, PieceType
+from capture_the_flag.game_setup import GameSetup
+from capture_the_flag.pieces import PieceType
 from capture_the_flag.side import Side
+from tests.engines.neural_network.small_networks import BATTLE_SETUP, SKIRMISH_SETUP
+
+_SETUPS = pytest.mark.parametrize(
+    "setup", [BATTLE_SETUP, SKIRMISH_SETUP], ids=["battle", "skirmish"]
+)
 
 
 def _piece_counts(position, side: Side) -> dict[PieceType, int]:
@@ -30,34 +41,39 @@ def _squares_of(position, side: Side):
     }
 
 
-def test_factory_returns_legal_phase_two_start():
-    position = CtfPositionFactory()()
+@_SETUPS
+def test_factory_returns_legal_phase_two_start(setup: GameSetup):
+    position = CtfPositionFactory(setup=setup)()
 
     # White to move, clock reset, and a genuine (non-terminal) start.
+    assert position.layout == setup.layout
     assert position.side_to_move is Side.WHITE
     assert position.inactivity_counter == 0
     assert position.outcome is None
     assert position.legal_plies  # White has at least one legal ply
 
 
-def test_factory_places_both_full_armies():
-    position = CtfPositionFactory()()
+@_SETUPS
+def test_factory_places_both_full_armies(setup: GameSetup):
+    position = CtfPositionFactory(setup=setup)()
 
-    assert _piece_counts(position, Side.WHITE) == ARMY_ROSTER
-    assert _piece_counts(position, Side.BLACK) == ARMY_ROSTER
-
-
-def test_factory_keeps_each_side_in_its_home_zone_off_the_lakes():
-    position = CtfPositionFactory()()
-
-    assert _squares_of(position, Side.WHITE) <= WHITE_HOME_SQUARES
-    assert _squares_of(position, Side.BLACK) <= BLACK_HOME_SQUARES
-    assert not (position.board.keys() & LAKE_SQUARES)
+    assert _piece_counts(position, Side.WHITE) == setup.composition.counts
+    assert _piece_counts(position, Side.BLACK) == setup.composition.counts
 
 
-def test_successive_calls_differ():
-    factory = CtfPositionFactory()
+@_SETUPS
+def test_factory_keeps_each_side_in_its_home_zone_off_the_lakes(setup: GameSetup):
+    position = CtfPositionFactory(setup=setup)()
 
-    # Two independent draws from ~10^40 placements per side: an identical board
+    assert _squares_of(position, Side.WHITE) <= setup.layout.white_home_squares
+    assert _squares_of(position, Side.BLACK) <= setup.layout.black_home_squares
+    assert not (position.board.keys() & setup.layout.lake_squares)
+
+
+@_SETUPS
+def test_successive_calls_differ(setup: GameSetup):
+    factory = CtfPositionFactory(setup=setup)
+
+    # Two independent draws from an enormous placement space: an identical board
     # is astronomically unlikely, so a match here means the draw is not random.
     assert dict(factory().board) != dict(factory().board)

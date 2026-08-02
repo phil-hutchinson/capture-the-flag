@@ -23,7 +23,11 @@ from capture_the_flag.timing_regions import (
     EVALUATE_POSITION,
     LEGAL_PLIES,
 )
-from tests.engines.neural_network.small_networks import small_network
+from tests.engines.neural_network.small_networks import (
+    BATTLE_SETUP,
+    BATTLE_TENSOR_LAYOUT,
+    small_network,
+)
 
 from .test_mechanics_regions import child, ongoing_position
 
@@ -34,7 +38,7 @@ few enough to keep the test fast."""
 
 def timed_engine(iterations: int = SEARCH_ITERATIONS) -> TimedMCTSEngine:
     return TimedMCTSEngine(
-        CtfNNEvaluator(small_network()), iterations=iterations, temperature=0.0
+        CtfNNEvaluator(small_network(), BATTLE_TENSOR_LAYOUT), iterations=iterations, temperature=0.0
     )
 
 
@@ -117,7 +121,7 @@ def test_tree_maintenance_calls_are_recorded() -> None:
 
 def test_the_self_play_engine_factory_produces_a_timed_engine() -> None:
     engine = CtfEngineFactory(
-        CtfNNEvaluator(small_network()), iterations=SEARCH_ITERATIONS
+        CtfNNEvaluator(small_network(), BATTLE_TENSOR_LAYOUT), iterations=SEARCH_ITERATIONS
     )()
 
     with timing_session("test") as session:
@@ -128,7 +132,7 @@ def test_the_self_play_engine_factory_produces_a_timed_engine() -> None:
 
 def test_the_learned_player_seat_produces_a_timed_engine() -> None:
     player = build_neural_player(
-        "Neural", network=small_network(), iterations=SEARCH_ITERATIONS
+        "Neural", BATTLE_SETUP, network=small_network(), iterations=SEARCH_ITERATIONS
     )
 
     with timing_session("test") as session:

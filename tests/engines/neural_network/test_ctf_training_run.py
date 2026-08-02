@@ -30,12 +30,12 @@ from capture_the_flag.engines.neural_network.ctf_training_run import (
     train_generations,
 )
 from capture_the_flag.record import (
-    ACTIVE_EDITION,
-    RuleFlag,
+    DEFAULT_EDITION,
     RulesetConfiguration,
     active_configuration,
 )
 from tests.engines.neural_network.small_networks import (
+    BATTLE_TENSOR_LAYOUT,
     SMALL_FEATURE_COUNT,
     SMALL_RESIDUAL_BLOCK_COUNT,
 )
@@ -148,11 +148,16 @@ def test_resume_rejects_a_run_whose_config_and_checkpoint_disagree(tmp_path):
     anything the loop computes."""
     run_dir = new_run_directory(tmp_path)
     config = TrainingConfig(feature_count=SMALL_FEATURE_COUNT, residual_block_count=3)
-    _write_run_config(run_dir, config)
+    _write_run_config(run_dir, config, active_configuration())
     # A checkpoint at a *different* depth than the config claims.
     save_checkpoint(
-        CtfCrn(feature_count=SMALL_FEATURE_COUNT, residual_block_count=2),
+        CtfCrn(
+            BATTLE_TENSOR_LAYOUT,
+            feature_count=SMALL_FEATURE_COUNT,
+            residual_block_count=2,
+        ),
         checkpoint_path(run_dir, 1),
+        configuration=active_configuration(),
     )
 
     with pytest.raises(ValueError, match="inconsistent"):
@@ -166,21 +171,22 @@ def _assembled_run(tmp_path, configuration=None):
     anything the generations loop computes, so assembling the directory directly
     keeps them out of the `slow` suite.
 
-    `configuration`, if given, is what both records carry — standing in for a run
-    conducted under something other than the current active configuration, which
-    is the only way to tell adoption from re-stamping while one edition and no
-    flags are published.
+    `configuration` is what both records carry, defaulting to the active one.
+    Supplying something else stands in for a run conducted under other rules,
+    which is the only way to tell adoption from re-stamping — the two coincide
+    whenever a run happens to be under the current default.
     """
     run_dir = new_run_directory(tmp_path)
     config = TrainingConfig(
         feature_count=SMALL_FEATURE_COUNT,
         residual_block_count=SMALL_RESIDUAL_BLOCK_COUNT,
     )
-    _write_run_config(run_dir, config)
-    if configuration is not None:
-        _rewrite_run_config(run_dir, ruleset=configuration.as_stamp())
+    if configuration is None:
+        configuration = active_configuration()
+    _write_run_config(run_dir, config, configuration)
     save_checkpoint(
         CtfCrn(
+            BATTLE_TENSOR_LAYOUT,
             feature_count=SMALL_FEATURE_COUNT,
             residual_block_count=SMALL_RESIDUAL_BLOCK_COUNT,
         ),
@@ -222,7 +228,7 @@ def test_resume_rejects_a_run_whose_config_and_checkpoint_disagree_on_the_rulese
     # Both values, each attributed to its source — a bare "they differ" would not
     # tell the developer which file to look at.
     assert "1-3:PRE-RELEASE" in message
-    assert ACTIVE_EDITION in message
+    assert DEFAULT_EDITION in message
     assert RUN_CONFIG_FILENAME in message
 
 
@@ -244,15 +250,13 @@ def test_resume_stamps_its_own_checkpoints_with_the_configuration_it_adopted(
 ):
     # The stamp is adopted, not merely verified: a resume continues under the
     # configuration its weights were trained under, so the generations it appends
-    # must carry that configuration and not the current active one. With a single
-    # published edition and an empty flag registry the two coincide, which is why
-    # this test has to supply a flag — the failure it guards against only becomes
-    # reachable once a second variant exists, and by then it is silent.
-    monkeypatch.setattr(
-        "capture_the_flag.record.RULE_FLAGS",
-        {"MOVABLE_TOWERS": RuleFlag(flag_id="MOVABLE_TOWERS", values=("off", "on"), default="off")},
+    # must carry that configuration and not the current active one. The deviation
+    # is a real published flag at a real published value, and one that is inert on
+    # Battle's board — so what this pins is the *stamp* travelling intact through a
+    # resume, with no behavioural difference propping it up.
+    trained_under = RulesetConfiguration(
+        DEFAULT_EDITION, {"TOWER_PLACEMENT": "spacing_and_lanes"}
     )
-    trained_under = RulesetConfiguration(ACTIVE_EDITION, {"MOVABLE_TOWERS": "on"})
     run_dir = _assembled_run(tmp_path, configuration=trained_under)
     # Self-play and gradient descent are not what is under test, and running them
     # would put this in the `slow` suite; the stub keeps the resume path itself

@@ -5,7 +5,7 @@ import torch.nn as nn
 
 from ...instrumentation.timing import timed
 from ...timing_regions import NETWORK_FORWARD, NETWORK_MODE_SWITCH
-from .tensor_layout import ACTION_SPACE_SHAPE, INPUT_SHAPE, TOTAL_FP_COUNT
+from .tensor_layout import TensorLayout
 
 DEFAULT_FEATURE_COUNT: int = 64
 """Trunk width: how many features the stem projects the input planes into, and
@@ -36,6 +36,12 @@ def _check_architecture_bound(name: str, value: int, maximum: int) -> None:
 class CtfCrn(nn.Module):
     """The learned play engine's convolutional residual network.
 
+    `tensor_layout` is the I/O contract the network is built to: the stem's input
+    width, the policy head's channel count, and the value head's flattened extent
+    all follow from it, so a network built for one board cannot be fed another's
+    positions. It is held on the instance because it is also what a checkpoint of
+    these weights is stamped with — the network knows which contract produced it.
+
     Width and depth are constructor parameters rather than fixed constants: the
     defaults are the working training scale, but callers that only need *a*
     network (tests, quick experiments) can build a cheap one, and checkpoints
@@ -47,6 +53,7 @@ class CtfCrn(nn.Module):
 
     def __init__(
         self,
+        tensor_layout: TensorLayout,
         *,
         feature_count: int = DEFAULT_FEATURE_COUNT,
         residual_block_count: int = DEFAULT_RESIDUAL_BLOCK_COUNT,
@@ -56,11 +63,14 @@ class CtfCrn(nn.Module):
         _check_architecture_bound(
             "residual_block_count", residual_block_count, MAX_RESIDUAL_BLOCK_COUNT
         )
+        self._tensor_layout = tensor_layout
         self._feature_count = feature_count
         self._residual_block_count = residual_block_count
 
+        input_planes, input_rows, input_columns = tensor_layout.input_shape
+
         self._stem = nn.Sequential(
-            nn.Conv2d(TOTAL_FP_COUNT, feature_count, kernel_size = 3, padding = 1, bias = False),
+            nn.Conv2d(input_planes, feature_count, kernel_size = 3, padding = 1, bias = False),
             nn.BatchNorm2d(feature_count),
             nn.ReLU(),
         )
@@ -81,7 +91,7 @@ class CtfCrn(nn.Module):
             nn.Conv2d(feature_count, feature_count, kernel_size = 3, padding = 1, bias = False),
             nn.BatchNorm2d(feature_count),
             nn.ReLU(),
-            nn.Conv2d(feature_count, ACTION_SPACE_SHAPE[0], kernel_size = 3, padding = 1), # Bias set to True here since there's no batchnorm after
+            nn.Conv2d(feature_count, tensor_layout.action_space_shape[0], kernel_size = 3, padding = 1), # Bias set to True here since there's no batchnorm after
         )
 
         self._value_head = nn.Sequential(
@@ -89,11 +99,17 @@ class CtfCrn(nn.Module):
             nn.BatchNorm2d(1),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(INPUT_SHAPE[1] * INPUT_SHAPE[2], feature_count),
+            nn.Linear(input_rows * input_columns, feature_count),
             nn.ReLU(),
             nn.Linear(feature_count, 1),
             nn.Tanh(),
         )
+
+    @property
+    def tensor_layout(self) -> TensorLayout:
+        """The I/O contract this instance was built to (what a checkpoint stamps
+        its engine spec from)."""
+        return self._tensor_layout
 
     @property
     def feature_count(self) -> int:

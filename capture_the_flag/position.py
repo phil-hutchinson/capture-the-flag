@@ -10,7 +10,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal
 
-from .board import Square
+from .board import BoardLayout, Square
 from .instrumentation.timing import region
 from .moves import legal_plies as _legal_plies
 from .outcome import compute_outcome as _compute_outcome
@@ -29,11 +29,19 @@ class CtfPosition:
     square absent from `board` is empty. `inactivity_counter` is the single
     shared clock (rules.md Section 5.3): it rises by 1 on every non-capturing ply
     and resets to 0 on any attack that removes a piece.
+
+    `layout` is the board being played on. It rides on the position rather than
+    sitting in a module constant because `legal_plies` is a protocol property
+    with no arguments, so this is the only channel move generation has to reach
+    the board's dimensions and lakes. It carries no default deliberately: a
+    default would silently hand Battle's geometry to any caller that forgot to
+    say which board it meant.
     """
 
     board: Mapping[Square, tuple[Side, PieceType]]
     side_to_move: Side
     inactivity_counter: int
+    layout: BoardLayout
 
     @property
     def active_player_id(self) -> Literal[1, -1]:

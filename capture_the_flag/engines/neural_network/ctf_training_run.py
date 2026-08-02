@@ -38,10 +38,11 @@ from game_engine_learning.training_loop import EpochLoss
 from torch.optim import Adam
 
 from ...device import ResolvedDevice, pipeline_device
+from ...game_setup import GameSetup, resolve_setup, setup_for_ruleset
 from ...instrumentation.timing import TimingSession, region
 from ...record import (
+    DEFAULT_RULESET,
     RulesetConfiguration,
-    active_configuration,
     configuration_differences,
 )
 from ...run_environment import distribution_version, git_commit
@@ -66,6 +67,7 @@ from .ctf_checkpoint import (
 from .ctf_crn import DEFAULT_FEATURE_COUNT, DEFAULT_RESIDUAL_BLOCK_COUNT, CtfCrn
 from .ctf_position_factory import CtfPositionFactory
 from .ctf_training import train_one_generation
+from .tensor_layout import TensorLayout
 
 RUN_CONFIG_FILENAME = "run-config.json"
 
@@ -108,6 +110,17 @@ class TrainingConfig:
     feature_count: int = DEFAULT_FEATURE_COUNT
     residual_block_count: int = DEFAULT_RESIDUAL_BLOCK_COUNT
     seed: int | None = None
+    ruleset: str = DEFAULT_RULESET
+    """Which published ruleset a *fresh* run plays. A name, not an edition id:
+    the name is what a person selects and what stays true across a minor bump,
+    while the edition it resolves to is what every checkpoint is stamped with.
+
+    A resume never reads this field. It resolves the edition stamped on the
+    checkpoint it continues from, which is the only thing that describes the
+    weights being rehydrated — re-resolving the name would silently follow the
+    pointer if it had moved since, and continue a run under an edition it was not
+    trained under. A moved pointer instead surfaces as the stamped edition no
+    longer being Active, which `checkpoint_configuration` refuses outright."""
 
 
 def train_generations(
@@ -133,6 +146,10 @@ def train_generations(
     if config.generations < 1:
         raise ValueError(f"generations must be at least 1, got {config.generations}")
 
+    # Resolved before anything is written, so a run naming a ruleset this build
+    # cannot set up fails immediately rather than after creating a run directory.
+    setup = setup_for_ruleset(config.ruleset)
+
     position_factory: CtfPositionFactory | None = None
     if config.seed is not None:
         # Seed every stochastic source so the run is reproducible given the same
@@ -142,26 +159,30 @@ def train_generations(
         # OS entropy).
         torch.manual_seed(config.seed)
         random.seed(config.seed)
-        position_factory = CtfPositionFactory(random.Random(config.seed))
+        position_factory = CtfPositionFactory(
+            random.Random(config.seed), setup=setup
+        )
 
     resolved_device = pipeline_device()
 
     with timing_run(ROOT_TRAINING, enabled=timing) as session:
         network = CtfCrn(
+            TensorLayout.for_setup(setup),
             feature_count=config.feature_count,
             residual_block_count=config.residual_block_count,
         )
         run_dir = new_run_directory(base_dir)
-        _write_run_config(run_dir, config)
+        _write_run_config(run_dir, config, setup.stamp)
         settings = asdict(config)
         reported = _run_generations(
             network,
             run_dir,
             config,
-            # A fresh run is by definition played under what this code currently
-            # implements, and stamps its checkpoints with it; only a resume has
-            # some other configuration to carry.
-            configuration=active_configuration(),
+            setup=setup,
+            # A fresh run is by definition played under the configuration it
+            # selected, and stamps its checkpoints with it; only a resume has some
+            # other configuration to carry.
+            configuration=setup.stamp,
             start_generation=1,
             position_factory=position_factory,
             progress=progress,
@@ -201,12 +222,15 @@ def resume_generations(
 
     The ruleset comes from the stamp rather than from current defaults for the
     same reason the architecture does: a run trained with a flag on continues with
-    that flag on even if the current default is off. The adopted configuration is
-    also what the appended checkpoints are stamped with, so a resume cannot
-    quietly re-tag a run's later generations with an edition it was not trained
-    under. What is refused is the case where the running code cannot implement the
-    stamped configuration at all, which `load_network` has already rejected by the
-    time the cross-check runs.
+    that flag on even if the current default is off. It is read *before* the
+    network, because the board it resolves to is what the network is rebuilt to:
+    a resume that reached for the current default board would rehydrate weights
+    into the wrong shape. The adopted configuration is also what the appended
+    checkpoints are stamped with, so a resume cannot quietly re-tag a run's later
+    generations with an edition it was not trained under. What is refused is the
+    case where the running code cannot implement the stamped configuration at
+    all, which `checkpoint_configuration` has already rejected by the time the
+    cross-check runs.
 
     No reseeding happens here: the seed governed the original network init and
     initial run, which are already in the past by the time a resume loads the
@@ -228,13 +252,16 @@ def resume_generations(
 
     with timing_run(ROOT_TRAINING, enabled=timing) as session:
         latest = checkpoints[-1]
-        network = load_network(latest.path)
+        # Read before the network, because it is what the network is rebuilt to.
+        # Bound, not merely checked: this is the configuration the appended
+        # generations are played, encoded, and stamped under, so the board and
+        # army it resolves to are the ones the weights meet.
+        configuration = checkpoint_configuration(latest.path)
+        setup = resolve_setup(configuration)
+        network = load_network(latest.path, setup)
         run_record = _read_run_record(run_dir)
         config = replace(_run_config(run_record), generations=added_generations)
         _check_architecture_agrees(network, config, latest.path)
-        # Bound, not merely checked: this is the configuration the appended
-        # generations are trained under and stamped with.
-        configuration = checkpoint_configuration(latest.path)
         _check_ruleset_agrees(
             configuration, _run_ruleset(run_record, run_dir), latest.path
         )
@@ -248,6 +275,7 @@ def resume_generations(
             network,
             run_dir,
             config,
+            setup=setup,
             configuration=configuration,
             start_generation=latest.iteration + 1,
             progress=progress,
@@ -287,6 +315,7 @@ def _run_generations(
     run_dir: Path,
     config: TrainingConfig,
     *,
+    setup: GameSetup,
     configuration: RulesetConfiguration,
     start_generation: int,
     position_factory: CtfPositionFactory | None = None,
@@ -300,6 +329,10 @@ def _run_generations(
     Each generation builds a fresh optimizer, trains `network` in place, and saves
     it under the checkpoint convention — so the checkpoint iteration is the total
     number of generations trained so far, and a resume can continue from it.
+
+    `setup` is the board and army every generation is played and encoded under —
+    what `configuration` resolves to, passed alongside it rather than re-resolved
+    per generation.
 
     `configuration` is the ruleset every checkpoint written here is stamped with:
     the active one for a fresh run, and for a resume the one adopted from the
@@ -326,6 +359,7 @@ def _run_generations(
             history = train_one_generation(
                 network,
                 optimizer,
+                setup=setup,
                 n_games=config.games_per_generation,
                 epochs=config.epochs_per_generation,
                 batch_size=config.batch_size,
@@ -465,7 +499,9 @@ def _check_ruleset_agrees(
         )
 
 
-def _write_run_config(run_dir: Path, config: TrainingConfig) -> None:
+def _write_run_config(
+    run_dir: Path, config: TrainingConfig, configuration: RulesetConfiguration
+) -> None:
     """Write the reproducibility record: the config, the rules the run was played
     under, the environment it ran against (dependency versions and this repo's
     commit), and the start time.
@@ -479,7 +515,7 @@ def _write_run_config(run_dir: Path, config: TrainingConfig) -> None:
     record = {
         "created": datetime.now().isoformat(timespec="seconds"),
         "config": asdict(config),
-        "ruleset": active_configuration().as_stamp(),
+        "ruleset": configuration.as_stamp(),
         "versions": {
             "game_engine_core": distribution_version("game-engine-core"),
             "capture_the_flag": distribution_version("capture-the-flag"),

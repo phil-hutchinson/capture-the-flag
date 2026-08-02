@@ -4,7 +4,7 @@
 
 from types import MappingProxyType
 
-from capture_the_flag.board import Square
+from capture_the_flag.board import STANDARD_144, Square
 from capture_the_flag.pieces import PieceType as P
 from capture_the_flag.ply import CtfPly
 from capture_the_flag.position import CtfPosition
@@ -20,6 +20,7 @@ def _position(
         board=MappingProxyType(board),
         side_to_move=side_to_move,
         inactivity_counter=inactivity_counter,
+        layout=STANDARD_144,
     )
 
 

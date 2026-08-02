@@ -19,20 +19,23 @@ from collections.abc import Callable
 from game_engine_learning.training_loop import EpochLoss, TrainingLoop
 from torch.optim import Optimizer
 
+from ...game_setup import GameSetup
 from ...instrumentation.timing import region
 from ...position import CtfPosition
 from ...timing_regions import SELF_PLAY, TRAIN
 from .ctf_crn import CtfCrn
 from .ctf_engine_factory import CtfEngineFactory
 from .ctf_nn_evaluator import CtfNNEvaluator
-from .ctf_policy_target import ctf_policy_loss
+from .ctf_policy_target import ctf_policy_loss_for
 from .ctf_self_play import build_self_play_collector
+from .tensor_layout import TensorLayout
 
 
 def train_one_generation(
     network: CtfCrn,
     optimizer: Optimizer,
     *,
+    setup: GameSetup,
     n_games: int,
     epochs: int,
     batch_size: int = 32,
@@ -47,6 +50,11 @@ def train_one_generation(
     place (its weights are updated), so the caller holds the improved network
     after the call — this is the seam the generations loop reuses.
 
+    `setup` is the board and army the generation's games are played under. It is
+    what the encoder, the action space, and the policy targets are all shaped
+    from, so it is taken once here rather than derived separately by each — a
+    generation is played, encoded, and scored under one configuration.
+
     `optimizer` must already be bound to `network.parameters()` (the caller
     builds it, so the optimizer/learning-rate choice stays a tuning decision for
     later). `self_play_temperature` defaults non-zero so self-play games diverge
@@ -55,7 +63,8 @@ def train_one_generation(
     happening (and the end-to-end test that the policy column mapping is correct:
     a flat or rising policy loss is that mapping's bug signature).
     """
-    evaluator = CtfNNEvaluator(network)
+    tensor_layout = TensorLayout.for_setup(setup)
+    evaluator = CtfNNEvaluator(network, tensor_layout)
     engine_factory = CtfEngineFactory(
         evaluator,
         iterations=self_play_iterations,
@@ -63,6 +72,7 @@ def train_one_generation(
     )
     collector = build_self_play_collector(
         evaluator,
+        setup,
         engine_factory=engine_factory,
         position_factory=position_factory,
     )
@@ -72,6 +82,6 @@ def train_one_generation(
     with region(SELF_PLAY):
         samples = collector.collect(n_games)
 
-    loop = TrainingLoop(network, optimizer, ctf_policy_loss)
+    loop = TrainingLoop(network, optimizer, ctf_policy_loss_for(tensor_layout))
     with region(TRAIN):
         return loop.train(samples, epochs=epochs, batch_size=batch_size)

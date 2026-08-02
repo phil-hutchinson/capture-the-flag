@@ -30,7 +30,7 @@ from capture_the_flag.engines.neural_network.ctf_training_run import (
     train_generations,
 )
 from capture_the_flag.record import (
-    ACTIVE_EDITION,
+    DEFAULT_EDITION,
     RuleFlag,
     RulesetConfiguration,
     active_configuration,
@@ -222,7 +222,7 @@ def test_resume_rejects_a_run_whose_config_and_checkpoint_disagree_on_the_rulese
     # Both values, each attributed to its source — a bare "they differ" would not
     # tell the developer which file to look at.
     assert "1-3:PRE-RELEASE" in message
-    assert ACTIVE_EDITION in message
+    assert DEFAULT_EDITION in message
     assert RUN_CONFIG_FILENAME in message
 
 
@@ -252,7 +252,7 @@ def test_resume_stamps_its_own_checkpoints_with_the_configuration_it_adopted(
         "capture_the_flag.record.RULE_FLAGS",
         {"MOVABLE_TOWERS": RuleFlag(flag_id="MOVABLE_TOWERS", values=("off", "on"), default="off")},
     )
-    trained_under = RulesetConfiguration(ACTIVE_EDITION, {"MOVABLE_TOWERS": "on"})
+    trained_under = RulesetConfiguration(DEFAULT_EDITION, {"MOVABLE_TOWERS": "on"})
     run_dir = _assembled_run(tmp_path, configuration=trained_under)
     # Self-play and gradient descent are not what is under test, and running them
     # would put this in the `slow` suite; the stub keeps the resume path itself

@@ -34,7 +34,7 @@ from capture_the_flag.engines.neural_network.ctf_position_factory import (
 from capture_the_flag.engines.neural_network.neural_ctf_player import NeuralCtfPlayer
 from capture_the_flag.engines.neural_network.tensor_layout import ENGINE_SPEC_NAME
 from capture_the_flag.record import (
-    ACTIVE_EDITION,
+    DEFAULT_EDITION,
     RulesetConfiguration,
     active_configuration,
 )
@@ -217,7 +217,7 @@ def test_saved_checkpoint_is_stamped_with_the_ruleset_configuration(tmp_path: Pa
 
     # Structured, not concatenated: comparison over the parts is what produces a
     # rejection message naming the offending flag.
-    assert raw["ruleset"] == {"edition": ACTIVE_EDITION, "flags": {}}
+    assert raw["ruleset"] == {"edition": DEFAULT_EDITION, "flags": {}}
 
 
 def test_checkpoint_configuration_reads_back_what_was_stamped(tmp_path: Path):
@@ -285,7 +285,7 @@ def test_load_network_rejects_a_malformed_ruleset_stamp(tmp_path: Path):
     path = checkpoint_path(tmp_path, 0)
     network = small_network()
     torch.save(
-        {**_checkpoint_without_ruleset(network), "ruleset": ACTIVE_EDITION}, path
+        {**_checkpoint_without_ruleset(network), "ruleset": DEFAULT_EDITION}, path
     )
 
     with pytest.raises(ValueError, match="ruleset stamp is malformed"):
@@ -305,7 +305,7 @@ def test_load_network_rejects_a_configuration_this_code_cannot_implement(
         {
             **_checkpoint_without_ruleset(network),
             "ruleset": {
-                "edition": ACTIVE_EDITION,
+                "edition": DEFAULT_EDITION,
                 "flags": {"MOVABLE_TOWERS": "on"},
             },
         },

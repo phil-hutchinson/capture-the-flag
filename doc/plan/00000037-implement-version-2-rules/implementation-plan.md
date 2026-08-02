@@ -26,7 +26,7 @@ appendix entry arrive together in step 11, which is where the document is writte
 and the code follows it in the same step.
 
 Two transients are expected and are fine on an unmerged branch. Between steps 2
-and 6 the engine plays major-2 rules while still stamping `1-2:PRE-RELEASE`.
+and 5 the engine plays major-2 rules while still stamping `1-2:PRE-RELEASE`.
 Between steps 7 and 11 it plays and stamps `2-0:SKIRMISH`, which step 11 supersedes
 — so branch-local artifacts written in that window become unloadable, and step 12
 clears them.
@@ -126,23 +126,37 @@ confirm the setup is accepted and the game plays.
 ### Step 5 — The flag registry, edition table, and configuration resolution
 
 Register `BOARD_LAYOUT` and `ARMY_COMPOSITION` in `RULE_FLAGS` with their
-published defaults. Add `2-0:BATTLE` and `2-0:SKIRMISH` to `EDITIONS` alongside
-`1-2:PRE-RELEASE`, and turn `ACTIVE_EDITION` from a single string into the set of
-Active ids. Drop `Edition`'s `distribution` field: since major 2 the distribution
-is the resolved `ARMY_COMPOSITION` value, not a second axis with its own claim on
-the army. Add resolution from a `RulesetConfiguration` to the layout and
-composition it selects.
+published defaults. Add `2-0:BATTLE` to `EDITIONS` alongside `1-2:PRE-RELEASE`,
+and turn `ACTIVE_EDITION` from a single string into the set of Active ids. Drop
+`Edition`'s `distribution` field: since major 2 the distribution is the resolved
+`ARMY_COMPOSITION` value, not a second axis with its own claim on the army. Add
+resolution from a `RulesetConfiguration` to the `GameSetup` it selects.
 
-Only what `rules.md` publishes today goes in — `2-1:SKIRMISH` waits for step 11.
+**`2-0:SKIRMISH` waits for step 7, not this step**, even though `rules.md`
+publishes it today. `EDITIONS` is the engine's copy of the part it must act on,
+and an Active edition the build cannot set up would be a claim it does not
+support — `standard_64` and `standard_skirmish` do not exist until step 7.
+`2-1:SKIRMISH` waits for step 11 as before.
+
+Resolution therefore has **two** rejection paths, saying different things:
+`unsupported_aspects` refuses an edition or label that is not *published*, while
+resolution refuses a published label this *build* has no implementation for.
+`standard_64` is the second case throughout steps 5 and 6.
 
 Depends on: Steps 3 and 4 (resolution needs layout and composition to be values
 it can resolve *to*).
 
 Verification (automated): replace the single-roster assertion in
 `tests/test_record.py` with a per-edition one — each Active edition's resolved
-distribution matches the roster the engine would build for it. Add a test that
-every edition id in `EDITIONS` resolves without error and that a historical id
-is recognised but not Active. Run `pytest tests/test_record.py`.
+army matches the one it publishes, failing if an Active edition is added without
+stating its army. Add tests that a historical edition, an unknown edition, and a
+published-but-unbuilt label are each refused in their own words. Run
+`pytest tests/test_record.py tests/test_game_setup.py`.
+
+Verification (manual): re-run the seeded 20-game batch and confirm every record
+is unchanged **apart from the `Ruleset` tag**, which now reads `2-0:BATTLE`
+instead of `1-2:PRE-RELEASE`. Confirm a training run stamps the same
+configuration into its checkpoint and its `run-config.json`.
 
 ---
 
@@ -167,8 +181,10 @@ in form.
 
 Add the second value for each flag: the 8 × 8 geometry with 3 home rows, 2 lake
 rows, no buffer, and lakes on columns B/C and F/G; and the 16-piece roster of 3
-each of ranks 1–4, 3 Towers, 1 Flag. Everything that does not go through the
-neural engine becomes playable on Skirmish.
+each of ranks 1–4, 3 Towers, 1 Flag. Add `2-0:SKIRMISH` to `EDITIONS` and to the
+Active set, which step 5 deferred to here because the build could not set it up.
+Everything that does not go through the neural engine becomes playable on
+Skirmish.
 
 Depends on: Step 6 (a second value is only reachable once a configuration selects
 it).

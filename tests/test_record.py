@@ -6,12 +6,13 @@ import random
 
 import pytest
 
-from capture_the_flag.game_setup import BATTLE_SETUP
+from capture_the_flag.game_setup import BATTLE_SETUP, resolve_setup
 from capture_the_flag.match import play_match
 from capture_the_flag.pieces import STANDARD_BATTLE
 from capture_the_flag.player import RandomCtfPlayer
 from capture_the_flag.record import (
-    ACTIVE_EDITION,
+    ACTIVE_EDITIONS,
+    DEFAULT_EDITION,
     EDITIONS,
     Edition,
     RuleFlag,
@@ -25,12 +26,14 @@ from capture_the_flag.record import (
 )
 
 _RESULT_TAGS = {1: "1-0", -1: "0-1", 0: "1/2-1/2"}
-_RULESET_TAG = f'[Ruleset "{ACTIVE_EDITION}"]'
+_RULESET_TAG = f'[Ruleset "{DEFAULT_EDITION}"]'
 
-# Hypothetical flags and a hypothetical later edition. The published registry is
-# empty (this story builds the machinery and defines no flag), so resolution,
-# rendering, and comparison can only be exercised against injected data — which is
-# why those functions take the registry and table as arguments.
+# Hypothetical flags and a hypothetical later edition. Resolution, rendering, and
+# comparison are exercised against injected data rather than the published
+# registry: the two real flags are set explicitly by every Active edition, so a
+# real configuration never carries a deviation, and the cases that matter here
+# (an edition overriding a flag default, a flag no edition sets) have no real
+# instance to test against.
 #
 # `MOVABLE_TOWERS` defaults to `off` but is set `on` by edition `1-3`, which is
 # the case that makes resolution two-level: the same flag resolves differently
@@ -45,7 +48,6 @@ _TABLE = {
     **EDITIONS,
     _LATER_EDITION_ID: Edition(
         edition_id=_LATER_EDITION_ID,
-        distribution=EDITIONS[ACTIVE_EDITION].distribution,
         flag_values={"MOVABLE_TOWERS": "on"},
     ),
 }
@@ -128,7 +130,7 @@ def test_write_record_always_includes_ruleset_tag():
     assert _RULESET_TAG in record
     # The full edition id, never a bare ruleset name: the name is a pointer that
     # moves, so it would not pin anything.
-    assert _RULESET_TAG == '[Ruleset "1-2:PRE-RELEASE"]'
+    assert _RULESET_TAG == '[Ruleset "2-0:BATTLE"]'
 
 
 def test_write_record_result_reflects_absolute_outcome():
@@ -184,68 +186,81 @@ def test_write_record_lone_final_white_ply_on_odd_length_games():
     assert len(last_line.split(" ")) == 2
 
 
-def test_active_edition_distribution_matches_the_army_roster():
-    # The edition spells its distribution out rather than reading the live army, so
-    # that a later roster change cannot retroactively alter what a published
-    # edition (and every record stamped with it) meant. This is the check that
-    # keeps the deliberate duplication honest: placement validation enforces
-    # the engine's own army on every game, so a divergence would mean records
-    # stamped with
-    # the active edition were played under something else.
+def test_every_active_edition_resolves_to_the_army_it_publishes():
+    # Per-edition since major 2: with more than one Active edition there is no
+    # single roster to compare against, and a check covering only one of them
+    # would leave the other unguarded.
     #
-    # If this fails because the roster changed: that is a rules change, and the
-    # fix is to update rules.md and publish a *new* edition, not to edit the
-    # existing edition's distribution to match. See doc/ruleset/CLAUDE.md, "The
+    # An edition names its army by flag *label*, and the label resolves to the
+    # composition the engine actually sets up with. This is the check that keeps
+    # the two honest: placement validation enforces the resolved army on every
+    # game, so a divergence would mean records stamped with an edition were
+    # played under something else.
+    #
+    # If this fails because a composition changed: that is a rules change, and
+    # the fix is to update rules.md and publish a *new* edition, not to point the
+    # existing edition at a different label. See doc/ruleset/CLAUDE.md, "The
     # document leads; the code follows" — this assertion cannot tell those two
     # apart, so making it green is not evidence of having done the right one.
-    assert EDITIONS[ACTIVE_EDITION].distribution == STANDARD_BATTLE.counts
+    published_armies = {"2-0:BATTLE": STANDARD_BATTLE.counts}
+    for edition_id in ACTIVE_EDITIONS:
+        setup = resolve_setup(active_configuration(edition_id))
+        assert setup.composition.counts == published_armies[edition_id], edition_id
+    # Every Active edition is covered, so adding one without stating its army
+    # here fails rather than passing silently.
+    assert set(published_armies) == set(ACTIVE_EDITIONS)
 
 
 def test_active_configuration_names_the_active_edition_with_no_deviations():
     configuration = active_configuration()
-    assert configuration.edition == ACTIVE_EDITION
-    # No flag exists to deviate on yet, so this is the only configuration the
-    # engine currently produces.
+    assert configuration.edition == DEFAULT_EDITION
+    # Every Active edition sets both published flags explicitly, so a flag at its
+    # resolved value is omitted and no real configuration carries a deviation.
     assert configuration.flags == {}
 
 
+def test_active_configuration_refuses_an_edition_this_build_does_not_play():
+    with pytest.raises(ValueError, match="not an Active edition"):
+        active_configuration("1-2:PRE-RELEASE")
+
+
 def test_render_is_the_bare_edition_id_when_nothing_deviates():
-    assert active_configuration().render() == ACTIVE_EDITION
-    assert active_configuration().render() == "1-2:PRE-RELEASE"  # dash, not dot
+    assert active_configuration().render() == DEFAULT_EDITION
+    assert active_configuration().render() == "2-0:BATTLE"  # dash, not dot
 
 
 def test_render_orders_flags_alphabetically_whatever_the_insertion_order():
     # Two configurations that mean the same thing must render identically, or a
     # record's text form would not be stable and two identical configurations
     # would compare unequal as strings.
-    one = RulesetConfiguration(ACTIVE_EDITION, {"MOVABLE_TOWERS": "on", "DIAGONAL_ATTACK": "yes"})
-    other = RulesetConfiguration(ACTIVE_EDITION, {"DIAGONAL_ATTACK": "yes", "MOVABLE_TOWERS": "on"})
+    one = RulesetConfiguration(DEFAULT_EDITION, {"MOVABLE_TOWERS": "on", "DIAGONAL_ATTACK": "yes"})
+    other = RulesetConfiguration(DEFAULT_EDITION, {"DIAGONAL_ATTACK": "yes", "MOVABLE_TOWERS": "on"})
     assert one.render() == other.render()
-    assert one.render() == f"{ACTIVE_EDITION} DIAGONAL_ATTACK=yes MOVABLE_TOWERS=on"
+    assert one.render() == f"{DEFAULT_EDITION} DIAGONAL_ATTACK=yes MOVABLE_TOWERS=on"
 
 
 def test_stamp_round_trips_through_its_nested_form():
-    configuration = RulesetConfiguration(ACTIVE_EDITION, {"MOVABLE_TOWERS": "on"})
+    configuration = RulesetConfiguration(DEFAULT_EDITION, {"MOVABLE_TOWERS": "on"})
     stamp = configuration.as_stamp()
-    assert stamp == {"edition": ACTIVE_EDITION, "flags": {"MOVABLE_TOWERS": "on"}}
+    assert stamp == {"edition": DEFAULT_EDITION, "flags": {"MOVABLE_TOWERS": "on"}}
     assert RulesetConfiguration.from_stamp(stamp) == configuration
 
 
 def test_stamp_of_an_all_defaults_configuration_still_names_its_edition():
     # An empty flag set is meaningful ("all edition values"); a *missing* edition
     # is not, which is why the edition is always stamped even when no flag is.
-    assert active_configuration().as_stamp() == {"edition": ACTIVE_EDITION, "flags": {}}
+    assert active_configuration().as_stamp() == {"edition": DEFAULT_EDITION, "flags": {}}
 
 
 @pytest.mark.parametrize(
     "raw",
     [
         "1-2:PRE-RELEASE",  # the rendered string, not the structured form
-        {"edition": ACTIVE_EDITION},  # no flags key
+        {"edition": DEFAULT_EDITION},  # no flags key
         {"flags": {}},  # no edition key
         {"edition": 12, "flags": {}},  # edition is not an id
-        {"edition": ACTIVE_EDITION, "flags": {"MOVABLE_TOWERS": True}},  # value not a label
-        {"edition": ACTIVE_EDITION, "flags": ["MOVABLE_TOWERS"]},  # flags not a mapping
+        {"edition": DEFAULT_EDITION, "flags": {"MOVABLE_TOWERS": True}},  # value not a label
+        {"edition": DEFAULT_EDITION, "flags": ["MOVABLE_TOWERS"]},  # flags not a mapping
     ],
 )
 def test_from_stamp_rejects_a_structurally_unusable_stamp(raw):
@@ -288,7 +303,7 @@ def test_unsupported_aspects_is_empty_for_what_this_code_plays():
 def test_unsupported_aspects_names_a_flag_this_code_does_not_have():
     # The published registry is empty, so any flag at all is unknown here — which
     # is exactly the state a checkpoint from a variant branch would arrive in.
-    configuration = RulesetConfiguration(ACTIVE_EDITION, {"MOVABLE_TOWERS": "on"})
+    configuration = RulesetConfiguration(DEFAULT_EDITION, {"MOVABLE_TOWERS": "on"})
     (aspect,) = unsupported_aspects(configuration)
     assert "MOVABLE_TOWERS" in aspect
     assert "no such flag" in aspect
@@ -298,7 +313,7 @@ def test_unsupported_aspects_names_a_flag_this_code_does_not_have():
 
 
 def test_unsupported_aspects_names_a_value_label_the_flag_does_not_have():
-    configuration = RulesetConfiguration(ACTIVE_EDITION, {"MOVABLE_TOWERS": "sideways"})
+    configuration = RulesetConfiguration(DEFAULT_EDITION, {"MOVABLE_TOWERS": "sideways"})
     (aspect,) = unsupported_aspects(configuration, rule_flags=_FLAGS, editions=_TABLE)
     assert "sideways" in aspect
     assert "knows only" in aspect
@@ -309,7 +324,7 @@ def test_unsupported_aspects_names_an_unknown_edition():
     configuration = RulesetConfiguration("9-9:BERSERKER")
     (aspect,) = unsupported_aspects(configuration)
     assert "9-9:BERSERKER" in aspect
-    assert ACTIVE_EDITION in aspect
+    assert DEFAULT_EDITION in aspect
 
 
 def test_unsupported_aspects_rejects_a_historical_edition_it_knows():
@@ -319,12 +334,12 @@ def test_unsupported_aspects_rejects_a_historical_edition_it_knows():
     # checkpoint stamped with a superseded edition must be refused, not trained on.
     configuration = RulesetConfiguration(_LATER_EDITION_ID)
     (aspect,) = unsupported_aspects(
-        configuration, rule_flags=_FLAGS, editions=_TABLE, active_edition=ACTIVE_EDITION
+        configuration, rule_flags=_FLAGS, editions=_TABLE, active_editions={DEFAULT_EDITION}
     )
     assert "historical" in aspect
     # Both ids: which edition the artifact claims, and which one this build plays.
     assert _LATER_EDITION_ID in aspect
-    assert ACTIVE_EDITION in aspect
+    assert DEFAULT_EDITION in aspect
 
 
 def test_unsupported_aspects_distinguishes_historical_from_unheard_of():
@@ -334,12 +349,12 @@ def test_unsupported_aspects_distinguishes_historical_from_unheard_of():
     historical = unsupported_aspects(
         RulesetConfiguration(_LATER_EDITION_ID),
         editions=_TABLE,
-        active_edition=ACTIVE_EDITION,
+        active_editions={DEFAULT_EDITION},
     )
     unknown = unsupported_aspects(
         RulesetConfiguration("9-9:BERSERKER"),
         editions=_TABLE,
-        active_edition=ACTIVE_EDITION,
+        active_editions={DEFAULT_EDITION},
     )
     assert "historical" in historical[0]
     assert "historical" not in unknown[0]
@@ -350,7 +365,7 @@ def test_canonicalize_drops_a_flag_written_out_at_its_resolved_value():
     # predates the flag), so listing it says nothing — but an uncanonical listing
     # renders differently and compares unequal to the configuration that means the
     # same thing, which would make a legitimate resume look like a disagreement.
-    listed = RulesetConfiguration(ACTIVE_EDITION, {"MOVABLE_TOWERS": "off"})
+    listed = RulesetConfiguration(DEFAULT_EDITION, {"MOVABLE_TOWERS": "off"})
     assert canonicalize(listed, rule_flags=_FLAGS, editions=_TABLE) == active_configuration()
 
     # And under an edition that sets the flag itself, it is the *edition's* value
@@ -371,7 +386,7 @@ def test_canonicalize_keeps_what_it_cannot_resolve():
     # for `unsupported_aspects` to name it; an unknown edition leaves everything
     # alone, since dropping against values this code does not have could drop a
     # real deviation.
-    unknown_flag = RulesetConfiguration(ACTIVE_EDITION, {"DIAGONAL_ATTACK": "no"})
+    unknown_flag = RulesetConfiguration(DEFAULT_EDITION, {"DIAGONAL_ATTACK": "no"})
     assert canonicalize(unknown_flag, rule_flags={}, editions=_TABLE) == unknown_flag
 
     unknown_edition = RulesetConfiguration("9-9:BERSERKER", {"MOVABLE_TOWERS": "off"})
@@ -383,21 +398,21 @@ def test_from_stamp_canonicalizes_what_it_reads(monkeypatch):
     # non-canonical stamp has to be normalised. Patched rather than injected
     # because a stamp arrives with no place to pass a registry through.
     monkeypatch.setattr("capture_the_flag.record.RULE_FLAGS", _FLAGS)
-    stamp = {"edition": ACTIVE_EDITION, "flags": {"MOVABLE_TOWERS": "off"}}
+    stamp = {"edition": DEFAULT_EDITION, "flags": {"MOVABLE_TOWERS": "off"}}
 
     configuration = RulesetConfiguration.from_stamp(stamp)
 
     assert configuration == active_configuration()
-    assert configuration.render() == ACTIVE_EDITION
+    assert configuration.render() == DEFAULT_EDITION
 
 
 def test_a_configuration_and_an_edition_can_be_hashed():
     # Both are frozen, which reads as hashable — but they hold mappings, so the
     # hash a frozen dataclass generates would raise at the point of use.
-    configuration = RulesetConfiguration(ACTIVE_EDITION, {"MOVABLE_TOWERS": "on"})
-    assert len({configuration, RulesetConfiguration(ACTIVE_EDITION, {"MOVABLE_TOWERS": "on"})}) == 1
-    assert {active_configuration(): "fresh"}[RulesetConfiguration(ACTIVE_EDITION)] == "fresh"
-    assert len({EDITIONS[ACTIVE_EDITION], _TABLE[_LATER_EDITION_ID]}) == 2
+    configuration = RulesetConfiguration(DEFAULT_EDITION, {"MOVABLE_TOWERS": "on"})
+    assert len({configuration, RulesetConfiguration(DEFAULT_EDITION, {"MOVABLE_TOWERS": "on"})}) == 1
+    assert {active_configuration(): "fresh"}[RulesetConfiguration(DEFAULT_EDITION)] == "fresh"
+    assert len({EDITIONS[DEFAULT_EDITION], _TABLE[_LATER_EDITION_ID]}) == 2
 
 
 def test_unsupported_aspects_ignores_flags_the_configuration_omits():
@@ -408,11 +423,11 @@ def test_unsupported_aspects_ignores_flags_the_configuration_omits():
 
 
 def test_configuration_differences_is_empty_when_both_sides_agree():
-    configuration = RulesetConfiguration(ACTIVE_EDITION, {"MOVABLE_TOWERS": "on"})
+    configuration = RulesetConfiguration(DEFAULT_EDITION, {"MOVABLE_TOWERS": "on"})
     assert (
         configuration_differences(
             configuration,
-            RulesetConfiguration(ACTIVE_EDITION, {"MOVABLE_TOWERS": "on"}),
+            RulesetConfiguration(DEFAULT_EDITION, {"MOVABLE_TOWERS": "on"}),
             left_label="run config",
             right_label="checkpoint",
         )
@@ -422,14 +437,14 @@ def test_configuration_differences_is_empty_when_both_sides_agree():
 
 def test_configuration_differences_reports_edition_and_flags_with_their_sources():
     differences = configuration_differences(
-        RulesetConfiguration(ACTIVE_EDITION, {"MOVABLE_TOWERS": "on"}),
+        RulesetConfiguration(DEFAULT_EDITION, {"MOVABLE_TOWERS": "on"}),
         RulesetConfiguration(_LATER_EDITION_ID),
         left_label="run config",
         right_label="checkpoint",
     )
     assert len(differences) == 2
     edition_difference, flag_difference = differences
-    assert "run config" in edition_difference and ACTIVE_EDITION in edition_difference
+    assert "run config" in edition_difference and DEFAULT_EDITION in edition_difference
     assert "checkpoint" in edition_difference and _LATER_EDITION_ID in edition_difference
     # A flag one side lists and the other omits is a difference, and must read as
     # one rather than as a missing value.

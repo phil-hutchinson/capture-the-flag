@@ -128,6 +128,13 @@ STANDARD_BATTLE: ArmyComposition = ArmyComposition(
 )
 """The Battle army: 3 each of ranks 1-6, 6 Towers, 1 Flag — 25 pieces."""
 
+ARMY_COMPOSITIONS: dict[str, ArmyComposition] = {
+    composition.composition_id: composition for composition in (STANDARD_BATTLE,)
+}
+"""Every `ARMY_COMPOSITION` value this build can actually field, keyed by its
+label — the army-side counterpart of `board.BOARD_LAYOUTS`, and implementability
+rather than publication for the same reason."""
+
 
 # The symbol -> piece inverse of `PieceType.symbol`, shared by the modules that
 # parse position blocks and placement files.

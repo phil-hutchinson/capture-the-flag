@@ -21,12 +21,10 @@ obligation of this module is to stamp accurately what was actually played, not
 to interpret anything stamped by anyone else.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 
 from game_engine_core.models.game_result import GameResult
-
-from .pieces import PieceType
 
 _RESULT_TAGS = {1: "1-0", -1: "0-1", 0: "1/2-1/2"}
 
@@ -50,39 +48,58 @@ class RuleFlag:
     default: str
 
 
-RULE_FLAGS: dict[str, RuleFlag] = {}
+RULE_FLAGS: dict[str, RuleFlag] = {
+    flag.flag_id: flag
+    for flag in (
+        RuleFlag(
+            flag_id="BOARD_LAYOUT",
+            values=("standard_144", "standard_64"),
+            default="standard_144",
+        ),
+        RuleFlag(
+            flag_id="ARMY_COMPOSITION",
+            values=("standard_battle", "standard_skirmish"),
+            default="standard_battle",
+        ),
+    )
+}
 """The published flag registry, keyed by flag id.
 
-Empty: no rule flag is defined yet. Flags are created lazily — standard behavior
-stays unflagged until someone wants to test a variant of it — so this grows one
-entry at a time as variants graduate from `doc/ruleset/proposed-variants.md`.
+Flags are created lazily — standard behavior stays unflagged until someone wants
+to test a variant of it — so this grows one entry at a time as variants graduate
+from `doc/ruleset/proposed-variants.md`.
 
 The document appendices are the source of truth for what is published (see
 `doc/ruleset/rules.md` Appendix A); this is the engine's own copy of the part it
-must act on.
+must act on. Both defaults reproduce what `1-2:PRE-RELEASE` played, which is what
+made introducing them a no-op for every edition and record that predates them.
+
+A value label appearing here is a claim about what is *published*, not about what
+this build can set up: `board.BOARD_LAYOUTS` and `pieces.ARMY_COMPOSITIONS` say
+which labels resolve to something playable, and `unsupported_aspects` reports the
+difference.
 """
 
 
 @dataclass(frozen=True)
 class Edition:
     """An immutable ruleset edition: `<major>-<minor>:<Ruleset>` resolving to a
-    piece distribution plus explicit flag values.
+    major baseline plus a complete set of flag values.
 
     **This table is a copy, not the definition.** An edition is defined by
     `doc/ruleset/rules.md` Appendix B, whose row for it is the published,
-    authoritative statement of what it means; the distribution in turn comes from
-    Section 2.2. This is the engine's own copy of the part it must act on, and if
-    the two ever disagree the document governs and the code is wrong.
+    authoritative statement of what it means. This is the engine's own copy of
+    the part it must act on, and if the two ever disagree the document governs
+    and the code is wrong.
 
-    `distribution` is spelled out here rather than read from
-    `pieces.ARMY_ROSTER` because an edition that silently followed the live
-    roster would not be immutable — a later roster change would retroactively
-    alter what a published edition means, and every record stamped with it.
-    `tests/test_record.py` asserts the active edition agrees with the roster, so
-    the duplication is a checked one. Note what that check does *not* establish:
-    it catches divergence, but cannot tell a roster change that should have
-    published a new edition from one that may edit this entry. Only the process
-    in `doc/ruleset/CLAUDE.md` distinguishes those.
+    **The army is a flag value, not a field.** Before major 2 an edition carried
+    a piece distribution of its own alongside its flag values, which gave two
+    things a claim on the army and needed a rule to arbitrate between them. It is
+    now the resolved `ARMY_COMPOSITION` value like anything else, so flags are the
+    only thing an edition is made of. Immutability survives the move because a
+    published value *label* is permanent: `standard_battle` names one army
+    forever (`rules.md` Appendix A), so an edition naming it means the same army
+    forever, without this table restating what that army is.
 
     `flag_values` holds the values *this edition* sets, which is not the same as
     the flags' own defaults: a later edition may set a flag whose registry
@@ -91,51 +108,51 @@ class Edition:
     """
 
     edition_id: str
-    distribution: Mapping[PieceType, int]
     flag_values: Mapping[str, str]
 
     def __hash__(self) -> int:
-        """Hash the mapping fields by content, since the generated `__hash__` a
+        """Hash the mapping field by content, since the generated `__hash__` a
         frozen dataclass would supply raises on a `dict` field.
 
-        `frozenset` rather than a sorted tuple because neither key type is
-        required to be orderable, and equality of two mappings is exactly
-        equality of their item sets.
+        `frozenset` rather than a sorted tuple because the keys are not required
+        to be orderable, and equality of two mappings is exactly equality of
+        their item sets.
         """
-        return hash(
-            (
-                self.edition_id,
-                frozenset(self.distribution.items()),
-                frozenset(self.flag_values.items()),
-            )
-        )
+        return hash((self.edition_id, frozenset(self.flag_values.items())))
 
 
-ACTIVE_EDITION = "1-2:PRE-RELEASE"
-"""The edition this code implements, and therefore the one it stamps.
+ACTIVE_EDITIONS: frozenset[str] = frozenset({"2-0:BATTLE"})
+"""The editions this build implements, and therefore the ones it can stamp.
 
-`PRE-RELEASE` is the current ruleset name (the game is pre-release and the rules
-are still being shaped). The minor carries the former `1.2` ruleset version
-forward: the story that introduced editions restructured the rules *document*
-without changing any rule, so there was no semantic change for a new minor to
-mark. Note the dash — an edition id is a compound label, not a decimal.
+**A build implements every Active edition**, not one: since major 2 two rulesets
+are published in parallel and the configuration is selected at run time, so this
+is a set rather than a single pointer. `2-0:SKIRMISH` joins it once the engine
+can set up its board and army.
+
+Note the dash in an edition id — it is a compound label, not a decimal, so a
+minor 10 would not sort before a minor 2.
+"""
+
+DEFAULT_EDITION = "2-0:BATTLE"
+"""The edition a run plays when it is not told which.
+
+Not an arbitrary pick among the Active editions: both published flags default to
+Battle's values (`standard_144`, `standard_battle`), so Battle *is* what the
+rules resolve to in the absence of a choice.
 """
 
 EDITIONS: dict[str, Edition] = {
-    ACTIVE_EDITION: Edition(
-        edition_id=ACTIVE_EDITION,
-        distribution={
-            PieceType.MASTER_OF_ARMS: 3,
-            PieceType.CHAMPION: 3,
-            PieceType.KNIGHT: 3,
-            PieceType.HALBERDIER: 3,
-            PieceType.FOOT_SOLDIER: 3,
-            PieceType.MILITIA: 3,
-            PieceType.TOWER: 6,
-            PieceType.FLAG: 1,
-        },
-        flag_values={},
-    ),
+    edition.edition_id: edition
+    for edition in (
+        Edition(
+            edition_id="2-0:BATTLE",
+            flag_values={
+                "BOARD_LAYOUT": "standard_144",
+                "ARMY_COMPOSITION": "standard_battle",
+            },
+        ),
+        Edition(edition_id="1-2:PRE-RELEASE", flag_values={}),
+    )
 }
 """Every edition this code knows, keyed by edition id.
 
@@ -143,9 +160,13 @@ Editions are never removed from this table and never redefined; an edition the
 active pointer has moved off is *historical*, not gone (`rules.md` Appendix B).
 Retaining it is what lets a stamped artifact still name something meaningful.
 
-Membership is therefore *not* implementability: this code plays `ACTIVE_EDITION`
-and nothing else, and a historical entry is a label it can recognise, not a
-ruleset it can run. `unsupported_aspects` draws that line.
+Membership is therefore *not* implementability: a historical entry is a label
+this code can recognise, not a ruleset it can run. `unsupported_aspects` draws
+that line.
+
+`1-2:PRE-RELEASE` sets no flag values because it predates both flags, so each
+resolves to its own registry default — which is exactly the behavior it was
+played under, since a flag's default is always what preceded it.
 """
 
 
@@ -239,13 +260,21 @@ class RulesetConfiguration:
         return canonicalize(cls(edition=edition, flags=dict(flags)))
 
 
-def active_configuration() -> RulesetConfiguration:
-    """What this code actually plays: the active edition, with no deviations.
+def active_configuration(edition: str = DEFAULT_EDITION) -> RulesetConfiguration:
+    """The configuration for an Active `edition`, with no deviations.
 
-    Deviating from an edition requires a flag to deviate on, and no flag is
-    defined yet, so this is the only configuration this code currently produces.
+    Both published flags are set explicitly by every Active edition, so a
+    configuration naming one of them lists no deviations at all and renders as a
+    bare edition id. A flag that exists, is authoritative, and never appears in
+    any artifact is a well-formed outcome under this model rather than a sign
+    something is wrong.
     """
-    return RulesetConfiguration(edition=ACTIVE_EDITION)
+    if edition not in ACTIVE_EDITIONS:
+        raise ValueError(
+            f"{edition!r} is not an Active edition; this build implements "
+            f"{', '.join(sorted(ACTIVE_EDITIONS))}"
+        )
+    return RulesetConfiguration(edition=edition)
 
 
 def resolve_flag(
@@ -328,7 +357,7 @@ def unsupported_aspects(
     *,
     rule_flags: Mapping[str, RuleFlag] | None = None,
     editions: Mapping[str, Edition] | None = None,
-    active_edition: str = ACTIVE_EDITION,
+    active_editions: Collection[str] = ACTIVE_EDITIONS,
 ) -> list[str]:
     """What about `configuration` the running code cannot implement, phrased for
     an error message; empty when it can implement all of it.
@@ -341,16 +370,18 @@ def unsupported_aspects(
     value" says the variant is here but has moved on — so each is reported in its
     own words rather than as a bare inequality.
 
-    **Implemented is not the same as known.** A build implements exactly one
-    edition, `ACTIVE_EDITION`; `EDITIONS` retains the ones the active pointer has
-    moved off, which is what lets a stamped artifact still name something
-    meaningful, but those are precisely the editions this code cannot play — a
-    new edition was published because the rules changed. So a historical edition
-    is rejected just as an unknown one is, only with a message that says which it
-    was: naming an edition this build never heard of and naming one it has
-    superseded are different situations for whoever has to act on the failure.
-    Validated replay of a historical edition means checking out the build that
-    implemented it (see `doc/ruleset/technical-notes.md`).
+    **Implemented is not the same as known.** A build implements every edition in
+    `ACTIVE_EDITIONS`; `EDITIONS` retains the ones the active pointer has moved
+    off, which is what lets a stamped artifact still name something meaningful,
+    but those are precisely the editions this code cannot play. A historical
+    edition is rejected because it is **not Active** — the rules changed, so a run
+    resuming from it would train under rules its weights never saw — and not
+    because a build can hold only one edition; it holds several and refuses the
+    ones it no longer plays. The message still says which case it was: naming an
+    edition this build never heard of and naming one it has superseded are
+    different situations for whoever has to act on the failure. Validated replay
+    of a historical edition means checking out the build that implemented it (see
+    `doc/ruleset/technical-notes.md`).
 
     Only the flags the configuration explicitly lists are checked. Everything it
     omits resolves to behavior this code implements by construction (see
@@ -359,7 +390,7 @@ def unsupported_aspects(
     rule_flags = RULE_FLAGS if rule_flags is None else rule_flags
     editions = EDITIONS if editions is None else editions
     aspects = []
-    if configuration.edition != active_edition:
+    if configuration.edition not in active_editions:
         known = (
             "a historical edition"
             if configuration.edition in editions
@@ -367,7 +398,7 @@ def unsupported_aspects(
         )
         aspects.append(
             f"edition {configuration.edition!r} is {known}; this code implements "
-            f"{active_edition!r}"
+            f"{', '.join(sorted(active_editions))}"
         )
     for flag_id in sorted(configuration.flags):
         value = configuration.flags[flag_id]

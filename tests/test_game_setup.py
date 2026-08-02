@@ -4,8 +4,13 @@ playable at all (rules.md Appendix A, "Combining these two")."""
 import pytest
 
 from capture_the_flag.board import STANDARD_144, BoardLayout
-from capture_the_flag.game_setup import BATTLE_SETUP, GameSetup
+from capture_the_flag.game_setup import BATTLE_SETUP, GameSetup, resolve_setup
 from capture_the_flag.pieces import STANDARD_BATTLE, ArmyComposition, PieceType
+from capture_the_flag.record import (
+    RulesetConfiguration,
+    active_configuration,
+    unsupported_aspects,
+)
 
 _SMALL_BOARD = BoardLayout(
     layout_id="small",
@@ -47,3 +52,47 @@ def test_an_army_exactly_filling_its_home_zone_is_allowed():
     )
     setup = GameSetup(layout=_SMALL_BOARD, composition=exact)
     assert setup.composition.size == len(_SMALL_BOARD.white_home_squares)
+
+
+def test_resolve_setup_builds_what_the_active_edition_names():
+    setup = resolve_setup(active_configuration("2-0:BATTLE"))
+    assert setup == BATTLE_SETUP
+    assert setup.layout.layout_id == "standard_144"
+    assert setup.composition.composition_id == "standard_battle"
+
+
+def test_resolve_setup_refuses_a_historical_edition():
+    # Not because the id is unknown — `1-2:PRE-RELEASE` is in the table so a
+    # stamped artifact still names something real — but because it is not Active:
+    # the rules changed, so playing it now would not be playing what it meant.
+    with pytest.raises(ValueError, match="historical edition"):
+        resolve_setup(RulesetConfiguration("1-2:PRE-RELEASE"))
+
+
+def test_resolve_setup_refuses_an_edition_it_has_never_heard_of():
+    with pytest.raises(ValueError, match="not an edition this code knows"):
+        resolve_setup(RulesetConfiguration("9-9:BERSERKER"))
+
+
+def test_resolve_setup_refuses_a_published_label_this_build_cannot_play():
+    # `standard_64` is published in Appendix A and is a legitimate value of a
+    # real flag — `unsupported_aspects` is right not to object to it. It is the
+    # *build* that has no board for it yet, which is a different failure and gets
+    # its own message.
+    configuration = RulesetConfiguration(
+        "2-0:BATTLE", {"BOARD_LAYOUT": "standard_64"}
+    )
+    assert unsupported_aspects(configuration) == []
+    with pytest.raises(ValueError, match="implements no BOARD_LAYOUT 'standard_64'"):
+        resolve_setup(configuration)
+
+
+def test_a_deviating_flag_actually_changes_what_is_resolved():
+    # The mechanism the flag model rests on: a configuration that deviates from
+    # its edition resolves to something different. Exercised through the army,
+    # since both published compositions are labels the flag knows.
+    deviating = RulesetConfiguration(
+        "2-0:BATTLE", {"ARMY_COMPOSITION": "standard_skirmish"}
+    )
+    with pytest.raises(ValueError, match="ARMY_COMPOSITION 'standard_skirmish'"):
+        resolve_setup(deviating)

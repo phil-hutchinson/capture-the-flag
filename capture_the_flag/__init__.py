@@ -21,7 +21,7 @@ from .board import (
 )
 from .combat import CombatResult, resolve_combat
 from .game_logging import CtfGameLogging
-from .game_setup import BATTLE_SETUP, GameSetup
+from .game_setup import BATTLE_SETUP, GameSetup, resolve_setup
 from .game_ui import CtfGameUI
 from .game_view import render_game_view
 from .match import MatchResult, build_initial_position, play_match
@@ -44,7 +44,8 @@ from .player import (
 from .ply import CtfPly, parse_ply
 from .position import CtfPosition
 from .record import (
-    ACTIVE_EDITION,
+    ACTIVE_EDITIONS,
+    DEFAULT_EDITION,
     RulesetConfiguration,
     active_configuration,
     write_record,
@@ -54,8 +55,9 @@ from .side import Side
 from .transitions import apply_ply
 
 __all__ = [
-    "ACTIVE_EDITION",
+    "ACTIVE_EDITIONS",
     "BATTLE_SETUP",
+    "DEFAULT_EDITION",
     "DEFAULT_PLACEMENT_DIR",
     "STANDARD_144",
     "STANDARD_BATTLE",
@@ -96,6 +98,7 @@ __all__ = [
     "random_placement",
     "render_game_view",
     "render_position_block",
+    "resolve_setup",
     "resolve_combat",
     "write_record",
 ]

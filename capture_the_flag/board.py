@@ -202,6 +202,16 @@ STANDARD_144: BoardLayout = BoardLayout(
 )
 """The Battle board: 12x12, 4 home / 1 buffer / 2 lake / 1 buffer / 4 home."""
 
+BOARD_LAYOUTS: dict[str, BoardLayout] = {
+    layout.layout_id: layout for layout in (STANDARD_144,)
+}
+"""Every `BOARD_LAYOUT` value this build can actually play, keyed by its label.
+
+Membership is *implementability*, not publication: `rules.md` Appendix A is what
+publishes a value label, and a label published there but absent here is a board
+this build cannot set up. `record.unsupported_aspects` is what turns that into a
+legible refusal rather than a crash."""
+
 
 def path_between(source: Square, destination: Square) -> tuple[Square, ...] | None:
     """Intermediate squares strictly between `source` and `destination`.

@@ -88,7 +88,7 @@ target, independent of which pieces `DIAGONAL_ATTACKABLE` allows as targets.
 | Value | Behavior |
 |---|---|
 | `always` | Unchanged from today: a diagonal attack is legal whenever the target square is diagonally adjacent and holds a legal target, regardless of what stands on the two squares flanking that diagonal. |
-| `open_path` | A diagonal attack additionally requires that **at least one** of the two squares flanking the diagonal (the two squares orthogonally adjacent to both attacker and target) be both unoccupied — by a piece of either side — and not a lake. If both flanking squares are lakes, occupied, or some combination of the two, the diagonal attack is illegal. |
+| `open_path` | A diagonal attack additionally requires that **at least one** of the two squares flanking the diagonal (the two squares orthogonally adjacent to both attacker and target) be unoccupied — by a piece of either side — and not a lake. If both flanking squares are lakes, occupied, or some combination of the two, the diagonal attack is illegal. |
 
 **Why:** Tests a stricter, path-based reading of the diagonal attack, closer in
 spirit to how a lake or a piece already blocks orthogonal movement, against the

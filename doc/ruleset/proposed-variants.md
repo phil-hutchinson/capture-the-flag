@@ -104,3 +104,99 @@ and stays illegal — `open_path` generalizes the squeeze decision to also cover
 flanks blocked by pieces, not just lakes.
 
 **Status:** proposed.
+
+### `BOARD_LAYOUT` — new value `asymmetric_100`
+
+**Existing flag**, published in `rules.md` Appendix A with values
+`standard_144` | `standard_64`, default `standard_144`. This proposes a third
+value; the default is unchanged, so no existing edition is affected.
+
+| | |
+|---|---|
+| Grid | 10 × 10 |
+| Rows | 3 home / 1 buffer / 2 lake / 1 buffer / 3 home |
+| Home zone | 3 rows × 10 columns = 30 squares |
+
+Lake pattern, identical in both lake rows, read left to right across all 10
+columns (`O` = open, `L` = lake):
+
+```
+L O O L O O L L L O
+```
+
+| Column | A | B | C | D | E | F | G | H | I | J |
+|---|---|---|---|---|---|---|---|---|---|---|
+| | L | O | O | L | O | O | L | L | L | O |
+
+This forms three lake blocks of **non-uniform width** — 1 column (A), 1 column
+(D), and 3 columns (G–I) — and three lanes: a 2-column lane (B–C), a 2-column
+lane (E–F), and a 1-column lane at the J edge only. **Column A has no lane**:
+unlike both published layouts, which are open at both edges, this value has a
+lake at one edge and a lane at the other. Lake and open squares split evenly
+within the lake rows — 10 lake squares and 10 open squares across the 2 × 10
+lake zone — matching the 50:50 ratio both published layouts also use, just
+distributed unevenly across the row instead of in uniform 2-wide blocks.
+
+**The reserved "squeeze" case stays unreachable.**
+[`technical-notes.md`](technical-notes.md#diagonal-attacks-and-lakes--a-decision-reserved-for-future-layouts)
+reserves a decision for the first layout that makes a diagonal attack's two
+flanking squares both lakes while its source and destination stay open, and
+warns that breaking the 2-wide, edge-to-edge alignment of the lakes — as this
+value's 1- and 3-wide blocks do — is exactly the kind of change that could make
+it reachable. It does not, here: because both lake rows share the identical
+column pattern, any two columns that are both lake columns and adjacent to
+each other are lake in *both* rows, which makes the diagonal's source or
+destination a lake too and rules the attack out before the squeeze question
+arises — the same reasoning that keeps it unreachable on `standard_144` and
+`standard_64`, and it does not depend on the lake blocks being a uniform
+width. This value does not need `technical-notes.md`'s reserved decision, and
+does not disturb it.
+
+**Why:** Tests a genuinely non-uniform, non-mirror-symmetric lake pattern for
+human playtesting, and a board size between Skirmish and Battle, before any
+decision is made on whether either property is worth building into a published
+edition.
+
+**Status:** proposed.
+
+### `ARMY_COMPOSITION` — new value `standard_clash`
+
+**Existing flag**, published in `rules.md` Appendix A with values
+`standard_battle` | `standard_skirmish`, default `standard_battle`. This
+proposes a third value; the default is unchanged.
+
+| Rank | Piece | Qty |
+|---|---|---|
+| 1 | Master-of-Arms | 3 |
+| 2 | Champion | 3 |
+| 3 | Knight | 3 |
+| 4 | Halberdier | 3 |
+| 5 | Foot Soldier | 3 |
+| — | Tower | 4 |
+| — | Flag | 1 |
+| | **Total** | **20** |
+
+Uses the top 5 ranks (Militia, rank 6, does not appear — the one rank Battle
+has and this value does not). Paired with `asymmetric_100`'s 30-square home
+zone, 20 pieces is a 66.7% fill — close to Skirmish's 67% (16 in 24) and
+denser than Battle's 52% (25 in 48).
+
+**Why:** A third army-size point, between Skirmish's 4 ranks and Battle's 6,
+for the same playtesting purpose as the board.
+
+**Status:** proposed.
+
+#### Together: the `CLASH` ruleset
+
+`asymmetric_100` and `standard_clash` are a co-designed pair, only meaningful
+in combination — exactly as `standard_64` and `standard_skirmish` are. If both
+are ever implemented, they would name a new ruleset, **Clash**, alongside
+Skirmish and Battle.
+
+**No `TOWER_PLACEMENT` value is needed.** `spacing_and_lanes` exists because
+Skirmish's home zones abut the lake rows directly, putting a home square in
+the mouth of every lane. `asymmetric_100` has a buffer row between each home
+zone and the lake rows, exactly as `standard_144` does, so no home square is
+ever in a lane's mouth — the existing default, `spacing_only`, is the only
+sensible setting, same as Battle. `spacing_and_lanes` would be legal to select
+but inert, as it already is on `standard_144`.

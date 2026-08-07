@@ -186,7 +186,7 @@ for the same playtesting purpose as the board.
 
 **Status:** proposed.
 
-#### Together: the `CLASH` ruleset
+### Together: the `CLASH` ruleset
 
 `asymmetric_100` and `standard_clash` are a co-designed pair, only meaningful
 in combination — exactly as `standard_64` and `standard_skirmish` are. If both
@@ -195,7 +195,8 @@ Skirmish and Battle.
 
 **No `TOWER_PLACEMENT` value is needed.** `spacing_and_lanes` exists because
 Skirmish's home zones abut the lake rows directly, putting a home square in
-the mouth of every lane. `asymmetric_100` has a buffer row between each home
+the mouth of every lane (`technical-notes.md`, "the geometric definition").
+`asymmetric_100` has a buffer row between each home
 zone and the lake rows, exactly as `standard_144` does, so no home square is
 ever in a lane's mouth — the existing default, `spacing_only`, is the only
 sensible setting, same as Battle. `spacing_and_lanes` would be legal to select

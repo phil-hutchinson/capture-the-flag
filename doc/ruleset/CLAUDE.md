@@ -34,20 +34,28 @@ active editions in `capture_the_flag/record.py`. That table is what stamps every
 game record and every checkpoint, so a stale value silently mis-tags everything
 written after the change.
 
-**There are two active editions** — `2-0:BATTLE` and `2-1:SKIRMISH` — and a
-change that alters play generally has to be considered for both. They share
-`rules.md` in its entirety and differ only in their `BOARD_LAYOUT`,
-`ARMY_COMPOSITION` and `TOWER_PLACEMENT` values, so a rules change that is not
-about the board, the army, or Tower placement almost certainly affects both, and
-publishing a new edition of one but not the other should be a deliberate decision
-rather than an oversight.
+**There are three active editions** — `2-0:BATTLE`, `2-0:CLASH` and
+`2-1:SKIRMISH` — and a change that alters play generally has to be considered for
+all of them. They share `rules.md` in its entirety and differ only in their
+`BOARD_LAYOUT`, `ARMY_COMPOSITION` and `TOWER_PLACEMENT` values, so a rules
+change that is not about the board, the army, or Tower placement almost certainly
+affects all three, and publishing a new edition of some but not the others should
+be a deliberate decision rather than an oversight.
 
 **Their minor numbers differ, and that is normal.** Minor is namespaced per
 ruleset: Skirmish went to `2-1` for the Tower lane restriction while Battle
-stayed at `2-0`, because Battle's play did not change. Do not "tidy" the two back
-into step — republishing an edition whose rules did not change would falsify
-every record and checkpoint already stamped with it. Only a notation break moves
-both majors at once.
+stayed at `2-0`, because Battle's play did not change, and Clash is at `2-0`
+simply because that is its first edition. Do not "tidy" them into step —
+republishing an edition whose rules did not change would falsify every record and
+checkpoint already stamped with it — and do not read agreement into two editions
+that happen to share a minor. Only a notation break moves every major at once.
+
+**Prose that generalizes over the live rulesets is a maintenance hazard.**
+Publishing Clash falsified several sentences in `rules.md` that were true of two
+boards — "single-column lanes at the two far edges" chief among them — and one in
+`technical-notes.md` that justified a reserved decision by a property of the two
+published lake patterns rather than by the property that actually held. When
+adding a ruleset, grep for the ones that say *both*.
 
 ### The document leads; the code follows
 
@@ -64,7 +72,7 @@ Board layout now works the same way, with `rules.md` §2.1 and the
 `BOARD_LAYOUT` entry as its definition.
 
 **Both are per-edition since major 2.** The engine's roster and board geometry
-are no longer single constants — there are two active editions with different
+are no longer single constants — there are three active editions with different
 values for each, selected at run time. Code that assumes one board size or one
 army is a bug even if it happens to be right about `BATTLE`.
 

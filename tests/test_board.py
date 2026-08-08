@@ -3,6 +3,8 @@
 import pytest
 
 from capture_the_flag.board import (
+    ASYMMETRIC_100,
+    BOARD_LAYOUTS,
     STANDARD_144,
     BoardLayout,
     Square,
@@ -59,6 +61,115 @@ def test_home_zones_have_48_squares_each_and_do_not_overlap():
 def test_home_zones_and_lakes_do_not_overlap():
     assert STANDARD_144.white_home_squares.isdisjoint(STANDARD_144.lake_squares)
     assert STANDARD_144.black_home_squares.isdisjoint(STANDARD_144.lake_squares)
+
+
+def test_clash_home_zones_have_30_squares_each_separated_by_buffer_rows():
+    assert len(ASYMMETRIC_100.white_home_squares) == 30
+    assert len(ASYMMETRIC_100.black_home_squares) == 30
+    assert all(1 <= s.row <= 3 for s in ASYMMETRIC_100.white_home_squares)
+    assert all(8 <= s.row <= 10 for s in ASYMMETRIC_100.black_home_squares)
+    # Rows 4 and 7 are neutral buffer: neither home nor lake. This is the
+    # geometry that makes `spacing_and_lanes` inert on Clash, so it is worth
+    # pinning rather than reading off the row counts.
+    buffer_squares = {
+        Square(c, r) for r in (4, 7) for c in range(ASYMMETRIC_100.columns)
+    }
+    assert buffer_squares.isdisjoint(ASYMMETRIC_100.white_home_squares)
+    assert buffer_squares.isdisjoint(ASYMMETRIC_100.black_home_squares)
+    assert buffer_squares.isdisjoint(ASYMMETRIC_100.lake_squares)
+
+
+def test_clash_lakes_split_the_lake_rows_evenly_but_unequally():
+    # 10 lake and 10 open squares across the 2 x 10 lake zone -- the same 50:50
+    # ratio the other two layouts have, distributed in blocks of 1, 1 and 3
+    # columns rather than uniform 2s.
+    assert len(ASYMMETRIC_100.lake_squares) == 10
+    assert len(ASYMMETRIC_100.lane_squares) == 10
+    assert all(s.row in (5, 6) for s in ASYMMETRIC_100.lake_squares)
+    lake_columns = {s.column for s in ASYMMETRIC_100.lake_squares}
+    assert lake_columns == {0, 3, 6, 7, 8}  # A, D, G-I
+    lane_columns = {s.column for s in ASYMMETRIC_100.lane_squares}
+    assert lane_columns == {1, 2, 4, 5, 9}  # B-C, E-F, J
+    # Column A is a lake and column J a lane: the one published board that is not
+    # open at both far edges, and not its own mirror image.
+    assert ASYMMETRIC_100.is_lake(Square(0, 5))
+    assert not ASYMMETRIC_100.is_lake(Square(9, 5))
+
+
+def test_clash_home_zones_and_lakes_do_not_overlap():
+    assert ASYMMETRIC_100.white_home_squares.isdisjoint(ASYMMETRIC_100.lake_squares)
+    assert ASYMMETRIC_100.black_home_squares.isdisjoint(ASYMMETRIC_100.lake_squares)
+
+
+def _squeezes(
+    columns: int, rows: int, lake_squares: frozenset[Square] | set[Square]
+) -> list[tuple[Square, Square]]:
+    """Every diagonal on a board of this size whose two flanking squares are both
+    lakes while its source and destination stay open — the *squeeze*.
+
+    Written against a lake set and a size rather than a `BoardLayout` so it can
+    be pointed at a hypothetical board too, which is what makes the assertion
+    below more than a restatement of the type's own guarantees.
+    """
+    found = []
+    for row in range(1, rows + 1):
+        for column in range(columns):
+            source = Square(column, row)
+            for column_step, row_step in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
+                destination = Square(column + column_step, row + row_step)
+                if not (
+                    0 <= destination.column < columns and 1 <= destination.row <= rows
+                ):
+                    continue
+                flanks = (
+                    Square(destination.column, source.row),
+                    Square(source.column, destination.row),
+                )
+                if (
+                    source not in lake_squares
+                    and destination not in lake_squares
+                    and all(flank in lake_squares for flank in flanks)
+                ):
+                    found.append((source, destination))
+    return found
+
+
+def test_no_registered_layout_makes_the_diagonal_squeeze_reachable():
+    # The *squeeze* is decided illegal in advance but deliberately left out of
+    # `rules.md`, on the grounds that no published layout can produce one
+    # (`technical-notes.md`, "Diagonal attacks and lakes"). That claim has to be
+    # re-earned by every layout added, so this runs over the registry rather than
+    # over any one board: a layout that made the squeeze reachable would reopen a
+    # reserved rules decision, silently.
+    #
+    # It holds because every lake row shares one column pattern, not because the
+    # published lakes are uniform 2x2 blocks -- `asymmetric_100`'s are 1, 1 and 3
+    # columns wide and it is still unreachable.
+    for layout in BOARD_LAYOUTS.values():
+        assert not _squeezes(
+            layout.columns, layout.rows, layout.lake_squares
+        ), layout.layout_id
+
+
+def test_the_squeeze_check_detects_one_when_it_exists():
+    # Without this, the assertion above passes for a reason stronger than it
+    # states and weaker than it appears: `BoardLayout` holds *one* lake pattern
+    # shared by every lake row, so a squeeze is not merely absent from the
+    # published layouts but inexpressible -- a lake column is lake in every lake
+    # row, which makes the diagonal's own source or destination a lake.
+    #
+    # So the hypothetical is built by hand: two single-square lakes placed
+    # diagonally, which is what per-row lake patterns would make possible. B1-A2
+    # is squeezed between the lakes at A1 and B2. Naming the shape that would
+    # trip the check is also the point -- it is the layout change that would send
+    # the reserved decision to `rules.md`.
+    lakes = {Square(0, 1), Square(1, 2)}
+    # Both directions of the one diagonal: a squeeze is a property of the pair,
+    # and either piece could be the attacker.
+    assert set(_squeezes(4, 4, lakes)) == {
+        (Square(1, 1), Square(0, 2)),
+        (Square(0, 2), Square(1, 1)),
+    }
 
 
 def test_orthogonal_neighbors_interior_square():

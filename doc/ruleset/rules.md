@@ -27,20 +27,25 @@ coordinates. The side assignment is settled before placement begins, and
 other than the first move it carries no inherent advantage
 (see [Section 3](#3-setup--phase-1-placement)).
 
-### Two rulesets
+### Three rulesets
 
-Capture the Flag is played in two forms, which share every rule in this document
-and differ only in the board and the army:
+Capture the Flag is played in three forms, which share every rule in this
+document and differ only in the board and the army:
 
 - **Battle** — a 12 × 12 board and an army of 25 pieces across six ranks.
+- **Clash** — a 10 × 10 board and an army of 20 pieces across five ranks.
 - **Skirmish** — an 8 × 8 board and an army of 16 pieces across four ranks.
 
-Both are described in full in [Section 2](#2-components). Neither is a variation
-on the other, and everything in Sections 3–7 applies identically to both.
+All three are described in full in [Section 2](#2-components). None is a
+variation on the others, and everything in Sections 3–7 applies identically to
+all of them.
 
 **If you are learning the game, start with Skirmish.** The smaller board and the
 shorter rank order make it quicker to play and easier to hold in your head, and
-nothing you learn there has to be unlearned for Battle.
+nothing you learn there has to be unlearned for the other two. **Clash sits
+between the other two**: a larger board and a fifth rank, with a home zone that
+still leaves plenty of choice about where to place. Its lakes are arranged
+differently from the other two boards — see [Section 2.1](#21-the-board).
 
 ---
 
@@ -48,7 +53,7 @@ nothing you learn there has to be unlearned for Battle.
 
 ### 2.1 The board
 
-Both boards are square, divided into two home zones separated by lake rows.
+All three boards are square, divided into two home zones separated by lake rows.
 
 #### Battle — 12 × 12
 
@@ -73,6 +78,38 @@ O L L O O L L O O L L O
 
 This forms three separate 2 × 2 lakes.
 
+#### Clash — 10 × 10
+
+| Rows | Region |
+|---|---|
+| 3 | Player A home zone |
+| 1 | Neutral buffer (empty) |
+| 2 | Lakes |
+| 1 | Neutral buffer (empty) |
+| 3 | Player B home zone |
+
+Each home zone is 3 rows × 10 columns = **30 squares**. As on the Battle board, a
+neutral buffer row separates each home zone from the lakes.
+
+Within the two lake rows, the columns follow this pattern (left to right across
+all 10 columns):
+
+```
+L O O L O O L L L O
+```
+
+This forms three separate lakes of **different sizes**: one column wide at column
+A, one column wide at column D, and three columns wide across columns G–I. Each
+is two rows deep, like every lake on every board.
+
+**The Clash lakes are not arranged symmetrically**, and this is deliberate rather
+than an oversight. A lake sits at the left edge of the board, so there is **no
+lane at column A**; the only edge lane is column J on the right. The board reads
+differently from left to right, but it reads the same way for both players —
+column letters name fixed physical positions and do not flip between sides (see
+[Section 4.4](#44-recording-a-move)) — and both home zones sit the same distance
+from the same lakes.
+
 #### Skirmish — 8 × 8
 
 | Rows | Region |
@@ -94,16 +131,25 @@ O L L O O L L O
 
 This forms two separate 2 × 2 lakes.
 
-#### Both boards
+#### All three boards
 
-`O` = open, `L` = lake. On either board the lakes leave single-column lanes at
-the two far edges and double-column lanes through the interior — two such lanes
-on Battle, one on Skirmish.
+`O` = open, `L` = lake. The columns the lakes leave open are the **lanes** — the
+only way from one half of the board to the other. Each board has its own
+arrangement of them:
+
+| Board | Lanes |
+|---|---|
+| Battle | column A, columns D–E, columns H–I, column L |
+| Clash | columns B–C, columns E–F, column J |
+| Skirmish | column A, columns D–E, column H |
+
+Battle and Skirmish are open at both far edges and have their wider lanes through
+the interior; Clash is not, and has a lake at its left edge instead.
 
 **Lake squares are impassable to every piece:** no piece may end a move on, or
 move through, a lake (see [Movement](#42-movement)).
 
-On both boards a home zone holds more squares than the army placed in it, so a
+On every board a home zone holds more squares than the army placed in it, so a
 player has a choice of which squares to occupy (see
 [Section 3](#3-setup--phase-1-placement)).
 
@@ -124,6 +170,20 @@ depends on the ruleset.
 | 6 | Militia | 3 |
 | — | Tower | 6 |
 | — | Flag | 1 |
+
+#### Clash — 20 pieces
+
+| Rank | Piece | Qty |
+|---|---|---|
+| 1 | Master-of-Arms | 3 |
+| 2 | Champion | 3 |
+| 3 | Knight | 3 |
+| 4 | Halberdier | 3 |
+| 5 | Foot Soldier | 3 |
+| — | Tower | 4 |
+| — | Flag | 1 |
+
+Clash uses the top five ranks only; Militia does not appear.
 
 #### Skirmish — 16 pieces
 
@@ -164,9 +224,11 @@ with no special abilities.
   Every other home square stays open, **B3, C3, F3 and G3** included — those sit
   behind the lakes, not behind a lane.
 
-  **This does not apply in Battle.** Battle's home zones are separated from the
-  lake rows by an empty buffer row, so no home square is directly in front of a
-  lane and there is nothing for the rule to close.
+  **This restriction is about the board, not about Skirmish.** It closes a square
+  only where a home zone sits directly against the lake rows, which is true of
+  Skirmish alone among the three boards: **Battle and Clash both have an empty
+  buffer row** between each home zone and the lakes, so no home square on either
+  is directly in front of a lane and there is nothing for the rule to close.
 - There are **no restrictions on where pieces other than towers are placed**,
   subject to the rule that they must be placed in their home zone.
 - **Sides are assigned before placement begins** (by lot or by tournament
@@ -299,9 +361,10 @@ back rank** — regardless of which physical side of the board White sits at.
 | Ruleset | Columns | Rows | White's near-left corner | Black's far corner |
 |---|---|---|---|---|
 | Battle | A–L | 1–12 | A1 | L12 |
+| Clash | A–J | 1–10 | A1 | J10 |
 | Skirmish | A–H | 1–8 | A1 | H8 |
 
-The notation is the same on either board; only the range of coordinates differs.
+The notation is the same on every board; only the range of coordinates differs.
 
 A move is recorded by entering the square that the moving piece started from,
 `-`, and the square it moved to or attacked. In the case of combat, an `x` is
@@ -377,7 +440,8 @@ moves that make no genuine attempt at progress.
 - **Lane** — a gap the lakes leave open through the lake rows: a run of columns
   crossing the middle of the board with no lake in it, and so the only way from
   one half of the board to the other. Battle has four (column A, columns D–E,
-  columns H–I, column L) and Skirmish three (column A, columns D–E, column H).
+  columns H–I, column L), Clash three (columns B–C, columns E–F, column J) and
+  Skirmish three (column A, columns D–E, column H).
 - **Movable piece** — a numbered piece (any rank). Towers and the Flag are not
   movable pieces. Only movable pieces may be attacked diagonally.
 - **Diagonal attack** — an attack on a movable enemy piece standing one square
@@ -386,7 +450,7 @@ moves that make no genuine attempt at progress.
 - **Sacrificial attack** — an attack in which the attacking piece does not
   survive. **Complete:** attacker removed, defender survives. **Partial:**
   attacker and defender both removed (a trade you initiate).
-- **Ruleset** — a named body of rules, such as Battle or Skirmish. A ruleset name
+- **Ruleset** — a named body of rules, such as Battle, Clash or Skirmish. A ruleset name
   always means whichever edition of it is currently active (Appendix B).
 - **Edition** — a specific, permanent version of a ruleset, written
   `<major>-<minor>:<Ruleset>` — for example `2-0:SKIRMISH`. An edition fixes a
@@ -402,8 +466,8 @@ moves that make no genuine attempt at progress.
 A **variant** is a single named rule setting with two or more named values, one
 of which is its **default**.
 
-Sections 1–7 describe both published rulesets in full, so you do not need this
-appendix to play either of them. What it provides is the vocabulary that names
+Sections 1–7 describe every published ruleset in full, so you do not need this
+appendix to play any of them. What it provides is the vocabulary that names
 *which* set of rules a given game used — the thing every game record and every
 trained engine stamps itself with — and a defined place for future settings to
 land.
@@ -436,7 +500,8 @@ once it is actually implemented in the game.
 
 ### `BOARD_LAYOUT`
 
-**Values:** `standard_144` | `standard_64` — **default `standard_144`**
+**Values:** `standard_144` | `asymmetric_100` | `standard_64` — **default
+`standard_144`**
 
 Selects the board. A value names a **complete layout**, not just a size: the grid
 dimensions, how many rows each home zone occupies, and where the lakes sit.
@@ -444,10 +509,14 @@ dimensions, how many rows each home zone occupies, and where the lakes sit.
 | Value | Grid | Rows | Home zone | Lakes |
 |---|---|---|---|---|
 | `standard_144` | 12 × 12 | 4 home / 1 buffer / 2 lake / 1 buffer / 4 home | 48 squares | three 2 × 2 |
+| `asymmetric_100` | 10 × 10 | 3 home / 1 buffer / 2 lake / 1 buffer / 3 home | 30 squares | one 1 × 2, one 1 × 2, one 3 × 2 |
 | `standard_64` | 8 × 8 | 3 home / 2 lake / 3 home | 24 squares | two 2 × 2 |
 
-Both layouts are described in full in [Section 2.1](#21-the-board):
-`standard_144` is the Battle board, `standard_64` the Skirmish board.
+All three layouts are described in full in [Section 2.1](#21-the-board):
+`standard_144` is the Battle board, `asymmetric_100` the Clash board, and
+`standard_64` the Skirmish board. `asymmetric_100` is named for its lakes, which
+— unlike the other two layouts' — are neither all the same width nor mirrored
+left to right.
 
 Because a value names the whole layout, a board that differed only in its
 home-zone depth — the same 8 × 8 grid with two home rows instead of three — would
@@ -455,16 +524,18 @@ be a **new value**, not an adjustment to this one.
 
 ### `ARMY_COMPOSITION`
 
-**Values:** `standard_battle` | `standard_skirmish` — **default `standard_battle`**
+**Values:** `standard_battle` | `standard_clash` | `standard_skirmish` —
+**default `standard_battle`**
 
 Selects the army each player commands.
 
 | Value | Army | Total |
 |---|---|---|
 | `standard_battle` | 3 each of ranks 1–6, 6 Towers, 1 Flag | 25 |
+| `standard_clash` | 3 each of ranks 1–5, 4 Towers, 1 Flag | 20 |
 | `standard_skirmish` | 3 each of ranks 1–4, 3 Towers, 1 Flag | 16 |
 
-Both armies are listed in full in [Section 2.2](#22-the-pieces).
+All three armies are listed in full in [Section 2.2](#22-the-pieces).
 
 ### `TOWER_PLACEMENT`
 
@@ -488,10 +559,11 @@ on which board is in play:
 |---|---|
 | `standard_64` | A3, D3, E3, H3 and A6, D6, E6, H6 — four per home zone |
 | `standard_144` | none — an empty buffer row separates each home zone from the lake rows |
+| `asymmetric_100` | none — for the same reason as `standard_144` |
 
 `spacing_and_lanes` is therefore a real restriction on the Skirmish board and no
-restriction whatever on the Battle board. Nothing else about Towers changes under
-either value, and no other piece is affected by either.
+restriction whatever on either board that has a buffer row. Nothing else about
+Towers changes under either value, and no other piece is affected by either.
 
 ### Combining these
 
@@ -538,18 +610,23 @@ change what it meant, it only stops it from being the one currently played.
 | Edition | Variant values | In plain terms | Status |
 |---|---|---|---|
 | `2-0:BATTLE` | `BOARD_LAYOUT=standard_144`, `ARMY_COMPOSITION=standard_battle`, `TOWER_PLACEMENT=spacing_only` | 12 × 12 board; 25-piece army across six ranks; Tower spacing only | active |
+| `2-0:CLASH` | `BOARD_LAYOUT=asymmetric_100`, `ARMY_COMPOSITION=standard_clash`, `TOWER_PLACEMENT=spacing_only` | 10 × 10 board with asymmetric lakes; 20-piece army across five ranks; Tower spacing only | active |
 | `2-1:SKIRMISH` | `BOARD_LAYOUT=standard_64`, `ARMY_COMPOSITION=standard_skirmish`, `TOWER_PLACEMENT=spacing_and_lanes` | 8 × 8 board; 16-piece army across four ranks; no Tower in front of a lane | active |
 
-Both rulesets are offered and maintained together. They share this entire rules
-text and differ only in the three variant values shown. **Skirmish** is the
+All three rulesets are offered and maintained together. They share this entire
+rules text and differ only in the three variant values shown. **Skirmish** is the
 recommended starting point for a new player (see
-[Section 1](#two-rulesets)); **Battle** is the larger game.
+[Section 1](#three-rulesets)); **Clash** is the middle game and **Battle** the
+largest.
 
-**The two minor numbers advance independently.** They share a major because they
+**The minor numbers advance independently.** The three share a major because they
 share this rules text, but a change published for one ruleset does not renumber
-the other: Skirmish moved to minor 1 when the Tower lane restriction was
-published, and Battle stayed at minor 0 because nothing about Battle changed. A
-major bump is the only thing that moves both at once.
+the others: Skirmish moved to minor 1 when the Tower lane restriction was
+published, and Battle stayed at minor 0 because nothing about Battle changed.
+Clash is at minor 0 because `2-0:CLASH` is its first edition — not because it
+agrees with Battle about anything. **Do not read a relationship into two editions
+that carry the same minor.** A major bump is the only thing that moves them all
+at once.
 
 Note that `2-0:BATTLE` sets `TOWER_PLACEMENT=spacing_only` while `2-1:SKIRMISH`
 sets `spacing_and_lanes`. Every edition fixes a value for **every** variant, so

@@ -3,7 +3,9 @@
 import pytest
 
 from capture_the_flag.pieces import (
+    ARMY_COMPOSITIONS,
     STANDARD_BATTLE,
+    STANDARD_CLASH,
     ArmyComposition,
     Mobility,
     PieceType,
@@ -31,6 +33,43 @@ def test_per_rank_counts_match_rules_table():
     assert STANDARD_BATTLE.counts == EXPECTED_COUNTS
     for piece, count in EXPECTED_COUNTS.items():
         assert STANDARD_BATTLE.count(piece) == count
+
+
+def test_standard_clash_fields_twenty_pieces_across_the_top_five_ranks():
+    # rules.md Section 2.2, Clash: 3 each of ranks 1-5, 4 Towers, 1 Flag.
+    assert STANDARD_CLASH.size == 20
+    assert STANDARD_CLASH.counts == {
+        PieceType.MASTER_OF_ARMS: 3,
+        PieceType.CHAMPION: 3,
+        PieceType.KNIGHT: 3,
+        PieceType.HALBERDIER: 3,
+        PieceType.FOOT_SOLDIER: 3,
+        PieceType.TOWER: 4,
+        PieceType.FLAG: 1,
+    }
+    # Militia is the one rank Clash omits, and asking about it is not an error --
+    # the learned evaluator normalises a per-rank plane by exactly this number
+    # and needs 0, not a KeyError.
+    assert STANDARD_CLASH.count(PieceType.MILITIA) == 0
+
+
+def test_each_published_composition_omits_a_different_set_of_ranks():
+    # Which ranks a composition leaves at 0 is not a fixed set: Battle omits
+    # none, Clash omits Militia, Skirmish omits Foot Soldier and Militia. Code
+    # that hardcodes "the ranks Skirmish is missing" is wrong on Clash.
+    omitted = {
+        composition.composition_id: {
+            piece.piece_name
+            for piece in PieceType
+            if piece.rank is not None and composition.count(piece) == 0
+        }
+        for composition in ARMY_COMPOSITIONS.values()
+    }
+    assert omitted == {
+        "standard_battle": set(),
+        "standard_clash": {"Militia"},
+        "standard_skirmish": {"Foot Soldier", "Militia"},
+    }
 
 
 def test_count_is_zero_for_a_piece_the_army_does_not_field():

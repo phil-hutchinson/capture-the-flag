@@ -128,6 +128,25 @@ STANDARD_BATTLE: ArmyComposition = ArmyComposition(
 )
 """The Battle army: 3 each of ranks 1-6, 6 Towers, 1 Flag — 25 pieces."""
 
+STANDARD_CLASH: ArmyComposition = ArmyComposition(
+    composition_id="standard_clash",
+    counts={
+        PieceType.MASTER_OF_ARMS: 3,
+        PieceType.CHAMPION: 3,
+        PieceType.KNIGHT: 3,
+        PieceType.HALBERDIER: 3,
+        PieceType.FOOT_SOLDIER: 3,
+        PieceType.TOWER: 4,
+        PieceType.FLAG: 1,
+    },
+)
+"""The Clash army: 3 each of ranks 1-5, 4 Towers, 1 Flag — 20 pieces.
+
+The top five ranks; Militia does not appear. Like `standard_skirmish` it
+truncates the rank order rather than skipping within it, just one rank later —
+so *which* ranks resolve to a count of 0 differs by composition and is never a
+fixed set for the build to assume."""
+
 STANDARD_SKIRMISH: ArmyComposition = ArmyComposition(
     composition_id="standard_skirmish",
     counts={
@@ -146,7 +165,7 @@ answers 0 for them rather than raising."""
 
 ARMY_COMPOSITIONS: dict[str, ArmyComposition] = {
     composition.composition_id: composition
-    for composition in (STANDARD_BATTLE, STANDARD_SKIRMISH)
+    for composition in (STANDARD_BATTLE, STANDARD_CLASH, STANDARD_SKIRMISH)
 }
 """Every `ARMY_COMPOSITION` value this build can actually field, keyed by its
 label — the army-side counterpart of `board.BOARD_LAYOUTS`, and implementability

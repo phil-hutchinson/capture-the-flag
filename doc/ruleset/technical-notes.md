@@ -189,8 +189,10 @@ shared pattern is what does the work.
 expressible in the current type can reach the squeeze at all. Reaching it
 requires the type to change first — per-row lake patterns, which would also allow
 offset blocks touching corner to corner and single-square lakes placed
-diagonally. `tests/test_board.py` asserts the property over `BOARD_LAYOUTS` as a
-whole rather than over any one layout, so a future value inherits the check.
+diagonally. `tests/test_moves.py` asserts the property over `BOARD_LAYOUTS` as a
+whole rather than over any one layout, so a future value inherits the check, and
+asserts alongside it that the check can still detect a squeeze when given a board
+that has one.
 
 Because no position can currently distinguish the two answers, this note changes
 nothing about how any published edition is played, which is why it belongs in

@@ -96,7 +96,7 @@ class BoardLayout:
     attack to begin with. That holds for any pattern this field can express, of
     any block width and with no symmetry required, which is why
     `technical-notes.md` can reserve the squeeze decision rather than settle it
-    (`tests/test_board.py` asserts it over every registered layout). Per-row lake
+    (`tests/test_moves.py` asserts it over every registered layout). Per-row lake
     patterns would be the change that makes it reachable."""
 
     white_home_rows: range = field(init=False, compare=False, repr=False)

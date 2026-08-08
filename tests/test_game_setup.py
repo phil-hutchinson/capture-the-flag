@@ -19,6 +19,7 @@ from capture_the_flag.record import (
     active_configuration,
     unsupported_aspects,
 )
+from capture_the_flag.side import Side
 
 _SMALL_BOARD = BoardLayout(
     layout_id="small",
@@ -155,6 +156,44 @@ def test_skirmish_resolves_to_its_published_board_and_army():
     # Ranks 5 and 6 do not appear.
     assert setup.composition.count(PieceType.FOOT_SOLDIER) == 0
     assert setup.composition.count(PieceType.MILITIA) == 0
+
+
+def test_clash_resolves_to_its_published_board_and_army():
+    setup = setup_for_ruleset("CLASH")
+    assert setup.stamp.edition == "2-0:CLASH"
+    # 10 x 10, 3 home rows each side, 2 lake rows, a buffer row on each side.
+    assert (setup.layout.columns, setup.layout.rows) == (10, 10)
+    assert setup.layout.white_home_rows == range(1, 4)
+    assert setup.layout.black_home_rows == range(8, 11)
+    assert setup.layout.lake_rows == (5, 6)
+    # Lakes on columns A, D and G-I: unequal widths, and no lane at the left
+    # edge, which no other published board does.
+    assert setup.layout.lake_squares == {
+        Square(column, row) for row in (5, 6) for column in (0, 3, 6, 7, 8)
+    }
+    # 20 pieces into 30 home squares — 67% filled, as Skirmish is.
+    assert setup.composition.size == 20
+    assert len(setup.layout.white_home_squares) == 30
+    # Rank 6 does not appear; rank 5, which Skirmish also drops, does.
+    assert setup.composition.count(PieceType.FOOT_SOLDIER) == 3
+    assert setup.composition.count(PieceType.MILITIA) == 0
+
+
+def test_the_lane_restriction_closes_nothing_on_clash_under_either_value():
+    # Clash publishes `spacing_only`, but the reason to leave it there is that
+    # the other value would be inert: the restriction closes a square only where
+    # a home zone abuts a lake row, and Clash has a buffer row on each side, as
+    # Battle does. Asserting it under *both* values is what makes that a property
+    # of the board rather than of the edition's choice.
+    clash = setup_for_ruleset("CLASH")
+    lanes_on = resolve_setup(
+        RulesetConfiguration(
+            edition="2-0:CLASH", flags={"TOWER_PLACEMENT": SPACING_AND_LANES}
+        )
+    )
+    for setup in (clash, lanes_on):
+        for side in Side:
+            assert setup.forbidden_tower_squares(side) == frozenset()
 
 
 def test_a_resolved_setup_carries_what_to_stamp_it_as():

@@ -8,7 +8,11 @@ import pytest
 
 from capture_the_flag.game_setup import BATTLE_SETUP, resolve_setup
 from capture_the_flag.match import play_match
-from capture_the_flag.pieces import STANDARD_BATTLE, STANDARD_SKIRMISH
+from capture_the_flag.pieces import (
+    STANDARD_BATTLE,
+    STANDARD_CLASH,
+    STANDARD_SKIRMISH,
+)
 from capture_the_flag.player import RandomCtfPlayer
 from capture_the_flag.record import (
     ACTIVE_EDITIONS,
@@ -210,6 +214,7 @@ def test_every_active_edition_resolves_to_the_army_it_publishes():
     # apart, so making it green is not evidence of having done the right one.
     published_armies = {
         "2-0:BATTLE": STANDARD_BATTLE.counts,
+        "2-0:CLASH": STANDARD_CLASH.counts,
         "2-1:SKIRMISH": STANDARD_SKIRMISH.counts,
     }
     for edition_id in ACTIVE_EDITIONS:

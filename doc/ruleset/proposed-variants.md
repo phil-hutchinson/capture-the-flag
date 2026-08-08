@@ -106,7 +106,8 @@ current adjacency-only rule.
 **Interaction with the existing lake-corner note.** `technical-notes.md`
 already distinguishes the *skirt* (one flanking square a lake, the other open —
 legal today) from the *squeeze* (both flanking squares lakes — decided illegal,
-though currently unreachable on both published boards). `open_path`'s "at least
+though unreachable on every published board, and on any board the current
+`BoardLayout` type can express). `open_path`'s "at least
 one flank open" reading is consistent with both of those existing decisions: a
 skirt still has an open flank and stays legal, and a squeeze has no open flank
 and stays illegal — `open_path` generalizes the squeeze decision to also cover

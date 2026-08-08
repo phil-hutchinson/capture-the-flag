@@ -77,6 +77,8 @@ def random_placement(
     #   Battle, either TOWER_PLACEMENT: 6 Towers, 48 candidates (the lane
     #     restriction closes nothing on a board with a buffer row), leaving at
     #     least 48 - 45 = 3 for the sixth.
+    #   Clash, either TOWER_PLACEMENT: 4 Towers, 30 candidates (a buffer row
+    #     again, so again nothing closed), at least 30 - 27 = 3 for the fourth.
     #   Skirmish, spacing_only: 3 Towers, 24 candidates, at least 24 - 18 = 6 for
     #     the third.
     #   Skirmish, spacing_and_lanes: 3 Towers, 24 - 4 = 20 candidates, at least

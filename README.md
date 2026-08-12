@@ -76,20 +76,20 @@ python -m capture_the_flag.game_runner --white human --black neural \
     --white-name Alice
 ```
 
-The board is rendered before a human's turn (and throughout a machine-vs-machine
-game, so it can be watched). Each human player supplies their phase-1 setup at a
-prompt: either the name of a
-placement file read from the gitignored `placements/` folder
-(`-p`/`--placements-dir` overrides the folder), or `random` for a random legal
-placement. A placement file is one row per home-zone row, each as wide as the
-board — 4 rows of 12 for Battle, 3 rows of 10 for Clash, 3 rows of 8 for
-Skirmish — where each character is a one-character piece symbol (`1`–`6`, `T`,
-`F`) or `-` for an empty square, since a home zone holds more squares than the
-army fills. It is written from the
-owning player's seat (first line nearest the lakes, last line the back rank), so
-the same file produces the same setup for either side, and its shape is what
-identifies which board it is for. The folder is gitignored and **ships empty** —
-placement files are yours to write, and no example ones are checked in.
+The board is rendered before a human's turn (and throughout a
+machine-vs-machine game, so it can be watched). Each human player supplies
+their phase-1 setup at a prompt: either the name of a placement file read from
+the gitignored `placements/` folder (`-p`/`--placements-dir` overrides the
+folder), or `random` for a random legal placement. A placement file is one row
+per home-zone row, each as wide as the board — 4 rows of 12 for Battle, 3 rows
+of 10 for Clash, 3 rows of 8 for Skirmish — where each character is a
+one-character piece symbol (`1`–`6`, `T`, `F`) or `-` for an empty square,
+since a home zone holds more squares than the army fills. It is written from
+the owning player's seat (first line nearest the lakes, last line the back
+rank), so the same file produces the same setup for either side, and its shape
+is what identifies which board it is for. The folder is gitignored and **ships
+empty** — placement files are yours to write, and no example ones are checked
+in.
 
 Moves are typed in the simple source–destination notation (e.g. `A2A3`);
 malformed or illegal input re-prompts with an explanation, and each turn's

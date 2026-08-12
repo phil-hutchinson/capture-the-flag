@@ -198,7 +198,7 @@ Clash uses the top five ranks only; Militia does not appear.
 
 Skirmish uses the top four ranks only; Foot Soldier and Militia do not appear.
 
-#### Both armies
+#### All three armies
 
 The numbered pieces form a strict strength order, **rank 1 being the strongest**
 and the highest-numbered rank the weakest. Towers and the Flag cannot move or
@@ -216,19 +216,14 @@ with no special abilities.
 - **No two towers may be placed next to each other**, including on a diagonal. 
   (This means the eight squares immediately surrounding it, or fewer at board
   edges or next to lakes.)
-- **In Skirmish, no tower may stand directly in front of a lane.** The lanes are
-  the gaps the lakes leave open ([Section 2.1](#21-the-board)) — on the Skirmish
-  board, column A, columns D–E, and column H. The home square immediately in
-  front of each of those columns is closed to towers: **A3, D3, E3 and H3** for
-  the player whose back rank is row 1, and **A6, D6, E6 and H6** for the other.
-  Every other home square stays open, **B3, C3, F3 and G3** included — those sit
-  behind the lakes, not behind a lane.
-
-  **This restriction is about the board, not about Skirmish.** It closes a square
-  only where a home zone sits directly against the lake rows, which is true of
-  Skirmish alone among the three boards: **Battle and Clash both have an empty
-  buffer row** between each home zone and the lakes, so no home square on either
-  is directly in front of a lane and there is nothing for the rule to close.
+- **No tower may stand directly in front of a lane** — that is, on a home square
+  orthogonally adjacent to a square that lies in a lake row and is not itself a
+  lake. This closes squares only where a home zone sits directly against the
+  lake rows. On the Skirmish board that is **A3, D3, E3 and H3** for the player
+  whose back rank is row 1, and **A6, D6, E6 and H6** for the other; every other
+  home square stays open, **B3, C3, F3 and G3** included — those sit behind the
+  lakes, not behind a lane. Battle and Clash both have an empty buffer row
+  between each home zone and the lakes, so nothing is closed on either.
 - There are **no restrictions on where pieces other than towers are placed**,
   subject to the rule that they must be placed in their home zone.
 - **Sides are assigned before placement begins** (by lot or by tournament
@@ -557,9 +552,9 @@ on which board is in play:
 
 | Board | Squares closed to Towers |
 |---|---|
-| `standard_64` | A3, D3, E3, H3 and A6, D6, E6, H6 — four per home zone |
 | `standard_144` | none — an empty buffer row separates each home zone from the lake rows |
 | `asymmetric_100` | none — for the same reason as `standard_144` |
+| `standard_64` | A3, D3, E3, H3 and A6, D6, E6, H6 — four per home zone |
 
 `spacing_and_lanes` is therefore a real restriction on the Skirmish board and no
 restriction whatever on either board that has a buffer row. Nothing else about

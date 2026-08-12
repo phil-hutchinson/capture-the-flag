@@ -91,10 +91,11 @@ move produces an equivalent position — the two encode to identical tensors.
 
 **All thirty-four planes are present under every army**, including planes for
 ranks the army does not field. Under `2-1:SKIRMISH` the Foot Soldier and Militia
-planes (6, 7, 14, 15, 26, 27, 32, 33) are therefore always zero. Dropping them
-would make the two rulesets two different contracts and foreclose any question
-about a trunk trained on one board being reused on the other; keeping the layout
-fixed costs four dead channels on the smaller army and leaves that open.
+planes (6, 7, 14, 15, 26, 27, 32, 33) and under `2-0:CLASH` the Militia planes
+(7, 15, 27, 33) are therefore always zero. Dropping them would make the
+published rulesets different contracts and foreclose any question about a trunk
+trained on one board being reused on another; keeping the layout fixed costs
+dead channels on the smaller armies and leaves that open.
 
 #### Piece presence: 1 if present, 0 if not present
 
@@ -250,10 +251,10 @@ trained at is recorded with the artifact, in the checkpoint's own metadata.
 The alternative to parameterising by `R` and `C` was a spec per board —
 `ENG_NN_3` for 12 × 12, `ENG_NN_4` for 8 × 8, and one more for every layout
 after. It was rejected because a spec is a statement about *how a position
-becomes a tensor*, and that statement is identical on both boards: same planes,
-same perspective rule, same movement index, same normalisation. Two documents
+becomes a tensor*, and that statement is identical on every board: same planes,
+same perspective rule, same movement index, same normalisation. Three documents
 would have differed only in three numbers, and every later change would have had
-to be made twice and kept in step by hand.
+to be made three times and kept in step by hand.
 
 The cost is that a spec name no longer identifies a set of interchangeable
 weights. That cost is paid where it arises rather than in the document: the

@@ -341,9 +341,8 @@ stamp does not cover this — it names the tensor *shape* contract, so a rules-o
 change leaves it untouched and the weights would load cleanly into a network
 evaluating under rules they never saw. `ENG_NN_3` is compatible with every
 Active edition precisely because it is stated parametrically in the board and
-roster;
-that is a claim about the contract, and says nothing about whether one set of
-weights can move between them.
+roster; that is a claim about the contract, and says nothing about whether one
+set of weights can move between them.
 
 On load, a checkpoint's configuration is **adopted** where there is something to
 adopt it for: a resumed run reads the stamp first and continues under it rather
@@ -384,8 +383,8 @@ One narrow part of this *is* checked: each active edition's resolved piece
 distribution is asserted against the engine's roster for that edition, so the
 roster cannot drift from what the edition claims. Other flag values have no
 equivalent check. Note that this check became **per-edition** at major 2 — with
-two active editions there is no single roster for it to compare against, and a
-check that only covered one of them would leave the other unguarded.
+several active editions there is no single roster for it to compare against, and
+a check that only covered one of them would leave the others unguarded.
 
 This is accepted for now rather than closed, because closing it means building a
 record *reader* — a parser and replay-validation path — which this repository

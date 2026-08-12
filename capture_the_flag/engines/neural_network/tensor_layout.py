@@ -120,11 +120,12 @@ every layout; only how many source squares they are addressed *from* changes."""
 class TensorLayout:
     """The shapes and spec name one board and army encode to.
 
-    Held as a value rather than read from module constants because two rulesets
-    are live and their boards differ: a 12 x 12 encoder and an 8 x 8 one are two
-    incompatible tensor contracts, and a position from the wrong one would index
-    cleanly into the other rather than failing. Everything that builds a network,
-    encodes a position, or stamps a checkpoint takes one of these.
+    Held as a value rather than read from module constants because several
+    rulesets are live and their boards differ: a 12 x 12 encoder, a 10 x 10 one
+    and an 8 x 8 one are three incompatible tensor contracts, and a position from
+    the wrong one would index cleanly into another rather than failing.
+    Everything that builds a network, encodes a position, or stamps a checkpoint
+    takes one of these.
 
     Board and composition are held separately rather than as the `GameSetup` they
     came from: two setups resolved from different configurations that reach the

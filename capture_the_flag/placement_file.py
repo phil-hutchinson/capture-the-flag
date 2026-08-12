@@ -10,9 +10,9 @@ with `-`. The same file therefore produces the same setup for either side;
 mapping it onto Black's home squares is a 180-degree rotation of the board frame.
 
 **A file's shape identifies the board it is for**: Battle's home zone is 4 rows
-of 12 and Skirmish's 3 rows of 8, so a file written for one board is rejected
-against the other by the row-count and row-length checks, without needing a
-ruleset marker of its own.
+of 12, Clash's 3 rows of 10 and Skirmish's 3 rows of 8, so a file written for one
+board is rejected against any other by the row-count and row-length checks,
+without needing a ruleset marker of its own.
 
 `parse_placement_file` turns file text into a `Placement`;
 `load_placement_file` first resolves a plain file name against the

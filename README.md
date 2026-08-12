@@ -5,11 +5,12 @@ it. Phase 1 is secret simultaneous placement of a full army; phase 2 is
 alternating, fully visible play until a flag is captured (or a
 player is left with no legal move, or an inactivity limit forces a draw).
 
-Two rulesets are published, sharing every rule but the board, the army, and one
-Skirmish-only placement restriction: **Battle** (12x12 board, 25 pieces per side)
-and **Skirmish** (8x8 board, 16 pieces), the smaller and faster of the two. Every
-runner below takes `--ruleset battle|skirmish` and defaults to Battle. See
-[`doc/ruleset/rules.md`](doc/ruleset/rules.md).
+Three rulesets are published, sharing every rule but the board, the army, and one
+Skirmish-only placement restriction: **Battle** (12x12 board, 25 pieces per
+side), **Clash** (10x10, 20 pieces, and the one board whose lakes are not
+left-right symmetric), and **Skirmish** (8x8, 16 pieces), the smallest and
+fastest of the three. Every runner below takes `--ruleset battle|clash|skirmish`
+and defaults to Battle. See [`doc/ruleset/rules.md`](doc/ruleset/rules.md).
 
 The game is built on [game-engine-core](https://github.com/phil-hutchinson/game-engine-core),
 which provides the game-agnostic engine, MCTS/PUCT search, and learning
@@ -75,19 +76,20 @@ python -m capture_the_flag.game_runner --white human --black neural \
     --white-name Alice
 ```
 
-The board is rendered before a human's turn (and throughout a machine-vs-machine
-game, so it can be watched). Each human player supplies their phase-1 setup at a
-prompt: either the name of a
-placement file read from the gitignored `placements/` folder
-(`-p`/`--placements-dir` overrides the folder), or `random` for a random legal
-placement. A placement file is one row per home-zone row, each as wide as the
-board — 4 rows of 12 for Battle, 3 rows of 8 for Skirmish — where each character
-is a one-character piece symbol (`1`–`6`, `T`, `F`) or `-` for an empty square,
-since a home zone holds more squares than the army fills. It is written from the
-owning player's seat (first line nearest the lakes, last line the back rank), so
-the same file produces the same setup for either side, and its shape is what
-identifies which board it is for. The folder is gitignored and **ships empty** —
-placement files are yours to write, and no example ones are checked in.
+The board is rendered before a human's turn (and throughout a
+machine-vs-machine game, so it can be watched). Each human player supplies
+their phase-1 setup at a prompt: either the name of a placement file read from
+the gitignored `placements/` folder (`-p`/`--placements-dir` overrides the
+folder), or `random` for a random legal placement. A placement file is one row
+per home-zone row, each as wide as the board — 4 rows of 12 for Battle, 3 rows
+of 10 for Clash, 3 rows of 8 for Skirmish — where each character is a
+one-character piece symbol (`1`–`6`, `T`, `F`) or `-` for an empty square,
+since a home zone holds more squares than the army fills. It is written from
+the owning player's seat (first line nearest the lakes, last line the back
+rank), so the same file produces the same setup for either side, and its shape
+is what identifies which board it is for. The folder is gitignored and **ships
+empty** — placement files are yours to write, and no example ones are checked
+in.
 
 Moves are typed in the simple source–destination notation (e.g. `A2A3`);
 malformed or illegal input re-prompts with an explanation, and each turn's

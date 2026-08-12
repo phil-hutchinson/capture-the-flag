@@ -232,5 +232,5 @@ BATTLE_SETUP = setup_for_ruleset("BATTLE")
 """The 12 x 12 board and 25-piece army — what `2-0:BATTLE` resolves to.
 
 The default a runner plays when it is not told which ruleset to use, and not an
-arbitrary pick: both published flags default to Battle's values, so Battle is
-what the rules resolve to in the absence of a choice."""
+arbitrary pick: `BOARD_LAYOUT` and `ARMY_COMPOSITION` both default to Battle's
+values, so Battle is what the rules resolve to in the absence of a choice."""

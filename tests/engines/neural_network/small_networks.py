@@ -7,9 +7,10 @@ about the *pipeline* rather than about the architecture build one of these
 instead, so the default suite stays fast; the tests that genuinely care about the
 default architecture construct it explicitly.
 
-The two published tensor contracts live here too. Nothing in the package holds a
-tensor layout as a constant any more — a run derives one from its configuration —
-but a test naming a fixture board still has to say which, so the resolutions are
+Two of the three published tensor contracts live here too — Battle and
+Skirmish, the sizes these tests exercise. Nothing in the package holds a tensor
+layout as a constant any more — a run derives one from its configuration — but
+a test naming a fixture board still has to say which, so the resolutions are
 done once here rather than in every module that needs one.
 """
 

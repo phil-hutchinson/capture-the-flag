@@ -53,12 +53,12 @@ RULE_FLAGS: dict[str, RuleFlag] = {
     for flag in (
         RuleFlag(
             flag_id="BOARD_LAYOUT",
-            values=("standard_144", "standard_64"),
+            values=("standard_144", "asymmetric_100", "standard_64"),
             default="standard_144",
         ),
         RuleFlag(
             flag_id="ARMY_COMPOSITION",
-            values=("standard_battle", "standard_skirmish"),
+            values=("standard_battle", "standard_clash", "standard_skirmish"),
             default="standard_battle",
         ),
         RuleFlag(
@@ -128,17 +128,20 @@ class Edition:
         return hash((self.edition_id, frozenset(self.flag_values.items())))
 
 
-ACTIVE_EDITIONS: frozenset[str] = frozenset({"2-0:BATTLE", "2-1:SKIRMISH"})
+ACTIVE_EDITIONS: frozenset[str] = frozenset(
+    {"2-0:BATTLE", "2-0:CLASH", "2-1:SKIRMISH"}
+)
 """The editions this build implements, and therefore the ones it can stamp.
 
-**A build implements every Active edition**, not one: since major 2 two rulesets
-are published in parallel and the configuration is selected at run time, so this
-is a set rather than a single pointer.
+**A build implements every Active edition**, not one: since major 2 several
+rulesets are published in parallel and the configuration is selected at run time,
+so this is a set rather than a single pointer.
 
 **The minors advance independently.** Skirmish is at minor 1 and Battle at minor
 0 because the Tower lane restriction changed Skirmish's play and not Battle's;
-the shared major says only that both are played under the same rules text. A
-notation break is the one thing that moves both at once.
+Clash is at minor 0 because that is its first edition, which is no relationship
+to Battle's at all. The shared major says only that all three are played under
+the same rules text. A notation break is the one thing that moves them together.
 
 Note the dash in an edition id — it is a compound label, not a decimal, so a
 minor 10 would not sort before a minor 2.
@@ -147,9 +150,12 @@ minor 10 would not sort before a minor 2.
 DEFAULT_EDITION = "2-0:BATTLE"
 """The edition a run plays when it is not told which.
 
-Not an arbitrary pick among the Active editions: both published flags default to
-Battle's values (`standard_144`, `standard_battle`), so Battle *is* what the
-rules resolve to in the absence of a choice.
+Not an arbitrary pick among the Active editions: `BOARD_LAYOUT` and
+`ARMY_COMPOSITION` both default to Battle's values (`standard_144`,
+`standard_battle`), so Battle *is* what the rules resolve to in the absence of a
+choice. Publishing further editions does not disturb that — a flag's default is
+permanent, so the default edition follows from the flags rather than from which
+rulesets happen to be Active.
 """
 
 ACTIVE_RULESETS: dict[str, str] = {
@@ -178,6 +184,14 @@ EDITIONS: dict[str, Edition] = {
             flag_values={
                 "BOARD_LAYOUT": "standard_144",
                 "ARMY_COMPOSITION": "standard_battle",
+                "TOWER_PLACEMENT": "spacing_only",
+            },
+        ),
+        Edition(
+            edition_id="2-0:CLASH",
+            flag_values={
+                "BOARD_LAYOUT": "asymmetric_100",
+                "ARMY_COMPOSITION": "standard_clash",
                 "TOWER_PLACEMENT": "spacing_only",
             },
         ),

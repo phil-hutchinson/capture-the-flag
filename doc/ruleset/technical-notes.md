@@ -8,14 +8,14 @@ the rest of the project.
 
 ## Rulesets, editions, and flags
 
-- **Active editions:** `2-0:BATTLE` and `2-1:SKIRMISH`. The full list, active and
-  historical, is [`rules.md`](rules.md) Appendix B; the revision history is
-  [`changelog.md`](changelog.md).
+- **Active editions:** `2-0:BATTLE`, `2-0:CLASH` and `2-1:SKIRMISH`. The full
+  list, active and historical, is [`rules.md`](rules.md) Appendix B; the revision
+  history is [`changelog.md`](changelog.md).
 - `rules.md` is the **single source of truth** for the ruleset: the engine
   implementation, tests, evaluators, and any external consumer are checked against
   it. If code and `rules.md` disagree, that is a bug, and `rules.md` is the
   reference.
-- A **ruleset** is a mutable name (BATTLE, SKIRMISH); an **edition**
+- A **ruleset** is a mutable name (BATTLE, CLASH, SKIRMISH); an **edition**
   (`<major>-<minor>:<Ruleset>`) is an immutable pairing of that name with a major
   baseline and a complete set of flag values; a **rule flag** is an enum-valued
   parameter whose default is always the behavior that predated it. The root
@@ -64,8 +64,9 @@ different strengths:
 The second guarantee is about the *edition* staying implementable, not about any
 one build implementing every edition ever published. **A build implements every
 edition in the Active table, and the configuration is selected at run time.** A
-training run or a game is launched against `BATTLE` or `SKIRMISH`, and every
-artifact it writes is stamped with the configuration it was actually playing.
+training run or a game is launched against `BATTLE`, `CLASH` or `SKIRMISH`, and
+every artifact it writes is stamped with the configuration it was actually
+playing.
 
 The edition table also retains the **historical** editions, so that a stamped
 artifact still names something meaningful and the row it names is still there to
@@ -151,8 +152,8 @@ placement phase to be valid or invalid.
 
 `rules.md` states that a **lake corner does not block a diagonal attack**: a piece
 may attack diagonally past the corner of a lake, and only the attacked square
-itself must not be a lake. That case is live on both published boards — on Battle,
-a piece on A6 attacking B5 passes the corner of the lake at B6.
+itself must not be a lake. That case is live on every published board — on
+Battle, a piece on A6 attacking B5 passes the corner of the lake at B6.
 
 A second case exists that `rules.md` deliberately does **not** address: a diagonal
 whose **two flanking squares are both lakes**, source and destination open. Call
@@ -165,17 +166,36 @@ no intermediate square to clear would be a defensible rule in isolation, but it
 would make the lakes' barrier property depend on the direction of travel, which is
 not what a lake is for.
 
-**Why this is not in `rules.md`.** The squeeze is **unreachable on both published
-layouts**, so stating it there would burden the player-facing rules with a
-hypothetical. Both flanking squares being lakes requires rows *r* and *r+1* to be
-lake rows *and* columns *c* and *c+1* to be lake columns; with 2 × 2 lake blocks
-all aligned to the same two rows, that forces the source and destination squares
-to be lakes as well, so no legal attack can exist there. Any layout that breaks
-that alignment makes it reachable — offset blocks touching corner to corner,
-single-square lakes placed diagonally, or more than two lake rows.
+**Why this is not in `rules.md`.** The squeeze is **unreachable on all three
+published layouts**, so stating it there would burden the player-facing rules
+with a hypothetical.
+
+The reason is not the shape of the lakes but the fact that **every lake row
+carries the same column pattern**. Both flanking squares being lakes requires
+rows *r* and *r+1* to be lake rows *and* columns *c* and *c+1* to be lake
+columns. One shared pattern means a lake column is lake in *every* lake row, so
+`(c, r)` and `(c+1, r+1)` — the attack's own source and destination — are lakes
+too, and there is no legal attack to ask the question about.
+
+**This does not depend on the lakes being uniform blocks**, which is worth
+stating because the argument was originally written as one about 2 × 2 blocks and
+`asymmetric_100` breaks that premise without breaking the conclusion: its lake
+blocks are 1, 1 and 3 columns wide, its pattern is not mirror-symmetric, and the
+squeeze is still unreachable on it. Block width and symmetry are irrelevant; the
+shared pattern is what does the work.
+
+**It is also structural rather than incidental.** `BoardLayout` holds
+`lake_pattern` as one per-column tuple shared by all lake rows, so no layout
+expressible in the current type can reach the squeeze at all. Reaching it
+requires the type to change first — per-row lake patterns, which would also allow
+offset blocks touching corner to corner and single-square lakes placed
+diagonally. `tests/test_moves.py` asserts the property over `BOARD_LAYOUTS` as a
+whole rather than over any one layout, so a future value inherits the check, and
+asserts alongside it that the check can still detect a squeeze when given a board
+that has one.
 
 Because no position can currently distinguish the two answers, this note changes
-nothing about how either published edition is played, which is why it belongs in
+nothing about how any published edition is played, which is why it belongs in
 this file. **When a `BOARD_LAYOUT` value that makes the squeeze reachable is first
 published, this stops being true**: `rules.md` gains a sentence stating the rule,
 and the changelog records it as a clarification rather than a rules change, since
@@ -319,10 +339,10 @@ checkpoint's tag is the single *point* in that set its weights actually occupy. 
 network is only valid for the rules it was trained under, and the engine spec
 stamp does not cover this — it names the tensor *shape* contract, so a rules-only
 change leaves it untouched and the weights would load cleanly into a network
-evaluating under rules they never saw. `ENG_NN_3` is compatible with both Active
-editions precisely because it is stated parametrically in the board and roster;
-that is a claim about the contract, and says nothing about whether one set of
-weights can move between them.
+evaluating under rules they never saw. `ENG_NN_3` is compatible with every
+Active edition precisely because it is stated parametrically in the board and
+roster; that is a claim about the contract, and says nothing about whether one
+set of weights can move between them.
 
 On load, a checkpoint's configuration is **adopted** where there is something to
 adopt it for: a resumed run reads the stamp first and continues under it rather
@@ -363,8 +383,8 @@ One narrow part of this *is* checked: each active edition's resolved piece
 distribution is asserted against the engine's roster for that edition, so the
 roster cannot drift from what the edition claims. Other flag values have no
 equivalent check. Note that this check became **per-edition** at major 2 — with
-two active editions there is no single roster for it to compare against, and a
-check that only covered one of them would leave the other unguarded.
+several active editions there is no single roster for it to compare against, and
+a check that only covered one of them would leave the others unguarded.
 
 This is accepted for now rather than closed, because closing it means building a
 record *reader* — a parser and replay-validation path — which this repository
@@ -447,7 +467,7 @@ by flag id, so a configuration always renders as the same string. Neither an
 edition id nor a flag id or label contains a space, so the tokens split
 unambiguously.
 
-In practice both published editions render with **no deviations at all**, since
+In practice every published edition renders with **no deviations at all**, since
 each sets `BOARD_LAYOUT` and `ARMY_COMPOSITION` explicitly and a flag at its
 resolved value is omitted. A flag that exists, is authoritative, and never
 appears in any artifact is a well-formed outcome under this model rather than a

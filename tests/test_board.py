@@ -3,6 +3,7 @@
 import pytest
 
 from capture_the_flag.board import (
+    ASYMMETRIC_100,
     STANDARD_144,
     BoardLayout,
     Square,
@@ -59,6 +60,44 @@ def test_home_zones_have_48_squares_each_and_do_not_overlap():
 def test_home_zones_and_lakes_do_not_overlap():
     assert STANDARD_144.white_home_squares.isdisjoint(STANDARD_144.lake_squares)
     assert STANDARD_144.black_home_squares.isdisjoint(STANDARD_144.lake_squares)
+
+
+def test_clash_home_zones_have_30_squares_each_separated_by_buffer_rows():
+    assert len(ASYMMETRIC_100.white_home_squares) == 30
+    assert len(ASYMMETRIC_100.black_home_squares) == 30
+    assert all(1 <= s.row <= 3 for s in ASYMMETRIC_100.white_home_squares)
+    assert all(8 <= s.row <= 10 for s in ASYMMETRIC_100.black_home_squares)
+    # Rows 4 and 7 are neutral buffer: neither home nor lake. This is the
+    # geometry that makes `spacing_and_lanes` inert on Clash, so it is worth
+    # pinning rather than reading off the row counts.
+    buffer_squares = {
+        Square(c, r) for r in (4, 7) for c in range(ASYMMETRIC_100.columns)
+    }
+    assert buffer_squares.isdisjoint(ASYMMETRIC_100.white_home_squares)
+    assert buffer_squares.isdisjoint(ASYMMETRIC_100.black_home_squares)
+    assert buffer_squares.isdisjoint(ASYMMETRIC_100.lake_squares)
+
+
+def test_clash_lakes_split_the_lake_rows_evenly_but_unequally():
+    # 10 lake and 10 open squares across the 2 x 10 lake zone -- the same 50:50
+    # ratio the other two layouts have, distributed in blocks of 1, 1 and 3
+    # columns rather than uniform 2s.
+    assert len(ASYMMETRIC_100.lake_squares) == 10
+    assert len(ASYMMETRIC_100.lane_squares) == 10
+    assert all(s.row in (5, 6) for s in ASYMMETRIC_100.lake_squares)
+    lake_columns = {s.column for s in ASYMMETRIC_100.lake_squares}
+    assert lake_columns == {0, 3, 6, 7, 8}  # A, D, G-I
+    lane_columns = {s.column for s in ASYMMETRIC_100.lane_squares}
+    assert lane_columns == {1, 2, 4, 5, 9}  # B-C, E-F, J
+    # Column A is a lake and column J a lane: the one published board that is not
+    # open at both far edges, and not its own mirror image.
+    assert ASYMMETRIC_100.is_lake(Square(0, 5))
+    assert not ASYMMETRIC_100.is_lake(Square(9, 5))
+
+
+def test_clash_home_zones_and_lakes_do_not_overlap():
+    assert ASYMMETRIC_100.white_home_squares.isdisjoint(ASYMMETRIC_100.lake_squares)
+    assert ASYMMETRIC_100.black_home_squares.isdisjoint(ASYMMETRIC_100.lake_squares)
 
 
 def test_orthogonal_neighbors_interior_square():

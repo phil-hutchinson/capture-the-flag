@@ -6,7 +6,7 @@ a legal, fully-placed phase-2 starting position, and successive calls must diffe
 so self-play games actually diverge.
 
 The setup is a constructor argument rather than a default, so each of these runs
-against both published ones: a factory that quietly built Battle positions for a
+against more than one: a factory that quietly built Battle positions for a
 Skirmish run would put the wrong board in front of the encoder.
 """
 

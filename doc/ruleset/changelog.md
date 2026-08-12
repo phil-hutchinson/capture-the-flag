@@ -15,6 +15,56 @@ editions of the same number under `PRE-RELEASE`: version `1.2` is edition
 
 ---
 
+## Edition 2-0:CLASH — Story 00000043 — 2026-08-08
+
+**A third ruleset is published. Nothing about Battle or Skirmish changes.**
+`2-0:BATTLE` and `2-1:SKIRMISH` stay Active at the same minors, with the same
+board, army and Tower rule. A consumer that does not want to offer Clash need do
+nothing.
+
+- **Clash is a 10 × 10 board with a 20-piece army.** 3 home rows / 1 buffer / 2
+  lake / 1 buffer / 3 home, a 30-square home zone, and 3 each of ranks 1–5 plus 4
+  Towers and 1 Flag. Militia (rank 6) does not appear. It sits between Skirmish
+  and Battle in size; **Skirmish is still the recommended starting point** for a
+  new player. See [Section 2.1](rules.md#21-the-board) and
+  [Section 2.2](rules.md#22-the-pieces).
+- **Its lakes are not symmetric, and this is the first board where that is
+  true.** The lake pattern is `L O O L O O L L L O`, giving lakes one column wide
+  at A, one column wide at D, and three columns wide across G–I — so the lanes
+  are B–C, E–F and J. **Column A is a lake, not a lane.** Both other boards are
+  open at each far edge with wider lanes through the interior; Clash is not. A
+  renderer or editor that assumes a mirror-symmetric lake row, or a lane at each
+  edge, will draw this board wrong.
+- **The board is still symmetric between the two players**, which is what
+  placement fairness depends on: both home zones sit the same distance from the
+  same lakes, with a buffer row on each side. Column letters name fixed physical
+  positions and do not flip per player
+  ([Section 4.4](rules.md#44-recording-a-move)), so the left-right asymmetry
+  applies identically to both.
+- **The notation is unaffected.** A 10 × 10 board has been expressible since the
+  major-2 notation became size-parametric: columns A–J, rows 1–10, and both the
+  dimensions and the lake layout recoverable from a record's position block. A
+  consumer that reads dimensions from the block, as major 2 requires, reads Clash
+  records with no change at all.
+- **Two published variants gain a third value each**, in Appendix A:
+  `BOARD_LAYOUT` gains `asymmetric_100` and `ARMY_COMPOSITION` gains
+  `standard_clash`. Both defaults are unchanged, so no existing edition and no
+  existing record is affected. This is the first time a value has been added to
+  an already-published variant rather than a new variant introduced.
+- **`TOWER_PLACEMENT` is `spacing_only` on Clash**, and `spacing_and_lanes` would
+  close nothing on it: the restriction closes a square only where a home zone
+  sits directly against the lake rows, and Clash has a buffer row exactly as
+  Battle does. [Section 3](rules.md#3-setup--phase-1-placement) now states that
+  restriction as a property of the board rather than as a Skirmish rule; no
+  square that was open or closed before has changed.
+- **There are now three Active editions, and their minors are unrelated.** Clash
+  is at minor 0 because `2-0:CLASH` is its first edition — not because it agrees
+  with `2-0:BATTLE` about anything. Do not read a relationship into two editions
+  sharing a minor; they share a major, and that is the only number that means the
+  same thing across rulesets.
+
+---
+
 ## Edition 2-1:SKIRMISH — Story 00000037 — 2026-08-02
 
 **Skirmish only.** `2-0:BATTLE` is unchanged and stays Active; `2-0:SKIRMISH`

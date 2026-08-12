@@ -88,7 +88,16 @@ class BoardLayout:
     lake_pattern: tuple[bool, ...]
     """Per column, `True` where a lake row is lake and `False` where it is open.
     Every lake row shares this pattern, which is what makes a lake a rectangular
-    block and a lane a full-height column through the middle of the board."""
+    block and a lane a full-height column through the middle of the board.
+
+    One pattern for all lake rows is also what keeps the diagonal *squeeze*
+    unreachable — a lake column is lake in every lake row, so a diagonal with two
+    lake flanks has a lake as its own source or destination and is not a legal
+    attack to begin with. That holds for any pattern this field can express, of
+    any block width and with no symmetry required, which is why
+    `technical-notes.md` can reserve the squeeze decision rather than settle it
+    (`tests/test_moves.py` asserts it over every registered layout). Per-row lake
+    patterns would be the change that makes it reachable."""
 
     white_home_rows: range = field(init=False, compare=False, repr=False)
     black_home_rows: range = field(init=False, compare=False, repr=False)
@@ -247,6 +256,32 @@ STANDARD_144: BoardLayout = BoardLayout(
 )
 """The Battle board: 12x12, 4 home / 1 buffer / 2 lake / 1 buffer / 4 home."""
 
+ASYMMETRIC_100: BoardLayout = BoardLayout(
+    layout_id="asymmetric_100",
+    columns=10,
+    rows=10,
+    home_rows=3,
+    lake_rows=(5, 6),
+    # 1 lake | 2 open | 1 lake | 2 open | 3 lake | 1 open — lake blocks of three
+    # different widths, and the only published pattern that is not its own mirror
+    # image: column A is lake where every other board is open at both edges, and
+    # the single-column lane sits at the far side, column J
+    # (rules.md Section 2.1).
+    lake_pattern=(_L, _O, _O, _L, _O, _O, _L, _L, _L, _O),
+)
+"""The Clash board: 10x10, 3 home / 1 buffer / 2 lake / 1 buffer / 3 home.
+
+**The lakes are asymmetric left-to-right, and unevenly sized.** Neither is a
+property anything may rely on being absent from a layout: code that mirrors a
+lake row, or assumes a lane at each board edge, is wrong here and was only ever
+right by coincidence on the other two. The 50:50 split of lake to open squares
+within the lake rows is the same as theirs — 10 of each — just distributed
+unevenly.
+
+Column letters are fixed to physical position and do not flip per player
+(`rules.md` Section 4.4), so the asymmetry reads identically for both sides; the
+board is symmetric where fairness needs it to be, top to bottom."""
+
 STANDARD_64: BoardLayout = BoardLayout(
     layout_id="standard_64",
     columns=8,
@@ -267,7 +302,8 @@ and it is also what puts a home-zone square directly in front of every lane,
 which is the geometry the `TOWER_PLACEMENT` flag exists to address."""
 
 BOARD_LAYOUTS: dict[str, BoardLayout] = {
-    layout.layout_id: layout for layout in (STANDARD_144, STANDARD_64)
+    layout.layout_id: layout
+    for layout in (STANDARD_144, ASYMMETRIC_100, STANDARD_64)
 }
 """Every `BOARD_LAYOUT` value this build can actually play, keyed by its label.
 

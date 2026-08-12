@@ -26,9 +26,10 @@ deviating flags names exactly one ruleset (see `doc/ruleset/rules.md` Appendix B
 | Edition        | Deviating flags | Board  | Army                                |
 |----------------|-----------------|--------|-------------------------------------|
 | `2-0:BATTLE`   | (none)          | 12 × 12 | 3 each of ranks 1–6, 6 Towers, 1 Flag |
+| `2-0:CLASH`    | (none)          | 10 × 10 | 3 each of ranks 1–5, 4 Towers, 1 Flag |
 | `2-1:SKIRMISH` | (none)          | 8 × 8   | 3 each of ranks 1–4, 3 Towers, 1 Flag |
 
-These are the two **Active** editions (`rules.md` Appendix B). The historical
+These are the three **Active** editions (`rules.md` Appendix B). The historical
 `2-0:SKIRMISH` is also compatible — it differs from `2-1:SKIRMISH` only in
 `TOWER_PLACEMENT`, which restricts where a Tower may be *placed* and so changes
 neither a plane nor an action-space entry — but no build implements it, so no
@@ -40,14 +41,18 @@ a change that only restricts which plies are legal leaves a spec compatible.
 **not** compatible: it is a major-1 edition, and its action space has no diagonal
 entries for this one to correspond to. No weights trained under it survive.
 
-Two rulesets appearing in one list is the ordinary many-to-one relationship
-README.md describes: this contract can *serve* either. It does not follow that a
-single set of weights can. A network is shaped for exactly one of these
-combinations and its parameters are not portable to the other, which is why a
+Several rulesets appearing in one list is the ordinary many-to-one relationship
+README.md describes: this contract can *serve* any of them. It does not follow
+that a single set of weights can. A network is shaped for exactly one of these
+combinations and its parameters are not portable to another, which is why a
 checkpoint's stamp records the single combination it was trained under, and why
 the spec name is qualified by board (`ENG_NN_3/standard_144`,
-`ENG_NN_3/standard_64`) wherever it identifies an artifact rather than a
-contract.
+`ENG_NN_3/asymmetric_100`, `ENG_NN_3/standard_64`) wherever it identifies an
+artifact rather than a contract.
+
+`2-0:CLASH` was added to this list without a spec change, which is the parametric
+statement working as intended: a third board and a third roster are new values
+for numbers the spec already reads from the configuration, not new structure.
 
 ## Board parameters
 
@@ -86,10 +91,11 @@ move produces an equivalent position — the two encode to identical tensors.
 
 **All thirty-four planes are present under every army**, including planes for
 ranks the army does not field. Under `2-1:SKIRMISH` the Foot Soldier and Militia
-planes (6, 7, 14, 15, 26, 27, 32, 33) are therefore always zero. Dropping them
-would make the two rulesets two different contracts and foreclose any question
-about a trunk trained on one board being reused on the other; keeping the layout
-fixed costs four dead channels on the smaller army and leaves that open.
+planes (6, 7, 14, 15, 26, 27, 32, 33) and under `2-0:CLASH` the Militia planes
+(7, 15, 27, 33) are therefore always zero. Dropping them would make the
+published rulesets different contracts and foreclose any question about a trunk
+trained on one board being reused on another; keeping the layout fixed costs
+dead channels on the smaller armies and leaves that open.
 
 #### Piece presence: 1 if present, 0 if not present
 
@@ -245,16 +251,16 @@ trained at is recorded with the artifact, in the checkpoint's own metadata.
 The alternative to parameterising by `R` and `C` was a spec per board —
 `ENG_NN_3` for 12 × 12, `ENG_NN_4` for 8 × 8, and one more for every layout
 after. It was rejected because a spec is a statement about *how a position
-becomes a tensor*, and that statement is identical on both boards: same planes,
-same perspective rule, same movement index, same normalisation. Two documents
+becomes a tensor*, and that statement is identical on every board: same planes,
+same perspective rule, same movement index, same normalisation. Three documents
 would have differed only in three numbers, and every later change would have had
-to be made twice and kept in step by hand.
+to be made three times and kept in step by hand.
 
 The cost is that a spec name no longer identifies a set of interchangeable
 weights. That cost is paid where it arises rather than in the document: the
 engine-spec **stamp** on a checkpoint qualifies the name with the board
 (`ENG_NN_3/standard_64`), so a checkpoint trained on one board meeting a run on
-the other is refused before its weights are touched.
+another is refused before its weights are touched.
 
 ### Whole-board scalars as broadcast planes
 

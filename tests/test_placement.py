@@ -17,7 +17,12 @@ from capture_the_flag.game_setup import (
     resolve_setup,
     setup_for_ruleset,
 )
-from capture_the_flag.pieces import STANDARD_BATTLE, STANDARD_SKIRMISH, PieceType
+from capture_the_flag.pieces import (
+    STANDARD_BATTLE,
+    STANDARD_CLASH,
+    STANDARD_SKIRMISH,
+    PieceType,
+)
 from capture_the_flag.placement import Placement, assemble_position, random_placement
 from capture_the_flag.record import RulesetConfiguration
 from capture_the_flag.side import Side
@@ -216,6 +221,43 @@ def test_a_skirmish_placement_assembles_into_a_skirmish_position():
     # Front ranks 3 rows apart, not Battle's 4: there is no neutral buffer.
     assert max(s.row for s in position.board if s.row <= 3) == 3
     assert min(s.row for s in position.board if s.row >= 6) == 6
+
+
+@pytest.mark.parametrize("side", [Side.WHITE, Side.BLACK])
+def test_random_clash_placement_fills_its_own_home_zone_and_roster(side):
+    setup = setup_for_ruleset("CLASH")
+    for _ in range(20):
+        placement = random_placement(side, setup, random.Random())
+        assert placement.keys() <= setup.layout.home_squares(side)
+        assert len(placement) == 20  # 20 of the 30 home squares filled
+        assert _piece_counts(placement) == STANDARD_CLASH.counts
+
+
+def test_the_clash_tower_walk_never_stalls():
+    # A third re-derivation, because the bound is per-setup and Clash shares its
+    # numbers with neither other board: 4 Towers into 30 candidates, with nothing
+    # closed by the lane rule, leaves at least 30 - 27 = 3 for the fourth.
+    setup = setup_for_ruleset("CLASH")
+    for seed in range(300):
+        placement = random_placement(Side.WHITE, setup, random.Random(seed))
+        assert len(_towers(placement)) == 4
+        assert not _has_adjacent_towers(placement)
+
+
+def test_a_clash_placement_assembles_into_a_clash_position():
+    setup = setup_for_ruleset("CLASH")
+    rng = random.Random(7)
+    position = assemble_position(
+        random_placement(Side.WHITE, setup, rng),
+        random_placement(Side.BLACK, setup, rng),
+        setup,
+    )
+    assert position.layout is setup.layout
+    assert len(position.board) == 40  # both 20-piece armies
+    # Front ranks 4 rows apart: a buffer row on each side of the lakes, as on
+    # Battle, which is what leaves the lane restriction nothing to close.
+    assert max(s.row for s in position.board if s.row <= 3) == 3
+    assert min(s.row for s in position.board if s.row >= 8) == 8
 
 
 # --- TOWER_PLACEMENT (story 37, step 10) -------------------------------------

@@ -36,13 +36,21 @@ Convert `CtfNNEvaluator` to the batch-shaped base class: encode a sequence of
 positions into one stacked tensor, decode a batch of logits into one policy per
 position, and time the whole call. The per-position work is unchanged — this is
 the same encoding and the same decoding, driven by a loop and stacked, not
-vectorized. Rename the three region constants in `timing_regions.py` to their
-plural forms and keep the four decoding phases as they are. Update
-`test_ctf_nn_evaluator.py`, `test_ctf_checkpoint.py` and
-`test_evaluator_regions.py` to the new shapes.
+vectorized; the body of each moves to a private per-position helper that the
+public plural method loops.
 
-The board-mismatch guard and the missing-flag guard both stay; decide explicitly
-whether they fire per position or on the batch, and make the tests say which.
+The three region constants keep their names ([`story.md`](story.md)) and move to
+the wave boundary with the methods they decorate; the four decoding phases stay
+on the per-position helper, which is where the cost they separate actually
+lives. The prose that describes them — `timing_regions.py`'s evaluator family
+and the comment above the phases — states per-position facts that are now
+per-wave and has to move with them. Update `test_ctf_nn_evaluator.py`,
+`test_ctf_checkpoint.py` and `test_evaluator_regions.py` to the new shapes,
+calling the public plural methods rather than the private helpers.
+
+The board-mismatch guard and the missing-flag guard both stay, firing per
+position; neither names which position of a batch failed, on the grounds that
+the cycles cost more than the message is worth.
 
 Depends on: Step 1.
 

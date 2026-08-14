@@ -22,6 +22,7 @@ height-before-width order torch's convolutions expect. `tensor_position`
 is the single point of conversion between the two frames.
 """
 
+from collections.abc import Sequence
 from typing import Literal
 
 import torch
@@ -229,7 +230,7 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
         ) / self._layout.columns
 
     @timed(EVALUATE_POSITION)
-    def evaluate_position(self, position: CtfPosition) -> PositionEvaluation:
+    def evaluate_positions(self, positions: Sequence[CtfPosition]) -> Sequence[PositionEvaluation]:
         """Time the whole evaluation, then defer to the shared implementation.
 
         Search spends most of a self-play game inside this call, and its three
@@ -237,11 +238,21 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
         add up to it — the difference is the base class's own per-call overhead,
         which is worth seeing rather than hiding. The override exists only to
         name the region; the evaluation itself stays where it was.
+
+        One call is one wave of the fleet, not one position: at fleet width N the
+        region is entered once and `positions` carries N of them. The measurement
+        recipe runs at width 1, where the two coincide (story 45).
         """
-        return super().evaluate_position(position)
+        return super().evaluate_positions(positions)
 
     @timed(ENCODE_POSITION)
-    def encode_position(self, position: CtfPosition) -> Tensor:
+    def encode_positions(self, positions: Sequence[CtfPosition]) -> Tensor:
+        encoded_positions: list[Tensor] = []
+        for position in positions:
+            encoded_positions.append(self._encode_position(position))
+        return torch.stack(encoded_positions)
+
+    def _encode_position(self, position: CtfPosition) -> Tensor:
         # A position from another board would index cleanly into this one's
         # tensor -- an 8x8 board's squares are all valid 12x12 indices -- so
         # without this the wrong board encodes silently rather than failing. The
@@ -317,12 +328,22 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
         return encoded
 
     @timed(DECODE_POLICY)
-    def decode_policy(self, policy_logits: Tensor, position: CtfPosition) -> dict[str, float]:
-        # Each of the four phases below is timed separately: decoding is entered
-        # once per position evaluation — over a million times in a training run —
-        # and the phases have very different characters (two walk the legal plies
-        # a tensor element at a time, one is a single fused tensor op), so a
-        # single figure for the whole call says nothing about which to attack.
+    def decode_policies(
+        self, policy_logits: Tensor, positions: Sequence[CtfPosition]
+    ) -> Sequence[dict[str, float]]:
+        decoded_policies: list[dict[str, float]] = []
+        for board_policy_logits, position in zip(policy_logits, positions, strict=True):
+            decoded_policies.append(self._decode_policy(board_policy_logits, position))
+        return decoded_policies
+
+    def _decode_policy(self, policy_logits: Tensor, position: CtfPosition) -> dict[str, float]:
+        # Each of the four phases below is timed separately: this runs once per
+        # position — over a million times in a training run — and the phases have
+        # very different characters (two walk the legal plies a tensor element at
+        # a time, one is a single fused tensor op), so a single figure for the
+        # whole decode says nothing about which to attack. The phases stay here
+        # rather than moving up to `decode_policies`, where each would cover a
+        # whole wave: it is per-position cost the four of them exist to separate.
         #
         # The legal plies are read *before* the first region opens: `legal_plies`
         # is itself timed, and reading it inside `map-ply-slots` would bury its

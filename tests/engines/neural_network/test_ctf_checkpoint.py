@@ -58,12 +58,12 @@ def test_saved_network_round_trips_to_identical_evaluation(tmp_path: Path):
     original = small_network()
     position = CtfPositionFactory(setup=BATTLE_SETUP)()
 
-    original_eval = CtfNNEvaluator(original, BATTLE_TENSOR_LAYOUT).evaluate_position(position)
+    original_eval = CtfNNEvaluator(original, BATTLE_TENSOR_LAYOUT).evaluate_positions([position])[0]
 
     path = checkpoint_path(tmp_path, 0)
     save_checkpoint(original, path, configuration=_BATTLE)
 
-    restored_eval = CtfNNEvaluator(load_network(path, BATTLE_SETUP), BATTLE_TENSOR_LAYOUT).evaluate_position(position)
+    restored_eval = CtfNNEvaluator(load_network(path, BATTLE_SETUP), BATTLE_TENSOR_LAYOUT).evaluate_positions([position])[0]
 
     # Weights and BatchNorm buffers all live in the state dict, and evaluation is
     # a deterministic no-grad forward pass, so the reload must reproduce the

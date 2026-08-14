@@ -49,7 +49,7 @@ This is as close as the report gets to naming the *capture* of a training
 sample, which the story lists among the seams inside self-play. The capture
 itself belongs to the shared `SelfPlayCollector`: the two pieces of it this
 repository owns are this transform and the `encode-position` the collector
-performs per step, both of which appear under `self-play` on their own. What the
+performs once per fleet turn, both of which appear under `self-play` on their own. What the
 collector does around them — accumulating the samples, attaching the game's
 outcome — stays inside `self-play`'s unattributed remainder, reported rather
 than chased, like the other upstream gaps."""
@@ -62,12 +62,20 @@ OUTCOME = "outcome"
 OUTCOME_REASON = "outcome-reason"
 STARTING_POSITION = "starting-position"
 
-# The learned evaluator: one position in, a value and a policy out. The four
-# children below account for `evaluate-position`; what they leave over is the
-# shared base class's own tensor plumbing (batching a single sample, unwrapping
-# the value tensor, entering the no-grad context) — microseconds a call, and
-# nameable only by copying that class's body into this repository, which is not
-# worth doing for it.
+# The learned evaluator: a wave of positions in, a value and a policy for each
+# out. The four children below account for `evaluate-position`; what they leave
+# over is the shared base class's own tensor plumbing (stacking the encodings,
+# unwrapping the value tensor, entering the no-grad context) — microseconds a
+# call, and nameable only by copying that class's body into this repository,
+# which is not worth doing for it.
+#
+# These three name a *call*, and since v0.1.6 a call is a wave rather than a
+# position: at fleet width N, `evaluate-position` is entered once and evaluates
+# N. The names describe the work, not the batching, and so do not move; the
+# consequence is that a region's call count is waves while the four decoding
+# phases below still count positions. The measurement recipe runs at width 1,
+# where the two coincide — see story 45 on what a wider record does and does not
+# say.
 EVALUATE_POSITION = "evaluate-position"
 ENCODE_POSITION = "encode-position"
 NETWORK_FORWARD = "network-forward"
@@ -77,15 +85,16 @@ NETWORK_MODE_SWITCH = "network-mode-switch"
 
 Nominally a flag, actually a recursive walk over every submodule — which at trunk
 depth costs more per call than encoding a position does. The shared evaluator
-performs one on *every* single-position evaluation, so this appears under
-`evaluate-position` in search, and separately on the training branch where the
-training loop switches the shared model to train mode."""
+performs one on *every* evaluation, so this appears under `evaluate-position` in
+search, and separately on the training branch where the training loop switches
+the shared model to train mode. It is charged once per wave rather than once per
+position, so it no longer scales with the number of positions evaluated."""
 
 # Policy decoding, phase by phase. The first full-scale run left three quarters
 # of `decode-policy` unattributed — 9.4% of the whole run, and a ceiling on what
 # any optimization could claim — so its four phases are named individually. Each
-# is one region per decode, never one per ply: a phase costs a couple of hundred
-# microseconds, some hundreds of times a region entry, while a region per ply
+# is one region per position decoded, never one per ply: a phase costs a couple
+# of hundred microseconds, some hundreds of times a region entry, while a region per ply
 # would be entered tens of millions of times per run to time work only a few
 # times its own cost. `legal-plies` stays a sibling of these four rather than a
 # parent of the first, so its line in a report means what it meant before.

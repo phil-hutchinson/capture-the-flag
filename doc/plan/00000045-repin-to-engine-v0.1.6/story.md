@@ -72,20 +72,30 @@ Two consequences, stated so they are not later mistaken for findings:
   because self-play collects `games_per_generation` games as one fleet. The
   recipe's record is the baseline; a training run's record is a measurement of a
   particular fleet width and must say so.
+- **A region's call count is waves, not positions** — above width 1, and only
+  for the regions that sit at the wave boundary. `evaluate-position`,
+  `encode-position` and `decode-policy` are entered once per wave; the four
+  decoding phases underneath are still entered once per position, so a report at
+  width 5 shows `decode-policy` with one call and `map-ply-slots` with five
+  beneath it. Story 29's instruction to compare call counts rather than seconds
+  survives, but only between records taken at the same width — which is the
+  second reason the baseline is taken at 1.
 
 What the fleet actually buys, measured at widths above 1, belongs to the story
 that adopts the seams.
 
-### The region vocabulary goes plural
+### The region vocabulary does not move
 
-`evaluate-position`, `encode-position` and `decode-policy` become
-`evaluate-positions`, `encode-positions` and `decode-policies`;
-`search-with-policy` becomes `search-for-training`. The names describe work, and
-the work is now a batch — keeping the singular would make every report taken at
-`--games 5` quietly false. Comparability with old records is not an argument
-against it here, since the baseline is being retaken anyway. The four decoding
-phases keep their names: they describe what happens within a decode and that is
-unchanged.
+`evaluate-position`, `encode-position` and `decode-policy` keep their names, and
+so do the four decoding phases. `timing_regions.py` already sets the rule —
+names describe *work*, not the function that happens to do it — and the work is
+unchanged: a wave of five encodings is five encodings, however many calls it
+took. Batching is an implementation detail of the caller, and a region name that
+tracked it would have to change again the next time the caller does.
+
+`search-with-policy` is the one exception, and not on plurality grounds: it is
+named for a method that no longer exists. It becomes `search-for-training`,
+after the work it now names.
 
 ### `--games` is now two knobs wearing one hat
 

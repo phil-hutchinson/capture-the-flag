@@ -11,13 +11,15 @@ wiring test, which only inspects how the collector was assembled, stays in the
 default run — that is where the cheap silent-failure check lives.
 """
 
+from collections.abc import Sequence
+
 import pytest
 from game_engine_learning.self_play_collector import SelfPlayCollector
 
 from capture_the_flag.engines.neural_network.ctf_engine_factory import CtfEngineFactory
 from capture_the_flag.engines.neural_network.ctf_nn_evaluator import CtfNNEvaluator
 from capture_the_flag.engines.neural_network.ctf_policy_target import (
-    transform_policy_to_white_perspective,
+    transform_policies_to_white_perspective,
 )
 from capture_the_flag.engines.neural_network.ctf_position_factory import (
     CtfPositionFactory,
@@ -54,7 +56,7 @@ def test_build_self_play_collector_wires_the_game_specific_pieces():
     assert isinstance(collector._position_factory, CtfPositionFactory)
     # Forgetting the transform is the plan's silent-failure mode (the policy head
     # trained against mis-framed targets), so pin that it is actually wired in.
-    assert collector._policy_transform is transform_policy_to_white_perspective
+    assert collector._policy_transform is transform_policies_to_white_perspective
 
 
 @pytest.mark.slow
@@ -97,9 +99,11 @@ def test_capture_time_transform_reframes_black_to_move_distributions():
     evaluator = _evaluator()
     captures: list[tuple[CtfPosition, dict[str, float], dict[str, float]]] = []
 
-    def spy_transform(position: CtfPosition, policy: dict[str, float]) -> dict[str, float]:
-        transformed = transform_policy_to_white_perspective(position, policy)
-        captures.append((position, policy, transformed))
+    def spy_transform(
+        positions: Sequence[CtfPosition], policies: Sequence[dict[str, float]]
+    ) -> Sequence[dict[str, float]]:
+        transformed = transform_policies_to_white_perspective(positions, policies)
+        captures.extend(zip(positions, policies, transformed, strict=True))
         return transformed
 
     collector = SelfPlayCollector(

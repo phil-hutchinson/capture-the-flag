@@ -43,7 +43,7 @@ first generation."""
 SAVE_CHECKPOINT = "save-checkpoint"
 POLICY_LOSS = "policy-loss"
 POLICY_TRANSFORM = "policy-transform"
-"""Re-framing one search's visit distribution as a training target.
+"""Re-framing a fleet turn's visit distributions as training targets.
 
 This is as close as the report gets to naming the *capture* of a training
 sample, which the story lists among the seams inside self-play. The capture

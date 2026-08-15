@@ -14,7 +14,13 @@ from .tensor_layout import TensorLayout
 
 
 @timed(POLICY_TRANSFORM)
-def transform_policy_to_white_perspective(position: CtfPosition, policy: dict[str, float]) -> dict[str, float]:
+def transform_policies_to_white_perspective(positions: Sequence[CtfPosition], policies: Sequence[dict[str, float]]) -> Sequence[dict[str, float]]:
+    transformed_policies: list[dict[str, float]] = []
+    for position, policy in zip(positions, policies, strict=True):
+        transformed_policies.append(_transform_policy_to_white_perspective(position, policy))
+    return transformed_policies
+
+def _transform_policy_to_white_perspective(position: CtfPosition, policy: dict[str, float]) -> dict[str, float]:
     if position.active_player_id == 1:
         return policy
 

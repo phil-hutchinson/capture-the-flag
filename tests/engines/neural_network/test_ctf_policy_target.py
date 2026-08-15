@@ -5,7 +5,7 @@ from torch import Tensor
 from capture_the_flag.board import STANDARD_144
 from capture_the_flag.engines.neural_network.ctf_policy_target import (
     ctf_policy_loss_for,
-    transform_policy_to_white_perspective,
+    transform_policies_to_white_perspective,
 )
 from capture_the_flag.position import CtfPosition
 from capture_the_flag.side import Side
@@ -29,7 +29,7 @@ def _create_policy_logits_bottom_left(a1a2: float, a1a3: float, b1b2: float, b1b
     return policy_logits
 
 
-def test_transform_policy_to_white_perspective_transforms_black():
+def test_transform_policies_to_white_perspective_transforms_black():
     position = CtfPosition({}, Side.BLACK, 0, STANDARD_144)
 
     policy_orig: dict[str, float] = {
@@ -37,7 +37,7 @@ def test_transform_policy_to_white_perspective_transforms_black():
         "F10H10": 5.0,
     }
 
-    policy_conv = transform_policy_to_white_perspective(position, policy_orig)
+    policy_conv = transform_policies_to_white_perspective([position], [policy_orig])[0]
 
     assert len(policy_conv) == 2
     assert "L10L9" in policy_conv
@@ -45,7 +45,7 @@ def test_transform_policy_to_white_perspective_transforms_black():
     assert "G3E3" in policy_conv
     assert policy_conv["G3E3"] == 5.0
 
-def test_transform_policy_to_white_perspective_leaves_white_unchanged():
+def test_transform_policies_to_white_perspective_leaves_white_unchanged():
     position = CtfPosition({}, Side.WHITE, 0, STANDARD_144)
 
     policy_orig: dict[str, float] = {
@@ -53,7 +53,7 @@ def test_transform_policy_to_white_perspective_leaves_white_unchanged():
         "F10H10": 5.0,
     }
 
-    policy_conv = transform_policy_to_white_perspective(position, policy_orig)
+    policy_conv = transform_policies_to_white_perspective([position], [policy_orig])[0]
 
     assert len(policy_conv) == 2
     assert "A3A4" in policy_conv
@@ -61,20 +61,43 @@ def test_transform_policy_to_white_perspective_leaves_white_unchanged():
     assert "F10H10" in policy_conv
     assert policy_conv["F10H10"] == 5.0
 
+def test_transform_resolves_the_frame_per_position_not_per_call():
+    # One call spans a whole fleet turn, and the games in a fleet are independent,
+    # so a single batch legitimately holds both movers. A transform that read the
+    # frame once — from the first position, say — would rotate the White entry too
+    # and pass every single-mover test above.
+    positions = [
+        CtfPosition({}, Side.BLACK, 0, STANDARD_144),
+        CtfPosition({}, Side.WHITE, 0, STANDARD_144),
+    ]
+    policies: list[dict[str, float]] = [{"A3A4": 3.0}, {"A3A4": 3.0}]
+
+    transformed = transform_policies_to_white_perspective(positions, policies)
+
+    assert len(transformed) == 2
+    assert transformed[0] == {"L10L9": 3.0}  # Black to move: re-keyed
+    assert transformed[1] == {"A3A4": 3.0}   # White to move: untouched
+
+def test_transform_rejects_a_policy_batch_that_does_not_match_the_positions():
+    positions = [CtfPosition({}, Side.BLACK, 0, STANDARD_144)]
+
+    with pytest.raises(ValueError):
+        transform_policies_to_white_perspective(positions, [{"A3A4": 3.0}, {"A3A4": 3.0}])
+
 def test_transform_and_loss_pipeline_correct():
     black_position = CtfPosition({}, Side.BLACK, 0, STANDARD_144)
     black_target: dict[str, float] = {
         "C3C4": 2.5,
         "F10H10": 7.0,
     }
-    black_target_conv = transform_policy_to_white_perspective(black_position, black_target)
+    black_target_conv = transform_policies_to_white_perspective([black_position], [black_target])[0]
 
     white_position = CtfPosition({}, Side.WHITE, 0, STANDARD_144)
     white_target: dict[str, float] = {
         "J10J9": 2.5,
         "G3E3": 7.0,
     }
-    white_target_conv = transform_policy_to_white_perspective(white_position, white_target) # should be nullop
+    white_target_conv = transform_policies_to_white_perspective([white_position], [white_target])[0] # should be nullop
 
 
     policy_logits = torch.rand(ACTION_SPACE_SHAPE).unsqueeze(0)
@@ -133,6 +156,22 @@ def test_ctf_policy_loss_means_over_batch():
     grouped_loss = ctf_policy_loss(torch.stack([logits_1, logits_2, logits_3]),[policy_1, policy_2, policy_3])
 
     assert (loss_1 + loss_2 + loss_3) / 3 == pytest.approx(grouped_loss)
+
+def test_ctf_policy_loss_builds_its_target_on_the_logits_device():
+    # `PolicyLossFn` makes the device of every tensor the loss creates the loss's
+    # own responsibility: the library places what it creates, but cannot reach
+    # inside this one, so a model on an accelerator would meet a host-side target.
+    #
+    # Asserted with torch's `meta` device, which carries shape and dtype but no
+    # storage and exists on every build — so this pins the contract on a CPU-only
+    # container rather than waiting for a GPU to be present. A target built on the
+    # ambient default instead would raise a device mismatch here, which is exactly
+    # the failure the contract exists to prevent.
+    logits = torch.rand(ACTION_SPACE_SHAPE).unsqueeze(0).to("meta")
+
+    loss = ctf_policy_loss(logits, [{"A1A2": 1.0}])
+
+    assert loss.device.type == "meta"
 
 def test_ctf_policy_loss_is_bound_to_its_board():
     # The targets arrive as bare `str(ply)` keys, so the board they are laid out

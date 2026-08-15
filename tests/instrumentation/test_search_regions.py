@@ -6,6 +6,8 @@ our instrumented work must appear beneath the search region rather than beside
 it, and what is left over must be the engine's own internals.
 """
 
+from game_engine_core.engines.mcts_engine import MCTSEngine
+
 from capture_the_flag.engines.neural_network.ctf_engine_factory import CtfEngineFactory
 from capture_the_flag.engines.neural_network.ctf_nn_evaluator import CtfNNEvaluator
 from capture_the_flag.engines.neural_network.neural_ctf_player import (
@@ -13,8 +15,8 @@ from capture_the_flag.engines.neural_network.neural_ctf_player import (
 )
 from capture_the_flag.instrumentation.timed_search import (
     SEARCH,
+    SEARCH_FOR_TRAINING,
     SEARCH_RESET,
-    SEARCH_WITH_POLICY,
     TimedMCTSEngine,
 )
 from capture_the_flag.instrumentation.timing import timing_session
@@ -94,16 +96,37 @@ def test_work_outside_search_cannot_inflate_the_remainder() -> None:
 
 
 def test_self_play_search_records_under_its_own_name() -> None:
-    """`select_ply_with_policy` is the self-play entry point and is reported
+    """`select_plies_for_training` is the self-play entry point and is reported
     separately from play-time search."""
     engine = timed_engine()
 
     with timing_session("test") as session:
-        ply, policy = engine.select_ply_with_policy(ongoing_position())
+        (ply, policy), = engine.select_plies_for_training([ongoing_position()])
 
     assert ply is not None and policy
-    assert child(session.root, SEARCH_WITH_POLICY).calls == 1
+    assert child(session.root, SEARCH_FOR_TRAINING).calls == 1
     assert SEARCH not in session.root.children
+
+
+def test_every_timed_override_still_overrides_a_real_engine_method() -> None:
+    """No override may name a method `MCTSEngine` does not have.
+
+    `TimedMCTSEngine` exists only to wrap calls into the pinned engine, so an
+    override whose base method was renamed upstream stops being called by
+    anything. Nothing fails: the class still constructs, the engine still plays,
+    and the region simply never opens again — a hole in the report rather than a
+    crash. That is what happened to `select_ply_with_policy` at v0.1.6, and the
+    type checker only noticed because the body happened to call `super()`. This
+    catches it whether it does or not.
+    """
+    overrides = {
+        name
+        for name, attribute in vars(TimedMCTSEngine).items()
+        if callable(attribute) and not name.startswith("__")
+    }
+
+    assert overrides, "no overrides found — the guard would pass vacuously"
+    assert sorted(name for name in overrides if not hasattr(MCTSEngine, name)) == []
 
 
 def test_tree_maintenance_calls_are_recorded() -> None:
@@ -125,9 +148,9 @@ def test_the_self_play_engine_factory_produces_a_timed_engine() -> None:
     )()
 
     with timing_session("test") as session:
-        engine.select_ply_with_policy(ongoing_position())
+        engine.select_plies_for_training([ongoing_position()])
 
-    assert child(session.root, SEARCH_WITH_POLICY).calls == 1
+    assert child(session.root, SEARCH_FOR_TRAINING).calls == 1
 
 
 def test_the_learned_player_seat_produces_a_timed_engine() -> None:

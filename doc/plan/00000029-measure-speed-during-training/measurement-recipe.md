@@ -168,3 +168,25 @@ path, or on a materially different machine. The figure to watch is region
 entries per second of work — ~1,970 in July, ~2,730 after the gap-closing
 regions. If a future change pushed it toward the millions, this conclusion would
 need revisiting.
+
+### Later note (story 45, 2026-08-15): the current baseline lives elsewhere
+
+The figures above were taken before the repin to `game-engine-core` v0.1.6, on
+different hardware and against a different search (partial expansion, one game at
+a time). **The baseline to compare a change against now is
+[story 45's](../00000045-repin-to-engine-v0.1.6/baseline.md)**, whose record is
+kept in that story's `baseline/` directory.
+
+The recipe itself does not change — same command, same defaults, same
+seed — and neither does the guidance above. Two things to carry with it:
+
+- **Entries per second of work is now ~3,021** (from ~1,970 and ~2,730 here). The
+  threshold for revisiting "timing on by default" is still millions, so the
+  conclusion stands.
+- **Check the fleet width as well as the environment.** Since v0.1.6 the regions
+  at the wave boundary — `evaluate-position`, `encode-position`, `decode-policy`,
+  `policy-transform` — are entered once per *wave* rather than once per position,
+  while the four decoding phases still count positions. The recipe plays real
+  games, so it is always width 1 and its records stay comparable with each other;
+  a record taken from a training run is as wide as `--games` and is not
+  comparable to one taken here.

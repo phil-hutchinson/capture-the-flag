@@ -34,7 +34,7 @@ DECODE_PHASES = (
     POLICY_SOFTMAX,
     READ_PLY_PROBABILITIES,
 )
-"""The four phases of a decode, in the order `decode_policy` performs them."""
+"""The four phases of a decode, in the order `decode_policies` performs them."""
 
 
 def test_evaluation_children_nest_under_the_evaluation() -> None:
@@ -43,7 +43,7 @@ def test_evaluation_children_nest_under_the_evaluation() -> None:
 
     with timing_session("test") as session:
         for _ in range(3):
-            evaluator.evaluate_position(position)
+            evaluator.evaluate_positions([position])
 
     evaluate = child(session.root, EVALUATE_POSITION)
     assert evaluate.calls == 3
@@ -63,7 +63,7 @@ def test_evaluation_keeps_an_unattributed_remainder_of_its_own() -> None:
     evaluator = CtfNNEvaluator(small_network(), BATTLE_TENSOR_LAYOUT)
 
     with timing_session("test") as session:
-        evaluator.evaluate_position(ongoing_position())
+        evaluator.evaluate_positions([ongoing_position()])
 
     assert child(session.root, EVALUATE_POSITION).unattributed_ns > 0
 
@@ -78,7 +78,7 @@ def test_the_mode_switch_is_charged_to_the_evaluation_that_triggers_it() -> None
 
     with timing_session("test") as session:
         for _ in range(3):
-            evaluator.evaluate_position(position)
+            evaluator.evaluate_positions([position])
 
     evaluate = child(session.root, EVALUATE_POSITION)
     assert child(evaluate, NETWORK_MODE_SWITCH).calls == 3
@@ -104,7 +104,7 @@ def test_policy_decoding_pays_for_a_ply_generation() -> None:
     evaluator = CtfNNEvaluator(small_network(), BATTLE_TENSOR_LAYOUT)
 
     with timing_session("test") as session:
-        evaluator.evaluate_position(ongoing_position())
+        evaluator.evaluate_positions([ongoing_position()])
 
     decode = child(session.root, EVALUATE_POSITION, DECODE_POLICY)
     assert child(decode, LEGAL_PLIES).calls == 1
@@ -120,7 +120,7 @@ def test_decoding_records_each_of_its_phases() -> None:
 
     with timing_session("test") as session:
         for _ in range(3):
-            evaluator.evaluate_position(position)
+            evaluator.evaluate_positions([position])
 
     decode = child(session.root, EVALUATE_POSITION, DECODE_POLICY)
     for phase in DECODE_PHASES:
@@ -138,7 +138,7 @@ def test_ply_generation_stays_a_sibling_of_the_decode_phases() -> None:
     evaluator = CtfNNEvaluator(small_network(), BATTLE_TENSOR_LAYOUT)
 
     with timing_session("test") as session:
-        evaluator.evaluate_position(ongoing_position())
+        evaluator.evaluate_positions([ongoing_position()])
 
     decode = child(session.root, EVALUATE_POSITION, DECODE_POLICY)
     assert child(decode, LEGAL_PLIES).calls == 1
@@ -155,19 +155,19 @@ def test_the_phases_account_for_the_decode() -> None:
 
     with timing_session("test") as session:
         for _ in range(10):
-            evaluator.evaluate_position(position)
+            evaluator.evaluate_positions([position])
 
     decode = child(session.root, EVALUATE_POSITION, DECODE_POLICY)
     assert decode.unattributed_ns * 3 < decode.elapsed_ns
 
 
 def test_encoding_alone_records_without_an_evaluation() -> None:
-    """`encode_position` is also called directly (the self-play collector encodes
-    each step), so it records at whatever depth the caller sits."""
+    """`encode_positions` is also called directly (the self-play collector encodes
+    each turn's batch), so it records at whatever depth the caller sits."""
     evaluator = CtfNNEvaluator(small_network(), BATTLE_TENSOR_LAYOUT)
 
     with timing_session("test") as session:
-        evaluator.encode_position(ongoing_position())
+        evaluator.encode_positions([ongoing_position()])
 
     assert child(session.root, ENCODE_POSITION).calls == 1
     assert EVALUATE_POSITION not in session.root.children

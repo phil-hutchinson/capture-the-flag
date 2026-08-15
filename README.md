@@ -110,8 +110,10 @@ Each run lands in its own timestamped directory under `./training-runs/`
 (gitignored), holding the checkpoint series, a `run-config.json`
 reproducibility record, and a `timings.json`/`timings.txt` breakdown of where the
 run spent its time. The self-play and training shape is tuned with
-`--games` (games per generation), `--iterations`/`--temperature` (self-play
-search), `--epochs`/`--batch-size`/`--learning-rate` (training),
+`--games` (games per generation — collected as one fleet, so this also sets the
+fleet width: how many positions the engine searches per wave),
+`--iterations`/`--temperature` (self-play search),
+`--epochs`/`--batch-size`/`--learning-rate` (training),
 `--features`/`--residual-blocks` (the network's width and depth), and
 `--seed`; unset flags fall back to modest built-in defaults. `--resume`
 reloads the most recent run's latest checkpoint and trains `--generations`

@@ -10,6 +10,10 @@ distribution into the network's white-normalized frame *while the collector
 still holds the position* (and thus its `active_player_id`); omitting it stores
 Black-to-move targets in the wrong frame and silently trains the policy head
 against mis-framed targets rather than crashing.
+
+It is handed a whole fleet turn at once, and the games in a fleet are
+independent: one call can span both movers, so the transform resolves the frame
+per position rather than once per call.
 """
 
 from collections.abc import Callable
@@ -20,7 +24,7 @@ from ...game_setup import GameSetup
 from ...position import CtfPosition
 from .ctf_engine_factory import CtfEngineFactory
 from .ctf_nn_evaluator import CtfNNEvaluator
-from .ctf_policy_target import transform_policy_to_white_perspective
+from .ctf_policy_target import transform_policies_to_white_perspective
 from .ctf_position_factory import CtfPositionFactory
 
 
@@ -47,5 +51,5 @@ def build_self_play_collector(
         evaluator=evaluator,
         engine_factory=engine_factory or CtfEngineFactory(evaluator),
         position_factory=position_factory or CtfPositionFactory(setup=setup),
-        policy_transform=transform_policy_to_white_perspective,
+        policy_transform=transform_policies_to_white_perspective,
     )

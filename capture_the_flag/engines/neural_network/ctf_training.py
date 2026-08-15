@@ -46,7 +46,9 @@ def train_one_generation(
     """Run one generation over `network` and return the per-epoch loss history.
 
     Collects `n_games` self-play games with the current `network`, then trains
-    for `epochs` passes over that one collected batch. `network` is mutated in
+    for `epochs` passes over that one collected batch. The games are collected as
+    one fleet — all of them in flight at once — so `n_games` is also the width of
+    the batches the engine searches and the encoder encodes. `network` is mutated in
     place (its weights are updated), so the caller holds the improved network
     after the call — this is the seam the generations loop reuses.
 

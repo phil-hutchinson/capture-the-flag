@@ -36,13 +36,20 @@ build argument and the `--gpus all` run argument, so they cannot drift apart.
 `torch.cuda.is_available()` is true inside it — but nothing in this repository
 places a network or a tensor on it. Self-play, training, and played games all
 still compute on the CPU, and a run's `timings.json` correctly records
-`"torch_device": "cpu"` there. Making the pipeline device-aware waits on device
-support in `game-engine-core`, whose training loop and evaluator hand the network
-tensors without a device argument. So opening the CUDA container to make training
+`"torch_device": "cpu"` there. So opening the CUDA container to make training
 faster will not make it faster. Use it to develop and test against real hardware.
 
-**Host prerequisites.** An NVIDIA GPU with a current driver, and a Docker
-installation with GPU support (the NVIDIA container toolkit; Docker Desktop's
+**The remaining blocker is here, not upstream.** This was a library limitation
+until `game-engine-core` v0.1.6, whose training loop places each minibatch on the
+model's device and whose evaluator no longer imposes one; the library now follows
+the device it is given. What is missing is this repository choosing one — nothing
+here moves the model or its tensors, and no entry point offers a `--device` flag
+(see `capture_the_flag/device.py`, which resolves the decision but is not yet
+wired to anything).
+
+**Host prerequisites.** An NVIDIA GPU **that the pinned torch build ships kernels
+for**, with a current driver, and a Docker installation with GPU support (the
+NVIDIA container toolkit; Docker Desktop's
 WSL2 backend provides this once the Windows-side NVIDIA driver is installed —
 there is no separate driver to install inside WSL). Confirm before building by
 running `nvidia-smi` **on the host**, not in a container; it should list the GPU.
@@ -60,6 +67,21 @@ The CUDA container reports a `+cuXXX` build, a CUDA version, and `True`; the
 default container reports a `+cpu` build, `None`, and `False`. The torch
 *version* must match in both — the configurations differ by build, not by
 version, or no comparison between them means anything.
+
+In the CUDA container, one more — it should print a tensor, not raise:
+
+```bash
+python -c "import torch; print(torch.zeros(1, device='cuda') + 1)"
+```
+
+**That allocation is the real check, not `is_available()`.** A torch build ships
+compiled kernels for a fixed set of compute capabilities, and a card newer than
+the build is detected but cannot be run on: `is_available()` returns `True`, and
+the first kernel launch fails with *"no kernel image is available for execution
+on the device"*. If that happens, the fix is the `TORCH_INDEX_URL` build argument
+in [`.devcontainer/cuda/devcontainer.json`](.devcontainer/cuda/devcontainer.json),
+pointed at a CUDA build new enough for the card — **not** a different torch
+version, which would break the version parity the paragraph above requires.
 
 ### Type checking and linting
 

@@ -11,13 +11,16 @@ wiring test, which only inspects how the collector was assembled, stays in the
 default run — that is where the cheap silent-failure check lives.
 """
 
+from collections.abc import Sequence
+
 import pytest
+import torch
 from game_engine_learning.self_play_collector import SelfPlayCollector
 
 from capture_the_flag.engines.neural_network.ctf_engine_factory import CtfEngineFactory
 from capture_the_flag.engines.neural_network.ctf_nn_evaluator import CtfNNEvaluator
 from capture_the_flag.engines.neural_network.ctf_policy_target import (
-    transform_policy_to_white_perspective,
+    transform_policies_to_white_perspective,
 )
 from capture_the_flag.engines.neural_network.ctf_position_factory import (
     CtfPositionFactory,
@@ -54,19 +57,35 @@ def test_build_self_play_collector_wires_the_game_specific_pieces():
     assert isinstance(collector._position_factory, CtfPositionFactory)
     # Forgetting the transform is the plan's silent-failure mode (the policy head
     # trained against mis-framed targets), so pin that it is actually wired in.
-    assert collector._policy_transform is transform_policy_to_white_perspective
+    assert collector._policy_transform is transform_policies_to_white_perspective
 
 
 @pytest.mark.slow
 def test_collect_produces_structurally_valid_samples():
     evaluator = _evaluator()
+    # Every game in the fleet starts from the same placement, which is what makes
+    # the fleet-width assertion below countable; the games still diverge, since
+    # the search is stochastic at this temperature.
+    start = CtfPositionFactory(setup=BATTLE_SETUP)()
     collector = build_self_play_collector(
-        evaluator, BATTLE_SETUP, _fast_engine_factory(evaluator)
+        evaluator, BATTLE_SETUP, _fast_engine_factory(evaluator), lambda: start
     )
 
     samples = collector.collect(2)
 
-    assert samples
+    # Both games have to be present, not just slot 0's: a collector that played
+    # the fleet and returned one game's samples would satisfy a bare `assert
+    # samples`, and index alignment across the fleet is what this repin changed.
+    # The starting position cannot recur inside a game — its inactivity counter
+    # is 0 and captures are irreversible — so its encoding appears exactly once
+    # per game played.
+    start_encoding = evaluator.encode_positions([start])[0]
+    starts = sum(
+        1 for sample in samples
+        if torch.equal(sample.encoded_position, start_encoding)
+    )
+    assert starts == 2
+
     for sample in samples:
         assert tuple(sample.encoded_position.shape) == BATTLE_TENSOR_LAYOUT.input_shape
         assert sample.target_value in (-1.0, 0.0, 1.0)
@@ -97,9 +116,11 @@ def test_capture_time_transform_reframes_black_to_move_distributions():
     evaluator = _evaluator()
     captures: list[tuple[CtfPosition, dict[str, float], dict[str, float]]] = []
 
-    def spy_transform(position: CtfPosition, policy: dict[str, float]) -> dict[str, float]:
-        transformed = transform_policy_to_white_perspective(position, policy)
-        captures.append((position, policy, transformed))
+    def spy_transform(
+        positions: Sequence[CtfPosition], policies: Sequence[dict[str, float]]
+    ) -> Sequence[dict[str, float]]:
+        transformed = transform_policies_to_white_perspective(positions, policies)
+        captures.extend(zip(positions, policies, transformed, strict=True))
         return transformed
 
     collector = SelfPlayCollector(

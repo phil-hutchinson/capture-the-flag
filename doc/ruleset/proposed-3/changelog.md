@@ -115,13 +115,19 @@ that will produce a wrong board rather than an error.
 
 ### Ending a game
 
-- **Piece exhaustion replaces "no legal move."** A player with no numbered pieces
-  loses immediately, checked after **every** ply rather than at the start of their
-  turn. The Flag does not count toward this.
-- **Mutual exhaustion is a draw.** If one ply leaves both players with no numbered
+- **Attrition replaces "no legal move."** A player with no numbered pieces loses
+  immediately, checked after **every** ply rather than at the start of their turn.
+  The Flag does not count toward this.
+- **Mutual attrition is a draw.** If one ply leaves both players with no numbered
   pieces, neither wins.
-- `ResultReason` uses `Pieces Exhausted` and `Mutual Exhaustion` where major 2 used
-  `No Legal Move`. `Result` values are unchanged.
+- **Resignation is a new way to end a game.** A player may concede at any point and
+  the opponent wins immediately. Unlike a draw offer it needs no acceptance and
+  cannot be declined. Note that it is a **decisive result that cannot be derived
+  from the position** — a reader replaying a resigned game stops at a position that
+  is not terminal, which is correct and not a malformed record. `Draw by Agreement`
+  has always behaved this way; resignation extends it to wins.
+- `ResultReason` uses `Attrition` and `Mutual Attrition` where major 2 used
+  `No Legal Move`, and adds `Resignation`. `Result` values are unchanged.
 - **The inactivity limit drops from 50 plies to 40.**
 - Flag capture and draw by agreement are unchanged.
 

@@ -161,7 +161,7 @@ play depends on it.
 - **Passing is never allowed.** A player who still has at least one numbered
   piece always has at least one legal move, so this never leaves a player stuck:
   a player with no numbered pieces has already lost (see
-  [Section 5.2](#52-loss--piece-exhaustion)).
+  [Section 5.2](#52-loss--attrition)).
 
 ### 4.2 Movement
 
@@ -337,18 +337,21 @@ The game ends the moment any of the following is met. Every condition is checked
 **after each move**, including the opponent's, so a game never continues past the
 point at which it has been decided.
 
+Sections 5.1–5.4 are settled by the position itself. Sections 5.5 and 5.6 are
+**declared by a player** and cannot be read off the board.
+
 ### 5.1 Win — Flag capture
 
 A player who **captures the opposing Flag**, by moving a piece onto it, wins
 immediately. The Flag may be captured orthogonally or diagonally (see
 [Section 4.4](#44-diagonal-attacks)).
 
-### 5.2 Loss — Piece exhaustion
+### 5.2 Loss — Attrition
 
 A player left with **no numbered pieces** loses immediately. The Flag does not
 count: a player holding nothing but their Flag has no army and has lost.
 
-### 5.3 Draw — Mutual exhaustion
+### 5.3 Draw — Mutual attrition
 
 If a single move leaves **both** players with no numbered pieces — a trade in
 which each side's last piece is removed — the game is a **draw**. Neither player
@@ -365,7 +368,16 @@ every combat removes at least one piece.
 
 If the inactivity counter reaches **40**, the game is a **draw**.
 
-### 5.5 Draw — by agreement
+### 5.5 Loss — Resignation
+
+A player may **resign** at any point, conceding the game; the opponent wins
+immediately.
+
+Unlike a draw offer, a resignation is not an offer. It needs no acceptance and
+cannot be declined, and it is always available — no position prevents a player
+from resigning.
+
+### 5.6 Draw — by agreement
 
 The players may agree to a draw at any time: either player may offer a draw on
 their turn, and if the opponent accepts, the game ends immediately in a draw. If
@@ -401,8 +413,11 @@ with moves that make no genuine attempt at progress.
 - **Sacrificial attack** — an attack in which the attacking piece does not
   survive. **Complete:** attacker removed, defender survives (and is reduced).
   **Partial:** both removed.
-- **Piece exhaustion** — the state of having no numbered pieces left, which loses
-  the game immediately.
+- **Attrition** — the state of having no numbered pieces left, which loses the
+  game immediately. **Mutual attrition**, where one move leaves both players in
+  that state, is a draw.
+- **Resignation** — conceding the game. The opponent wins immediately; unlike a
+  draw offer, it needs no acceptance.
 - **Ruleset** — a named body of rules. A ruleset name always means whichever
   edition of it is currently active.
 - **Edition** — a specific, permanent version of a ruleset, written

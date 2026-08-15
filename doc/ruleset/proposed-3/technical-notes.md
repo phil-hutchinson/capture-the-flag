@@ -324,7 +324,7 @@ adopted rule is the one that keeps the position self-describing.
 
 ---
 
-## Piece exhaustion replaced "no legal move"
+## Attrition replaced "no legal move"
 
 Major 2 loses the game for a player who cannot move. Major 3 loses it for a
 player with no numbered pieces, checked after every ply.
@@ -334,7 +334,7 @@ player with no numbered pieces, checked after every ply.
 Under the major 2 rule, a player whose last piece dies in a mutual trade passes
 the turn to an opponent who also has nothing — and the *opponent* loses, for
 having no legal move. The player who moved last wins with no army. Making mutual
-exhaustion a draw is the correct answer to that, and dropping the delayed check
+attrition a draw is the correct answer to that, and dropping the delayed check
 removes the pointless shuffling ply in the one-sided case.
 
 ### Dropping "boxed in" costs nothing, and here is why
@@ -356,9 +356,39 @@ restore the clause with it — the terrain removal is load-bearing, not incident
 
 ### Result reasons
 
-`ResultReason` is free text sourced from the terminal position. Major 3 uses
-`Pieces Exhausted` and `Mutual Exhaustion` where major 2 used `No Legal Move`.
-`Result` values are unchanged.
+`ResultReason` is free text. Major 3 uses `Attrition` and `Mutual Attrition`
+where major 2 used `No Legal Move`, and adds `Resignation` (below). `Result`
+values are unchanged.
+
+---
+
+## Resignation, and outcomes that are not in the position
+
+Major 3 adds resignation: a player may concede at any point and the opponent wins
+immediately. It is standard in turn-based games and costs the ruleset nothing —
+no interaction with any other rule, no position in which it is unavailable, and
+no acceptance to negotiate, which is what distinguishes it from a draw offer.
+
+What is worth recording is the category it belongs to. **Every other way a major 3
+game ends is a function of the position** — Flag capture, attrition, mutual
+attrition and the inactivity counter can all be computed from the board and the
+counter by something that has never seen the players. Resignation cannot, and
+neither can a draw by agreement. They are *declared*, not derived.
+
+Two consequences follow:
+
+- **A record can state these outcomes but nothing can validate them.** A reader
+  replaying a resigned game reaches a position that is not terminal and then stops,
+  because the record says so. That is correct, not a malformed record, and a
+  validator must not treat an early stop with a `Resignation` reason as an error.
+  Note this is not a new situation — `Draw by Agreement` has always had exactly this
+  property — but resignation makes it a *win* rather than a draw, so anything that
+  assumed decisive results were position-derived needs revisiting.
+- **Engine play may simply never use it.** Resignation is a courtesy between human
+  players and a way to save time; an engine that plays every position to the end
+  loses nothing by ignoring it. If engine play does adopt a resignation threshold,
+  that is an engine policy and not a rule — the rules say only that resigning is
+  permitted, never when it is appropriate.
 
 ---
 

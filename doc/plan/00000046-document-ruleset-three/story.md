@@ -77,7 +77,8 @@ without reading the major 2 documents.
 - **Direction-relative encumbrance:** an enemy behind you does not slow you down.
 - **Diagonal attacks against every piece**, the Flag included, subject to an
   open-path requirement — which is what gives a Flag its defence.
-- **Piece exhaustion** replaces "no legal move," with mutual exhaustion a draw.
+- **Attrition** replaces "no legal move," with mutual attrition a draw, and
+  **resignation** is added.
 - **White's first ply is limited to one square**, to offset part of the
   first-player advantage.
 - **Inactivity limit 40 plies**, down from 50.

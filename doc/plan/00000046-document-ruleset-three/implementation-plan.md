@@ -78,7 +78,7 @@ JavaScript `Number` cannot hold one exactly.
 
 Write `proposed-3/technical-notes.md`: why this is a major bump, the rank
 reduction design and its risks, the notation design, the encumbrance and
-first-ply analyses, the exhaustion argument, and the edition and naming wrinkles.
+first-ply analyses, the attrition argument, and the edition and naming wrinkles.
 
 Depends on: Steps 2 and 3 (it explains decisions those two documents make).
 

@@ -125,6 +125,15 @@ device-awareness story with a failure it did not cause.
   as naming the library-side blocker as lifted.
 - **Optimizing anything the new baseline reveals.** Findings are recorded, not
   acted on — the same rule story 29 set for itself.
+- **`decode_policies`' host/device transfer contract.** v0.1.6 asks the decoder
+  to read each row back in one transfer rather than one `.item()` per legal ply;
+  `_decode_policy` keeps the per-element read. Unlike the `PolicyLossFn` contract
+  above, honouring this is a performance change to the hot path rather than a
+  one-line placement, and on CPU — where everything here runs — it buys nothing:
+  the cost it names is the device synchronisation, which does not exist yet. It
+  is deferred to the device-awareness story, which is also the first point at
+  which the improvement is measurable. `read-ply-probabilities` is 193us in this
+  story's baseline and stays on the record as a finding.
 - **Tuning `games_per_generation`** in response to it now setting batch width.
 - **Retraining, or any checkpoint compatibility question.** No tensor contract,
   action space, or ruleset moves in this story.

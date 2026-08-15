@@ -1,13 +1,13 @@
 """The learned play engine's evaluator: position encoding and policy decoding.
 
-`encode_position` presents a `CtfPosition` to the network as a `TOTAL_FP_COUNT`-
-plane image the size of the configured board, always from the side-to-move's
-perspective: when Black is to move, the board is rotated 180 degrees and
-ownership relabelled, so the network always sees "own side moving up the board"
-and never knows which colour it is playing. Most planes are one-hot piece/lake
-indicators, but the engineered planes (flag-relative offsets, army-strength
-ratios) are continuous-valued broadcasts — see `tensor_layout.py` for the full
-plane layout.
+`encode_positions` presents each `CtfPosition` to the network as a
+`TOTAL_FP_COUNT`-plane image the size of the configured board, always from the
+side-to-move's perspective: when Black is to move, the board is rotated 180
+degrees and ownership relabelled, so the network always sees "own side moving up
+the board" and never knows which colour it is playing. Most planes are one-hot
+piece/lake indicators, but the engineered planes (flag-relative offsets,
+army-strength ratios) are continuous-valued broadcasts — see `tensor_layout.py`
+for the full plane layout.
 
 An evaluator is built for one `TensorLayout` and encodes only that board and
 army: the extent of every plane and the divisor of every army-strength plane come
@@ -247,6 +247,13 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
 
     @timed(ENCODE_POSITION)
     def encode_positions(self, positions: Sequence[CtfPosition]) -> Tensor:
+        # An empty wave is routine upstream rather than a misuse, so it gets the
+        # empty batch of the right shape rather than torch's "stack expects a
+        # non-empty TensorList", which names nothing a caller here could act on.
+        if not positions:
+            return torch.zeros(
+                (0, *self._tensor_layout.input_shape), dtype=torch.float32
+            )
         encoded_positions: list[Tensor] = []
         for position in positions:
             encoded_positions.append(self._encode_position(position))
@@ -374,5 +381,12 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
             probabilities = F.softmax(masked.flatten(), dim = -1).reshape(action_space_shape)
 
         # map the probabilities back to valid plies
+        #
+        # One `.item()` per legal ply, which is the per-element read v0.1.6's
+        # `decode_policies` contract asks callers to avoid in favour of reading a
+        # row back in a single transfer. Knowingly deferred: it is a performance
+        # change, it costs nothing on CPU where everything here runs today, and it
+        # belongs with the story that makes the pipeline device-aware — see
+        # `story.md`'s out-of-scope list.
         with region(READ_PLY_PROBABILITIES):
             return {str(ply): probabilities[policy_logit_location].item() for (policy_logit_location, ply) in legal_ply_mapping.items()}

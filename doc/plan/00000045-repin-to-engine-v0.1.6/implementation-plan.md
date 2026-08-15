@@ -159,6 +159,13 @@ container will still not make training faster) and change only the reason given.
 Then run `/update-readme` to review the branch diff against `README.md` and
 update it if the story touched anything it describes, or record that it did not.
 
+The same section also gains the sm_120 finding Step 7 ran into: on this machine
+`torch.cuda.is_available()` is true while the first kernel launch fails, because
+the pinned torch build ships no kernels for the card. It is written up here
+rather than only in `baseline.md` because it is a host prerequisite for anyone
+opening the CUDA container, and because Step 5's choice of the `meta` device over
+`requires_cuda` depends on it.
+
 Depends on: Steps 1–7.
 
 Verification (manual): Read the changed `CONTRIBUTING.md` paragraph and confirm

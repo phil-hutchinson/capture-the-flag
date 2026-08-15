@@ -660,6 +660,15 @@ def test_evaluate_of_an_empty_batch_evaluates_nothing():
 
     assert evaluator.evaluate_positions([]) == []
 
+def test_encode_of_an_empty_batch_is_an_empty_batch():
+    # The same empty wave one level down, where torch.stack would raise rather
+    # than produce the zero-row batch the shape contract implies.
+    evaluator = CtfNNEvaluator(_dummy_model(), BATTLE_TENSOR_LAYOUT)
+
+    encoded = evaluator.encode_positions([])
+
+    assert tuple(encoded.shape) == (0, *BATTLE_TENSOR_LAYOUT.input_shape)
+
 @pytest.mark.parametrize(
     "side_to_move", 
     [Side.WHITE, Side.BLACK,],

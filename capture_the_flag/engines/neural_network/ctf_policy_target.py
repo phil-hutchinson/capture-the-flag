@@ -14,13 +14,30 @@ from .tensor_layout import TensorLayout
 
 
 @timed(POLICY_TRANSFORM)
-def transform_policies_to_white_perspective(positions: Sequence[CtfPosition], policies: Sequence[dict[str, float]]) -> Sequence[dict[str, float]]:
+def transform_policies_to_white_perspective(
+    positions: Sequence[CtfPosition], policies: Sequence[dict[str, float]]
+) -> Sequence[dict[str, float]]:
+    """Re-key one fleet turn's visit distributions into White's frame.
+
+    The `PolicyTransform` the self-play collector applies at capture, aligned by
+    index: `policies[i]` is the distribution searched from `positions[i]`, and the
+    returned sequence keeps that alignment.
+
+    One call spans a *turn of the fleet*, not a game — the positions come from
+    different games and may be of either side to move, so the rotation is decided
+    per position and never once for the call.
+    """
     transformed_policies: list[dict[str, float]] = []
     for position, policy in zip(positions, policies, strict=True):
-        transformed_policies.append(_transform_policy_to_white_perspective(position, policy))
+        transformed_policies.append(
+            _transform_policy_to_white_perspective(position, policy)
+        )
     return transformed_policies
 
-def _transform_policy_to_white_perspective(position: CtfPosition, policy: dict[str, float]) -> dict[str, float]:
+
+def _transform_policy_to_white_perspective(
+    position: CtfPosition, policy: dict[str, float]
+) -> dict[str, float]:
     if position.active_player_id == 1:
         return policy
 
@@ -54,7 +71,11 @@ def ctf_policy_loss_for(tensor_layout: TensorLayout) -> PolicyLossFn:
             This method looks at the board in universal position (i.e. from white's perspective), so this requires that
             PolicyTransform be implemented and passed into SelfPlayCollector
         """
-        targets = torch.zeros((len(target_policies), *action_space_shape), dtype=torch.float32, device = policy_logits.device)
+        targets = torch.zeros(
+            (len(target_policies), *action_space_shape),
+            dtype=torch.float32,
+            device=policy_logits.device,
+        )
         for row, policy in enumerate(target_policies):
             for ply_str, prob in policy.items():
                 ply = parse_ply(ply_str)

@@ -14,6 +14,7 @@ default run — that is where the cheap silent-failure check lives.
 from collections.abc import Sequence
 
 import pytest
+import torch
 from game_engine_learning.self_play_collector import SelfPlayCollector
 
 from capture_the_flag.engines.neural_network.ctf_engine_factory import CtfEngineFactory
@@ -62,13 +63,29 @@ def test_build_self_play_collector_wires_the_game_specific_pieces():
 @pytest.mark.slow
 def test_collect_produces_structurally_valid_samples():
     evaluator = _evaluator()
+    # Every game in the fleet starts from the same placement, which is what makes
+    # the fleet-width assertion below countable; the games still diverge, since
+    # the search is stochastic at this temperature.
+    start = CtfPositionFactory(setup=BATTLE_SETUP)()
     collector = build_self_play_collector(
-        evaluator, BATTLE_SETUP, _fast_engine_factory(evaluator)
+        evaluator, BATTLE_SETUP, _fast_engine_factory(evaluator), lambda: start
     )
 
     samples = collector.collect(2)
 
-    assert samples
+    # Both games have to be present, not just slot 0's: a collector that played
+    # the fleet and returned one game's samples would satisfy a bare `assert
+    # samples`, and index alignment across the fleet is what this repin changed.
+    # The starting position cannot recur inside a game — its inactivity counter
+    # is 0 and captures are irreversible — so its encoding appears exactly once
+    # per game played.
+    start_encoding = evaluator.encode_positions([start])[0]
+    starts = sum(
+        1 for sample in samples
+        if torch.equal(sample.encoded_position, start_encoding)
+    )
+    assert starts == 2
+
     for sample in samples:
         assert tuple(sample.encoded_position.shape) == BATTLE_TENSOR_LAYOUT.input_shape
         assert sample.target_value in (-1.0, 0.0, 1.0)

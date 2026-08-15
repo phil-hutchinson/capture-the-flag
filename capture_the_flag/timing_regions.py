@@ -49,10 +49,10 @@ This is as close as the report gets to naming the *capture* of a training
 sample, which the story lists among the seams inside self-play. The capture
 itself belongs to the shared `SelfPlayCollector`: the two pieces of it this
 repository owns are this transform and the `encode-position` the collector
-performs once per fleet turn, both of which appear under `self-play` on their own. What the
-collector does around them — accumulating the samples, attaching the game's
-outcome — stays inside `self-play`'s unattributed remainder, reported rather
-than chased, like the other upstream gaps."""
+performs once per fleet turn, both of which appear under `self-play` on their
+own. What the collector does around them — accumulating the samples, attaching
+the game's outcome — stays inside `self-play`'s unattributed remainder, reported
+rather than chased, like the other upstream gaps."""
 
 # Game mechanics: the per-position work that search calls hundreds of thousands
 # of times per game.
@@ -94,10 +94,10 @@ position, so it no longer scales with the number of positions evaluated."""
 # of `decode-policy` unattributed — 9.4% of the whole run, and a ceiling on what
 # any optimization could claim — so its four phases are named individually. Each
 # is one region per position decoded, never one per ply: a phase costs a couple
-# of hundred microseconds, some hundreds of times a region entry, while a region per ply
-# would be entered tens of millions of times per run to time work only a few
-# times its own cost. `legal-plies` stays a sibling of these four rather than a
-# parent of the first, so its line in a report means what it meant before.
+# of hundred microseconds, some hundreds of times a region entry, while a region
+# per ply would be entered tens of millions of times per run to time work only a
+# few times its own cost. `legal-plies` stays a sibling of these four rather than
+# a parent of the first, so its line in a report means what it meant before.
 MAP_PLY_SLOTS = "map-ply-slots"
 """Locating each legal ply's slot in the action space."""
 BUILD_POLICY_MASK = "build-policy-mask"

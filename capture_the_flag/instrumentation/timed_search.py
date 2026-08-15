@@ -58,7 +58,9 @@ class TimedMCTSEngine[
         with region(SEARCH):
             return super().select_ply(game_position)
 
-    def select_plies_for_training(self, positions: Sequence[TPosition]) -> Sequence[tuple[TPly, dict[str, float]]]:
+    def select_plies_for_training(
+        self, positions: Sequence[TPosition]
+    ) -> Sequence[tuple[TPly, dict[str, float]]]:
         with region(SEARCH_FOR_TRAINING):
             return super().select_plies_for_training(positions)
 

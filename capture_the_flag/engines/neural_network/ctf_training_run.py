@@ -102,6 +102,16 @@ class TrainingConfig:
 
     generations: int = 10
     games_per_generation: int = 5
+    """How many self-play games a generation collects — and, since the collector
+    became a fleet driver, how wide its batches are.
+
+    The games are played as one fleet rather than one after another: all of them
+    are in flight at once, advanced a ply each per turn, so this number is also
+    the number of positions the engine searches per wave and the number of step
+    records held in memory at once. Raising it for more training data therefore
+    also raises peak memory and changes what a timing record means (the regions at
+    the wave boundary count waves, not positions). It is not tuned here — the
+    default is what it was before the fleet existed."""
     self_play_iterations: int = 200
     self_play_temperature: float = 1.0
     epochs_per_generation: int = 3

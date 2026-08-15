@@ -80,7 +80,11 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--games",
         type=int,
         default=None,
-        help=f"self-play games per generation (default: {_DEFAULTS.games_per_generation})",
+        help=(
+            "self-play games per generation; also the fleet width, so it sets how "
+            "many positions the engine searches per wave "
+            f"(default: {_DEFAULTS.games_per_generation})"
+        ),
     )
     parser.add_argument(
         "--iterations",

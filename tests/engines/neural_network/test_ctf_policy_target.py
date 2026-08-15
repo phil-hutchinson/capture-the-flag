@@ -157,6 +157,22 @@ def test_ctf_policy_loss_means_over_batch():
 
     assert (loss_1 + loss_2 + loss_3) / 3 == pytest.approx(grouped_loss)
 
+def test_ctf_policy_loss_builds_its_target_on_the_logits_device():
+    # `PolicyLossFn` makes the device of every tensor the loss creates the loss's
+    # own responsibility: the library places what it creates, but cannot reach
+    # inside this one, so a model on an accelerator would meet a host-side target.
+    #
+    # Asserted with torch's `meta` device, which carries shape and dtype but no
+    # storage and exists on every build — so this pins the contract on a CPU-only
+    # container rather than waiting for a GPU to be present. A target built on the
+    # ambient default instead would raise a device mismatch here, which is exactly
+    # the failure the contract exists to prevent.
+    logits = torch.rand(ACTION_SPACE_SHAPE).unsqueeze(0).to("meta")
+
+    loss = ctf_policy_loss(logits, [{"A1A2": 1.0}])
+
+    assert loss.device.type == "meta"
+
 def test_ctf_policy_loss_is_bound_to_its_board():
     # The targets arrive as bare `str(ply)` keys, so the board they are laid out
     # against comes from the tensor layout the loss was built for -- an 8x8

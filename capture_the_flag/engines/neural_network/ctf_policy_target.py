@@ -54,7 +54,7 @@ def ctf_policy_loss_for(tensor_layout: TensorLayout) -> PolicyLossFn:
             This method looks at the board in universal position (i.e. from white's perspective), so this requires that
             PolicyTransform be implemented and passed into SelfPlayCollector
         """
-        targets = torch.zeros((len(target_policies), *action_space_shape), dtype=torch.float32)
+        targets = torch.zeros((len(target_policies), *action_space_shape), dtype=torch.float32, device = policy_logits.device)
         for row, policy in enumerate(target_policies):
             for ply_str, prob in policy.items():
                 ply = parse_ply(ply_str)

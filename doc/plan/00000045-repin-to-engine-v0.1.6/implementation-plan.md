@@ -105,10 +105,14 @@ device-aware.
 
 Depends on: Step 1.
 
-Verification (automated): a test in `test_ctf_policy_target.py` that asserts the
-loss's target is built on the same device as the logits it is given. Where a GPU
-is available (`tests/gpu.py` already gates on this), exercise it on CUDA logits;
-where one is not, the assertion still holds on CPU and the CUDA case skips.
+Verification (automated): a test in `test_ctf_policy_target.py` that hands the
+loss logits on torch's `meta` device — shape and dtype, no storage, available on
+every build — and asserts the returned loss is still on it. A target built on the
+ambient default raises a device mismatch there, so the contract is pinned without
+a GPU. Deliberately *not* gated on `tests/gpu.py`: `requires_cuda` skips on
+`torch.cuda.is_available()`, which on the current machine returns True while
+every kernel launch fails against the card, so a CUDA-marked test would run and
+fail for a reason unrelated to this story. Fixing that gate is out of scope here.
 
 ## Step 6 — The whole suite, including the slow arm
 

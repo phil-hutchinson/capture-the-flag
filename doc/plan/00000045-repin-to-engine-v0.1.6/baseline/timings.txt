@@ -1,0 +1,41 @@
+Games played: 2
+White wins:   0
+Black wins:   0
+Draws:        2
+Endings:      Inactivity: 2
+Plies per game — min: 50, max: 50, mean: 50.0
+
+region                                            calls       total        mean   %root  %parent
+------------------------------------------------------------------------------------------------
+game-batch                                            1     11.565s     11.565s  100.0%   100.0%
+  play-games                                          1     11.542s     11.542s   99.8%    99.8%
+    search                                          100     11.496s   114.965ms   99.4%    99.6%
+      evaluate-position                           2,452      9.959s     4.062ms   86.1%    86.6%
+        network-forward                           2,452      6.116s     2.494ms   52.9%    61.4%
+        decode-policy                             2,452      1.717s     700.1us   14.8%    17.2%
+          legal-plies                             2,452   506.276ms     206.5us    4.4%    29.5%
+          build-policy-mask                       2,452   498.678ms     203.4us    4.3%    29.1%
+          read-ply-probabilities                  2,452   473.299ms     193.0us    4.1%    27.6%
+          map-ply-slots                           2,452   101.938ms      41.6us    0.9%     5.9%
+          (unattributed)                              -    68.863ms           -    0.6%     4.0%
+          policy-softmax                          2,452    67.469ms      27.5us    0.6%     3.9%
+        encode-position                           2,452      1.364s     556.4us   11.8%    13.7%
+        network-mode-switch                       2,452   633.733ms     258.5us    5.5%     6.4%
+        (unattributed)                                -   128.487ms           -    1.1%     1.3%
+      outcome                                     2,500   639.822ms     255.9us    5.5%     5.6%
+        legal-plies                               2,452   603.828ms     246.3us    5.2%    94.4%
+        (unattributed)                                -    35.994ms           -    0.3%     5.6%
+      legal-plies                                 2,452   459.295ms     187.3us    4.0%     4.0%
+      (unattributed)                                  -   404.090ms           -    3.5%     3.5%
+      apply-ply                                   2,400    34.310ms      14.3us    0.3%     0.3%
+    outcome                                         104    21.921ms     210.8us    0.2%     0.2%
+      legal-plies                                   100    20.590ms     205.9us    0.2%    93.9%
+      (unattributed)                                  -     1.331ms           -    0.0%     6.1%
+    (unattributed)                                    -    10.725ms           -    0.1%     0.1%
+    search-observe-ply                              200    10.547ms      52.7us    0.1%     0.1%
+    apply-ply                                       100     1.522ms      15.2us    0.0%     0.0%
+    starting-position                                 2     448.1us     224.0us    0.0%     0.0%
+    outcome-reason                                    2       9.9us       4.9us    0.0%     0.0%
+    search-reset                                      4       4.2us       1.0us    0.0%     0.0%
+  (unattributed)                                      -    16.978ms           -    0.1%     0.1%
+  write-records                                       1     6.762ms     6.762ms    0.1%     0.1%

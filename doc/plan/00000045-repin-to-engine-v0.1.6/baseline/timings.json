@@ -1,0 +1,270 @@
+{
+  "created": "2026-08-15T05:24:56",
+  "kind": "game-batch",
+  "settings": {
+    "games": 2,
+    "white": "neural",
+    "black": "neural",
+    "iterations": 25,
+    "temperature": null,
+    "seed": 20260724,
+    "output_dir": "doc/plan/00000045-repin-to-engine-v0.1.6/baseline"
+  },
+  "environment": {
+    "git_commit": "8ee2f7c",
+    "versions": {
+      "python": "3.12.13",
+      "game_engine_core": "0.1.6",
+      "capture_the_flag": "0.1.0",
+      "torch": "2.13.0+cu126"
+    },
+    "machine": {
+      "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.36",
+      "processor": "AMD Ryzen 7 8700F 8-Core Processor",
+      "cpu_count": 16,
+      "torch_device": "cpu",
+      "torch_tf32_allowed": false,
+      "torch_threads": 8,
+      "torch_interop_threads": 16
+    }
+  },
+  "timings": {
+    "name": "game-batch",
+    "calls": 1,
+    "seconds": 11.565383,
+    "mean_seconds": 11.565382779,
+    "unattributed_seconds": 0.016978,
+    "percent_of_root": 100.0,
+    "percent_of_parent": 100.0,
+    "children": [
+      {
+        "name": "play-games",
+        "calls": 1,
+        "seconds": 11.541643,
+        "mean_seconds": 11.541642885,
+        "unattributed_seconds": 0.010725,
+        "percent_of_root": 99.79,
+        "percent_of_parent": 99.79,
+        "children": [
+          {
+            "name": "search",
+            "calls": 100,
+            "seconds": 11.496465,
+            "mean_seconds": 0.114964651,
+            "unattributed_seconds": 0.40409,
+            "percent_of_root": 99.4,
+            "percent_of_parent": 99.61,
+            "children": [
+              {
+                "name": "evaluate-position",
+                "calls": 2452,
+                "seconds": 9.958947,
+                "mean_seconds": 0.004061561,
+                "unattributed_seconds": 0.128487,
+                "percent_of_root": 86.11,
+                "percent_of_parent": 86.63,
+                "children": [
+                  {
+                    "name": "network-forward",
+                    "calls": 2452,
+                    "seconds": 6.115874,
+                    "mean_seconds": 0.002494239,
+                    "percent_of_root": 52.88,
+                    "percent_of_parent": 61.41,
+                    "children": []
+                  },
+                  {
+                    "name": "decode-policy",
+                    "calls": 2452,
+                    "seconds": 1.716523,
+                    "mean_seconds": 0.00070005,
+                    "unattributed_seconds": 0.068863,
+                    "percent_of_root": 14.84,
+                    "percent_of_parent": 17.24,
+                    "children": [
+                      {
+                        "name": "legal-plies",
+                        "calls": 2452,
+                        "seconds": 0.506276,
+                        "mean_seconds": 0.000206475,
+                        "percent_of_root": 4.38,
+                        "percent_of_parent": 29.49,
+                        "children": []
+                      },
+                      {
+                        "name": "build-policy-mask",
+                        "calls": 2452,
+                        "seconds": 0.498678,
+                        "mean_seconds": 0.000203376,
+                        "percent_of_root": 4.31,
+                        "percent_of_parent": 29.05,
+                        "children": []
+                      },
+                      {
+                        "name": "read-ply-probabilities",
+                        "calls": 2452,
+                        "seconds": 0.473299,
+                        "mean_seconds": 0.000193026,
+                        "percent_of_root": 4.09,
+                        "percent_of_parent": 27.57,
+                        "children": []
+                      },
+                      {
+                        "name": "map-ply-slots",
+                        "calls": 2452,
+                        "seconds": 0.101938,
+                        "mean_seconds": 4.1574e-05,
+                        "percent_of_root": 0.88,
+                        "percent_of_parent": 5.94,
+                        "children": []
+                      },
+                      {
+                        "name": "policy-softmax",
+                        "calls": 2452,
+                        "seconds": 0.067469,
+                        "mean_seconds": 2.7516e-05,
+                        "percent_of_root": 0.58,
+                        "percent_of_parent": 3.93,
+                        "children": []
+                      }
+                    ]
+                  },
+                  {
+                    "name": "encode-position",
+                    "calls": 2452,
+                    "seconds": 1.364331,
+                    "mean_seconds": 0.000556416,
+                    "percent_of_root": 11.8,
+                    "percent_of_parent": 13.7,
+                    "children": []
+                  },
+                  {
+                    "name": "network-mode-switch",
+                    "calls": 2452,
+                    "seconds": 0.633733,
+                    "mean_seconds": 0.000258455,
+                    "percent_of_root": 5.48,
+                    "percent_of_parent": 6.36,
+                    "children": []
+                  }
+                ]
+              },
+              {
+                "name": "outcome",
+                "calls": 2500,
+                "seconds": 0.639822,
+                "mean_seconds": 0.000255929,
+                "unattributed_seconds": 0.035994,
+                "percent_of_root": 5.53,
+                "percent_of_parent": 5.57,
+                "children": [
+                  {
+                    "name": "legal-plies",
+                    "calls": 2452,
+                    "seconds": 0.603828,
+                    "mean_seconds": 0.000246259,
+                    "percent_of_root": 5.22,
+                    "percent_of_parent": 94.37,
+                    "children": []
+                  }
+                ]
+              },
+              {
+                "name": "legal-plies",
+                "calls": 2452,
+                "seconds": 0.459295,
+                "mean_seconds": 0.000187315,
+                "percent_of_root": 3.97,
+                "percent_of_parent": 4.0,
+                "children": []
+              },
+              {
+                "name": "apply-ply",
+                "calls": 2400,
+                "seconds": 0.03431,
+                "mean_seconds": 1.4296e-05,
+                "percent_of_root": 0.3,
+                "percent_of_parent": 0.3,
+                "children": []
+              }
+            ]
+          },
+          {
+            "name": "outcome",
+            "calls": 104,
+            "seconds": 0.021921,
+            "mean_seconds": 0.000210783,
+            "unattributed_seconds": 0.001331,
+            "percent_of_root": 0.19,
+            "percent_of_parent": 0.19,
+            "children": [
+              {
+                "name": "legal-plies",
+                "calls": 100,
+                "seconds": 0.02059,
+                "mean_seconds": 0.000205901,
+                "percent_of_root": 0.18,
+                "percent_of_parent": 93.93,
+                "children": []
+              }
+            ]
+          },
+          {
+            "name": "search-observe-ply",
+            "calls": 200,
+            "seconds": 0.010547,
+            "mean_seconds": 5.2733e-05,
+            "percent_of_root": 0.09,
+            "percent_of_parent": 0.09,
+            "children": []
+          },
+          {
+            "name": "apply-ply",
+            "calls": 100,
+            "seconds": 0.001522,
+            "mean_seconds": 1.5222e-05,
+            "percent_of_root": 0.01,
+            "percent_of_parent": 0.01,
+            "children": []
+          },
+          {
+            "name": "starting-position",
+            "calls": 2,
+            "seconds": 0.000448,
+            "mean_seconds": 0.000224039,
+            "percent_of_root": 0.0,
+            "percent_of_parent": 0.0,
+            "children": []
+          },
+          {
+            "name": "outcome-reason",
+            "calls": 2,
+            "seconds": 1e-05,
+            "mean_seconds": 4.945e-06,
+            "percent_of_root": 0.0,
+            "percent_of_parent": 0.0,
+            "children": []
+          },
+          {
+            "name": "search-reset",
+            "calls": 4,
+            "seconds": 4e-06,
+            "mean_seconds": 1.038e-06,
+            "percent_of_root": 0.0,
+            "percent_of_parent": 0.0,
+            "children": []
+          }
+        ]
+      },
+      {
+        "name": "write-records",
+        "calls": 1,
+        "seconds": 0.006762,
+        "mean_seconds": 0.006761704,
+        "percent_of_root": 0.06,
+        "percent_of_parent": 0.06,
+        "children": []
+      }
+    ]
+  }
+}

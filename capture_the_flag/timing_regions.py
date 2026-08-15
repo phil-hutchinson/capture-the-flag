@@ -12,7 +12,7 @@ places in a tree: `legal-plies` under `search` is a different line from
 `legal-plies` under `outcome`.
 
 One family of names lives elsewhere: the search-boundary regions (`search`,
-`search-with-policy`, and the tree-maintenance calls) are defined in
+`search-for-training`, and the tree-maintenance calls) are defined in
 `instrumentation/timed_search.py`, next to the engine that records them, because
 that module is shareable and cannot import this game-specific one.
 """

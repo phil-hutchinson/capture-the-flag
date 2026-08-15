@@ -18,6 +18,7 @@ for an `MCTSEngine` by name. If the timing ever moves into `game-engine-core`,
 it belongs in `MCTSEngine` itself and this class disappears.
 """
 
+from collections.abc import Sequence
 from typing import Any
 
 from game_engine_core.engines.mcts_engine import MCTSEngine
@@ -30,8 +31,8 @@ from .timing import region
 SEARCH = "search"
 """A play-time search: one call to `select_ply`."""
 
-SEARCH_WITH_POLICY = "search-with-policy"
-"""A self-play search: one call to `select_ply_with_policy`. Distinct from
+SEARCH_FOR_TRAINING = "search-for-training"
+"""A self-play search: one call to `select_plies_for_training`. Distinct from
 `SEARCH` because it also builds the visit distribution the training target is
 made from, and because a run does one or the other, never both."""
 
@@ -57,11 +58,9 @@ class TimedMCTSEngine[
         with region(SEARCH):
             return super().select_ply(game_position)
 
-    def select_ply_with_policy(
-        self, game_position: TPosition
-    ) -> tuple[TPly, dict[str, float]]:
-        with region(SEARCH_WITH_POLICY):
-            return super().select_ply_with_policy(game_position)
+    def select_plies_for_training(self, positions: Sequence[TPosition]) -> Sequence[tuple[TPly, dict[str, float]]]:
+        with region(SEARCH_FOR_TRAINING):
+            return super().select_plies_for_training(positions)
 
     def observe_ply(
         self, position: TPosition, ply: TPly, new_position: TPosition

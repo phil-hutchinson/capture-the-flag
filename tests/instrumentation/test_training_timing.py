@@ -16,6 +16,7 @@ from capture_the_flag.engines.neural_network.ctf_training_run import (
     resume_generations,
     train_generations,
 )
+from capture_the_flag.instrumentation.timed_search import SEARCH_FOR_TRAINING
 from capture_the_flag.timing_record import (
     TIMING_RECORD_FILENAME,
     TIMING_TEXT_FILENAME,
@@ -85,7 +86,7 @@ def test_the_search_boundary_is_visible_inside_self_play(tmp_path) -> None:
     run_dir = train_generations(TINY_RUN, base_dir=tmp_path, timing=True)
 
     self_play = node(read_record(run_dir)["timings"], GENERATION, SELF_PLAY)
-    search = node(self_play, "search-with-policy")
+    search = node(self_play, SEARCH_FOR_TRAINING)
     # Our instrumented work sits under the search call; what is left over is the
     # pinned engine's own internals.
     assert node(search, "evaluate-position")["calls"] > 0

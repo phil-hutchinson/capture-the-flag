@@ -25,10 +25,26 @@ that will produce a wrong board rather than an error.
   At major 3, rank `5` is the strongest and rank `1` the weakest. The digits in a
   position block mean the opposite of what they meant. A renderer that maps a
   digit to artwork or to a strength value **must branch on the record's major**.
-- **Piece names are reused at different ranks.** `Foot Soldier` is rank 5 in
-  `2-0:BATTLE` and rank **3** in `3-0:PRE-RELEASE`. Names are explicitly flavour at
-  major 3 and carry no permanence guarantee at all. **Key off `(major, rank
-  digit)`. Never off a name, and never off a digit alone.**
+- **Piece names are reused at different ranks.** Names are explicitly flavour at
+  major 3 and carry no permanence guarantee at all, and **every major 2 name that
+  survives into major 3 carries a different digit** — see the table below.
+
+| Name | Rank in `2-0:BATTLE` | Rank in `3-0:PRE-RELEASE` |
+|---|---|---|
+| Master-of-Arms | 1 (strongest) | 5 (strongest) |
+| Champion | 2 | 4 |
+| Knight | 3 | *not in this army* |
+| Halberdier | 4 | *not in this army* |
+| Foot Soldier | 5 | 3 |
+| Militia | 6 (weakest) | 2 |
+| Peasant | *did not exist* | 1 (weakest) |
+
+The two failure modes are different, and both are silent. A consumer that maps a
+**name to artwork** survives the first two rows — `Master-of-Arms` and `Champion`
+keep their place in the strength order — and is wrong on `Foot Soldier` and
+`Militia`, which move. A consumer that maps a **name to a rank digit**, or a
+digit back to a name, is wrong on all four. **Key off `(major, rank digit)`.
+Never off a name, and never off a digit alone.**
 
 ### Notation — one new mark, and one form withdrawn
 

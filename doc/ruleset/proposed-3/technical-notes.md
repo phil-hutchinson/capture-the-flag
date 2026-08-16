@@ -221,6 +221,20 @@ renderer, **never any `XXX`**, since there are no lakes. A consumer may rely on
 that for major 3 records specifically, and must not generalise it to any other
 major.
 
+### The header tag roster gains `StartPosition`
+
+Major 2's header roster is closed — PGN's Seven Tag Roster plus `ResultReason`
+and `Ruleset`, and nothing else is defined. Major 3 adds one tag,
+**`StartPosition`**, carrying the position ID specified in
+[`start-position.md`](start-position.md). It is **optional**: the record already
+holds its full starting board in the position block, so the ID is redundant for
+replay and a reader must not require it.
+
+Because the roster can now grow, one obligation has to be stated that the major 2
+spec never needed: **a reader must ignore header tags it does not recognise**
+rather than rejecting the record. Without that, `StartPosition` would be a
+breaking change for every existing reader, and any later tag would be one again.
+
 ---
 
 ## Direction-relative encumbrance
@@ -236,19 +250,25 @@ rule produces the same legal-ply set whether that square is counted or not.
 ### What it does to a pursuit
 
 The interesting consequence is not that fleeing gets easier in general, but that
-pursuit becomes a **problem of lining up**:
+**contact from behind stops holding a piece in place**:
 
 | Pursuer's position | Effect |
 |---|---|
-| directly behind | the quarry advances two; the pursuer, now out of contact, is unencumbered and also advances two. **Distance holds.** |
-| diagonally behind | the quarry advances two; the pursuer is encumbered and manages one. **The quarry gains.** |
-| directly beside | the quarry cannot use the two-square move at all. |
+| directly behind | neither piece is encumbered on its own ply — the quarry because the pursuer is behind it, the pursuer because the quarry has already moved out of contact. Both advance two. **Distance holds.** |
+| diagonally behind | the same, for the same reason: both advance two and **distance holds**. But the pursuer stays one column off, and can only line up by spending a ply on the correction — during which the quarry advances two and the pursuer none. |
+| directly beside | the quarry is encumbered and manages one; the pursuer, still in contact after the quarry's ply, is encumbered too and also manages one. **Lockstep, and contact is kept.** |
 
 A straight-line chase therefore neither closes nor breaks — the same as at major
 2, except that it now crosses the board twice as fast and so resolves sooner
-rather than never. To actually close on a piece, a pursuer must get directly
-behind it or alongside it, which is a positional task rather than a matter of
-having more speed.
+rather than never. What changed is *why*: at major 2 the two pieces encumbered
+each other and crawled; here neither encumbers the other and both run.
+
+Note what the table does **not** say: there is no geometry from which a pursuer
+closes on an equally fast quarry in the open. A pursuer that wants more than to
+follow has to be **beside or ahead of** its quarry, which is where the two-square
+move is actually denied — and getting there costs the tempo the middle row
+charges for it. That is a positional task rather than a matter of having more
+speed.
 
 ### Encumbrance is a property of the origin square only
 
@@ -345,9 +365,12 @@ survive but cannot move. In major 3 that state is unreachable:
 > Take any numbered piece. It is stuck only if every orthogonal neighbour is
 > off-board or friendly — an empty neighbour is a move, and an enemy neighbour is
 > always a legal attack, since there are no Towers and the Flag is orthogonally
-> attackable. If *every* numbered piece were stuck, the whole army together with
-> its Flag would have to be orthogonally enclosed by itself and the board edge
-> alone, which a set of at most 16 squares cannot do on a 64-square board.
+> attackable. For *every* numbered piece to be stuck, the set of squares holding
+> them would need its whole on-board boundary covered by friendly pieces that are
+> not themselves numbered — and there is exactly one such piece, the Flag. But
+> the 8 × 8 grid has no cut square: removing any single square leaves the rest
+> connected, so a non-empty set of fewer than 64 squares always has **at least
+> two** on-board boundary squares. One Flag can never cover them.
 
 **This argument depends on there being no lakes.** At major 2 a pocket sealed by
 lakes and the board edge really can box a player in, which is why the clause
@@ -430,6 +453,22 @@ would have bought measurement at the cost of shipping an undecided game.
 The mechanism remains available, and the rules for it are unchanged: a new
 setting's first value is always the behaviour that preceded it, so introducing one
 never alters what `3-0:PRE-RELEASE` means.
+
+### The two diagonal-attack proposals are absorbed, not graduated
+
+[`../proposed-variants.md`](../proposed-variants.md) proposes two flags against
+major 2: `DIAGONAL_ATTACKABLE`, widening diagonal attack to immobile targets, and
+`DIAGONAL_ATTACK_PATH`, requiring an open path for one. Major 3 adopts **both
+behaviours as baseline** ([`rules.md`](rules.md)
+[Section 4.4](rules.md#44-diagonal-attacks)) rather than graduating either as a
+flag, which is what "no rule settings at launch" means in their case
+specifically.
+
+Their entries in that file are **unaffected** and remain live proposals against
+major 2, where they would still need behaviour-preserving defaults — major 3
+adopting a behaviour says nothing about whether major 2 should offer it. If major
+3 is adopted, `proposed-variants.md` should gain a pointer here, so the overlap
+is visible from the major 2 side too.
 
 ---
 

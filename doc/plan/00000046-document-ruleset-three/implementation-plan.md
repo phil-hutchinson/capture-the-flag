@@ -117,7 +117,8 @@ appear, and every internal link should resolve.
 
 Depends on: Steps 1–5.
 
-Verification (improvised): a link-resolution script over all six new files, plus a
+Verification (improvised): a link-resolution script over all five documents in
+`proposed-3/`, plus a
 grep for the shared constants. A passing result is zero broken links and no
 disagreement between documents.
 

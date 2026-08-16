@@ -57,9 +57,10 @@ army. Both armies therefore fill their home rows completely at the start, with n
 empty square in either.
 
 The board's **left half** is columns A–D and its **right half** is columns E–H.
-Each half is 8 squares. These halves are referred to only when generating the
-starting position ([Section 3](#3-the-starting-position)); they have no meaning
-during play.
+Each half is four columns wide, so each player has 8 of their 16 home squares in
+each half. These halves are referred to only when generating the starting
+position ([Section 3](#3-the-starting-position)); they have no meaning during
+play.
 
 ### 2.2 The pieces
 
@@ -227,9 +228,9 @@ piece one rank stronger, rather than losing. Both pieces are removed.
 applies to the attacker and the defender alike — whichever of them is still
 standing when the combat is resolved.
 
-A Master-of-Arms that wins a fight becomes a Champion: rank 4, in every respect
-and for the rest of the game. It fights as a 4, forms up with other 4s, and is
-written as a 4. There is no memory of what it used to be.
+A rank 5 that wins a fight becomes a rank 4, in every respect and for the rest of
+the game. It fights as a 4, forms up with other 4s, and is written as a 4. There
+is no memory of what it used to be.
 
 Three consequences are worth stating:
 

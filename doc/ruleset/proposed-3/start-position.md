@@ -226,17 +226,24 @@ them back, and a person can read the arrangement off the code by eye.
   row 2   A2 … H2     5 4 4 1 5 2 1 1
 ```
 
-Two conventions, both because `0` is a meaningful digit:
+Two conventions:
 
-- **Always exactly 16 characters**, zero-padded. A leading `0` is significant, and
-  dropping it would silently shift every square.
-- **Write uppercase**; a reader should accept either case.
+- **Always exactly 16 characters**, one per square and never trimmed. The fixed
+  width is what lets two codes be compared and sorted as plain strings. At major 3
+  a code cannot begin with `0` — every home square is occupied — but under a later
+  ruleset where `0` can occur (see [Reserved digits](#reserved-digits)) a leading
+  `0` would be significant, and dropping it would silently shift every square.
+- **Write uppercase, and upper-case on input.** Comparison, sorting and storage
+  are all defined on the upper-cased form. A reader may accept a lowercase code
+  but must normalise it before doing anything else: `F` is `0x46` and `f` is
+  `0x66`, so a lowercase code neither compares equal to its uppercase twin nor
+  sorts alongside it.
 
 ### It is a string, not a number
 
 **Treat a position ID as a 16-character string.** It is a code, and no arithmetic
-is ever performed on it: two positions are the same when their codes match as
-strings.
+is ever performed on it: two positions are the same when their upper-cased codes
+match as strings.
 
 This matters in practice. Sixteen hexadecimal digits is 64 bits, and the largest
 valid code exceeds 1.7 × 10¹⁹ — far past the 2⁵³ limit within which a JavaScript
@@ -248,9 +255,10 @@ An implementation that wants one may of course pack the code into a `uint64` —
 sixteen nibbles fit exactly, with row 1 in the high 32 bits — but that is a local
 convenience and not the interchange form.
 
-Because the codes are fixed-width hexadecimal, they also **sort as strings in the
-same order they would as numbers**, so an implementation can order or index
-positions without parsing anything.
+Because the codes are fixed-width uppercase hexadecimal, they also **sort as
+strings in the same order they would as numbers**, so an implementation can order
+or index positions without parsing anything. This is the second reason to
+normalise case on input rather than merely tolerating it.
 
 ### Reserved digits
 

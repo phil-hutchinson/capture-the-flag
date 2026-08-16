@@ -1,6 +1,7 @@
 # Ruleset — Claude project context
 
-[`rules.md`](rules.md) in this folder is the **official, authoritative ruleset**
+[`rules.md`](rules.md) at this level — not the copy inside any `proposed-*/`
+shadow folder, see below — is the **official, authoritative ruleset**
 for Capture the Flag: the single source of truth that the engine implementation,
 its tests, evaluators, and any external consumer are checked against. If the code
 and `rules.md` disagree, that is a bug — and `rules.md` is the reference.
@@ -19,7 +20,37 @@ their permanence promises are player-facing, while the reasoning behind an
 edition, the record and checkpoint stamping, and the policy on what forces a
 major bump stay in `technical-notes.md`. Proposed-but-unpublished variants stay
 out of `rules.md` entirely — they belong in
-[`proposed-variants.md`](proposed-variants.md).
+[`proposed-variants.md`](proposed-variants.md), or in a shadow folder as
+described next.
+
+## Shadow folders: whole-ruleset proposals
+
+`proposed-variants.md` holds a proposal that fits *within* the published rules
+text — a single rule flag with a behavior-preserving default. A proposal that
+**replaces** the rules text cannot live there, because there is no flag to write
+it as. That gets a **shadow folder** instead:
+[`proposed-3/`](proposed-3/README.md) holds a complete proposed major 3
+(Story 00000046), as shadow copies of `rules.md`, `technical-notes.md` and
+`changelog.md` plus a `start-position.md` with no counterpart here.
+
+Everything about such a folder is scoped to it:
+
+- **Nothing in it is authoritative.** `proposed-3/rules.md` is a proposal;
+  `rules.md` at this level remains the single source of truth the engine, its
+  tests, and every external consumer are checked against. Where the two disagree
+  that is expected, not a bug — the rule that "if the code and `rules.md`
+  disagree, that is a bug" is about the published document only.
+- **The changelog rule below does not reach inside it.** `proposed-3/changelog.md`
+  is a draft of the entry the change *would* publish. It is not part of
+  [`changelog.md`](changelog.md), and editing a shadow document publishes no
+  edition, moves no ruleset pointer, and needs no entry here.
+- **Nothing outside it may depend on it.** No code, no test, and no published
+  document may cite a shadow document as a definition.
+
+If a shadow ruleset is adopted, its documents merge into or replace their
+counterparts at this level and the folder goes away; if it is abandoned, the
+folder is deleted and nothing breaks. Either way the decision is explicit — a
+shadow folder never graduates by drift.
 
 ## Rule: ruleset changes require a changelog entry
 

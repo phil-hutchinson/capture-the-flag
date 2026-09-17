@@ -11,36 +11,35 @@ design-facing material out of it: version metadata, provisional/tunable values,
 naming history, and cross-references belong in
 [`technical-notes.md`](technical-notes.md), not in the rulebook.
 
-**Exception — Appendices A and B.** The Variants and Rulesets appendices in
-`rules.md` deliberately carry edition ids and variant settings, which is
-metadata by the rule above. They live in the rulebook because a player has to be
-able to answer "which rules is this game using, and what are its settings?" from
-the rulebook alone. The exception is those two appendices and nothing else:
-their permanence promises are player-facing, while the reasoning behind an
-edition, the record and checkpoint stamping, and the policy on what forces a
-major bump stay in `technical-notes.md`. Proposed-but-unpublished variants stay
-out of `rules.md` entirely — they belong in
-[`proposed-variants.md`](proposed-variants.md), or in a shadow folder as
-described next.
+**Exception — the Appendix.** `rules.md`'s Appendix deliberately carries edition
+ids (and, once a major publishes any, rule-setting values), which is metadata by
+the rule above. It lives in the rulebook because a player has to be able to
+answer "which rules is this game using, and what are its settings?" from the
+rulebook alone. The exception is that Appendix and nothing else: its permanence
+promise is player-facing, while the reasoning behind an edition, the record and
+checkpoint stamping, and the policy on what forces a major bump stay in
+`technical-notes.md`. Proposed-but-unpublished settings stay out of `rules.md`
+entirely — they belong in [`proposed-variants.md`](proposed-variants.md), or in
+a shadow folder as described next.
 
 ## Shadow folders: whole-ruleset proposals
 
 `proposed-variants.md` holds a proposal that fits *within* the published rules
 text — a single rule flag with a behavior-preserving default. A proposal that
 **replaces** the rules text cannot live there, because there is no flag to write
-it as. That gets a **shadow folder** instead:
-[`proposed-3/`](proposed-3/README.md) holds a complete proposed major 3
-(Story 00000046), as shadow copies of `rules.md`, `technical-notes.md` and
-`changelog.md` plus a `start-position.md` with no counterpart here.
+it as. That gets a **shadow folder** instead: a complete proposed major, as
+shadow copies of `rules.md`, `technical-notes.md` and `changelog.md`, plus any
+document with no published counterpart yet. `proposed-3/` was one such folder,
+holding the proposed major 3 (Story 00000046) until story 00000049 adopted it.
 
 Everything about such a folder is scoped to it:
 
-- **Nothing in it is authoritative.** `proposed-3/rules.md` is a proposal;
+- **Nothing in it is authoritative.** A shadow `rules.md` is a proposal;
   `rules.md` at this level remains the single source of truth the engine, its
   tests, and every external consumer are checked against. Where the two disagree
   that is expected, not a bug — the rule that "if the code and `rules.md`
   disagree, that is a bug" is about the published document only.
-- **The changelog rule below does not reach inside it.** `proposed-3/changelog.md`
+- **The changelog rule below does not reach inside it.** A shadow `changelog.md`
   is a draft of the entry the change *would* publish. It is not part of
   [`changelog.md`](changelog.md), and editing a shadow document publishes no
   edition, moves no ruleset pointer, and needs no entry here.
@@ -52,6 +51,8 @@ counterparts at this level and the folder goes away; if it is abandoned, the
 folder is deleted and nothing breaks. Either way the decision is explicit — a
 shadow folder never graduates by drift.
 
+No shadow folder currently exists.
+
 ## Rule: ruleset changes require a changelog entry
 
 **Any change to `rules.md` must be accompanied by an entry in
@@ -59,34 +60,27 @@ shadow folder never graduates by drift.
 number, and the date, plus a short summary of what changed.
 
 **When the change alters how the game is played**, it also publishes a new
-edition: add its row to `rules.md` Appendix B, move that ruleset's Active pointer
+edition: add its row to `rules.md`'s Appendix, move that ruleset's Active pointer
 to it, note the superseded edition in the Historical table, and update the set of
 active editions in `capture_the_flag/record.py`. That table is what stamps every
 game record and every checkpoint, so a stale value silently mis-tags everything
 written after the change.
 
-**There are three active editions** — `2-0:BATTLE`, `2-0:CLASH` and
-`2-1:SKIRMISH` — and a change that alters play generally has to be considered for
-all of them. They share `rules.md` in its entirety and differ only in their
-`BOARD_LAYOUT`, `ARMY_COMPOSITION` and `TOWER_PLACEMENT` values, so a rules
-change that is not about the board, the army, or Tower placement almost certainly
-affects all three, and publishing a new edition of some but not the others should
-be a deliberate decision rather than an oversight.
-
-**Their minor numbers differ, and that is normal.** Minor is namespaced per
-ruleset: Skirmish went to `2-1` for the Tower lane restriction while Battle
-stayed at `2-0`, because Battle's play did not change, and Clash is at `2-0`
-simply because that is its first edition. Do not "tidy" them into step —
-republishing an edition whose rules did not change would falsify every record and
-checkpoint already stamped with it — and do not read agreement into two editions
-that happen to share a minor. Only a notation break moves every major at once.
+**There is one active edition** — `3-0:PRE-RELEASE` — and major 3 publishes no
+rule flags, so a rules change is a change to the one rules text rather than a
+choice to be considered across several flag-bearing rulesets. This was not
+always so: major 2 carried three active editions (`2-0:BATTLE`, `2-0:CLASH` and
+`2-1:SKIRMISH`) sharing one rules text and differing only in flag values, so a
+change there had to be checked against all three, and their minor numbers could
+(and did) advance independently. If major 3 grows a second ruleset, this note is
+the place to restate that discipline.
 
 **Prose that generalizes over the live rulesets is a maintenance hazard.**
-Publishing Clash falsified several sentences in `rules.md` that were true of two
-boards — "single-column lanes at the two far edges" chief among them — and one in
-`technical-notes.md` that justified a reserved decision by a property of the two
-published lake patterns rather than by the property that actually held. When
-adding a ruleset, grep for the ones that say *both*.
+Publishing a second major-2 ruleset (Clash) falsified several sentences in that
+era's `rules.md` that were true of only one board, and one in `technical-notes.md`
+that justified a reserved decision by a property that happened to hold rather
+than one that was guaranteed to. When a second ruleset exists again, grep for the
+sentences that say *both* or *every*.
 
 ### The document leads; the code follows
 
@@ -95,17 +89,21 @@ Some rules facts are necessarily duplicated in code, because code cannot read
 
 | Where | What it is |
 |---|---|
-| `rules.md` §2.2, Appendix A's `ARMY_COMPOSITION` entry, and the Appendix B rows | **the definition** |
-| the roster in `pieces.py` | the engine's copy, enforced on every placement |
-| the edition table in `record.py` | the copy each record and checkpoint is stamped from |
+| `rules.md` §2.2 | **the definition** |
+| the roster in `pieces.py` | the engine's copy, drawn by the start-position generator |
+| the edition table in `record.py` | the copy the one active edition is stamped from |
 
-Board layout now works the same way, with `rules.md` §2.1 and the
-`BOARD_LAYOUT` entry as its definition.
+Board layout works the same way, with `rules.md` §2.1 as its definition and the
+layout in `board.py` as the engine's copy.
 
-**Both are per-edition since major 2.** The engine's roster and board geometry
-are no longer single constants — there are three active editions with different
-values for each, selected at run time. Code that assumes one board size or one
-army is a bug even if it happens to be right about `BATTLE`.
+**Both collapse to a single value at major 3.** There is one board and one army,
+and neither is published as a flag — `rules.md`'s Appendix names
+`3-0:PRE-RELEASE` with no settings at all, so their ids are internal and appear
+only in the engine-spec name and in error messages. `BoardLayout` and
+`ArmyComposition` survive as types even though each has exactly one instance, so
+the seam is already there the day major 3 grows a second board or army. Code
+that assumes a second one exists today is premature, not a bug, until it
+actually does.
 
 **Always change the document first, then bring the copies to it.** A change that
 starts in code and is then written up backwards into `rules.md` is how a code

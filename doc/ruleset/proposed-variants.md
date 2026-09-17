@@ -67,50 +67,20 @@ are permanent from that point; the reasoning behind it, and the connectivity rul
 rejected in its favour, moved to
 [`technical-notes.md`](technical-notes.md).
 
+## Withdrawn
+
+`DIAGONAL_ATTACKABLE` (widening diagonal attack to immobile targets) and
+`DIAGONAL_ATTACK_PATH` (requiring an open path for one) were proposed here
+against major 2. Story 00000049 adopted major 3, which makes both behaviours
+baseline at major 3 ([`rules.md`](rules.md)
+[Section 4.4](rules.md#44-diagonal-attacks)) rather than a flag, and retired
+major 2 outright. With no major 2 left to propose a variant against, both
+entries are withdrawn rather than graduated: neither ever became a published
+flag, and major 3 has no rule settings of its own for them to become here
+either. See
+[`technical-notes.md`](technical-notes.md#the-two-diagonal-attack-proposals-are-withdrawn)
+for how each behaviour was adopted.
+
 ## Proposals
 
-### `DIAGONAL_ATTACKABLE`
-
-**Values:** `movable_only` (default) | `all`
-
-Governs which enemy pieces are legal targets of a diagonal attack.
-
-| Value | Behavior |
-|---|---|
-| `movable_only` | Unchanged from today: only a numbered (movable) piece may be attacked diagonally. Towers and the Flag may only be attacked orthogonally. |
-| `all` | A Tower or the Flag may also be attacked diagonally, exactly as a numbered piece can be today. Combat resolves by the same rank/formation rules regardless of target type; a diagonal Tower attack is still a partial sacrifice, as any Tower attack is. |
-
-**Why:** Tests whether removing the Flag's and Towers' orthogonal-only immunity
-changes the balance of the tollbooth dynamic `technical-notes.md` describes for
-`TOWER_PLACEMENT`, and whether the Flag's defensive perimeter is better served
-by staying orthogonal-only or opened up.
-
-**Status:** proposed.
-
-### `DIAGONAL_ATTACK_PATH`
-
-**Values:** `always` (default) | `open_path`
-
-Governs whether a diagonal attack requires a clear path between attacker and
-target, independent of which pieces `DIAGONAL_ATTACKABLE` allows as targets.
-
-| Value | Behavior |
-|---|---|
-| `always` | Unchanged from today: a diagonal attack is legal whenever the target square is diagonally adjacent and holds a legal target, regardless of what stands on the two squares flanking that diagonal. |
-| `open_path` | A diagonal attack additionally requires that **at least one** of the two squares flanking the diagonal (the two squares orthogonally adjacent to both attacker and target) be unoccupied — by a piece of either side — and not a lake. If both flanking squares are lakes, occupied, or some combination of the two, the diagonal attack is illegal. |
-
-**Why:** Tests a stricter, path-based reading of the diagonal attack, closer in
-spirit to how a lake or a piece already blocks orthogonal movement, against the
-current adjacency-only rule.
-
-**Interaction with the existing lake-corner note.** `technical-notes.md`
-already distinguishes the *skirt* (one flanking square a lake, the other open —
-legal today) from the *squeeze* (both flanking squares lakes — decided illegal,
-though unreachable on every published board, and on any board the current
-`BoardLayout` type can express). `open_path`'s "at least
-one flank open" reading is consistent with both of those existing decisions: a
-skirt still has an open flank and stays legal, and a squeeze has no open flank
-and stays illegal — `open_path` generalizes the squeeze decision to also cover
-flanks blocked by pieces, not just lakes.
-
-**Status:** proposed.
+_None at present._

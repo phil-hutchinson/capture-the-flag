@@ -2,9 +2,10 @@
 
 ## Project
 
-Capture the Flag is a two-phase, perfect-information battlefield board game: phase 1
-is secret simultaneous placement, phase 2 is alternating perfect-information
-play. It is implemented on top of [game-engine-core](https://github.com/phil-hutchinson/game-engine-core),
+Capture the Flag is a single-phase, perfect-information battlefield board game:
+every game begins from a generated starting position, fully visible to both
+players from the first move, and proceeds by alternating play until the game
+ends. It is implemented on top of [game-engine-core](https://github.com/phil-hutchinson/game-engine-core),
 which is consumed as a pinned third-party dependency (see CONTRIBUTING.md) — the
 generic engine, MCTS/PUCT search, and learning infrastructure live there; this
 repo implements the game-specific rules, evaluators, and training.
@@ -68,13 +69,13 @@ preferred term; everywhere else (code, tests, plans, design docs) use "ply." Whe
 editing `rules.md`, keep it in "move" terminology and do not "correct" it to
 "ply."
 
-**Ruleset** — a mutable name for a body of rules: BATTLE, SKIRMISH. A ruleset
-name is a pointer, not a definition — it always resolves to whichever edition is
-currently active for it, and that pointer moves. Two rulesets are live: `BATTLE`
-on the 12 × 12 board and `SKIRMISH` on the 8 × 8 board.
+**Ruleset** — a mutable name for a body of rules. A ruleset name is a pointer,
+not a definition — it always resolves to whichever edition is currently active
+for it, and that pointer moves. One ruleset is live: `PRE-RELEASE`, on an 8 × 8
+board with no lakes.
 
 **Edition** — an immutable identifier of the form `<major>-<minor>:<Ruleset>`
-(e.g. `2-1:SKIRMISH`), naming a **major baseline plus a complete set of rule
+(e.g. `3-0:PRE-RELEASE`), naming a **major baseline plus a complete set of rule
 flag values**. Once published, an edition never changes meaning; a rules change
 publishes a new edition and moves the ruleset's pointer to it. Immutability
 attaches to the published label, not to a frozen copy of rules text or engine
@@ -88,16 +89,24 @@ distinguishing it (diagonal attack is baseline at major 2 and absent at major 1,
 under no flag). A major is specifically a **notation** break; see
 `doc/ruleset/technical-notes.md`.
 
-Piece distribution is **not** a separate axis of an edition. It is the resolved
-value of a flag (`ARMY_COMPOSITION`) like anything else, so nothing but flags
-ever has a claim on what an edition means.
+Piece distribution is **not** a separate axis of an edition. Where a major
+publishes flags, it is the resolved value of one (`ARMY_COMPOSITION`, at major
+2) like anything else. Major 3 publishes no flags at all, so `3-0:PRE-RELEASE`'s
+army is fixed directly by its baseline rules text — the zero-flags case of the
+same rule: nothing but a major's own definition (baseline text plus whatever
+flags it has) ever has a claim on what an edition means.
 
 **Minor is namespaced per ruleset; major is global.** `2-0:BATTLE` and
-`2-1:SKIRMISH` share a major because they share a notation and a baseline, but
-their minors advance independently — this is what actually happened: `SKIRMISH`
+`2-1:SKIRMISH` shared a major because they shared a notation and a baseline, but
+their minors advanced independently — this is what actually happened: `SKIRMISH`
 moved to `2-1` for a placement restriction that changed nothing about Battle, and
-`BATTLE` stayed at `2-0`. The two are not meant to be brought back into step. A
-notation break moves every live ruleset to the next major together.
+`BATTLE` stayed at `2-0`. The two were not meant to be brought back into step. A
+notation break moves every live ruleset to the next major together — scoped to
+whichever rulesets are live *at that moment*. Whether a new major also retires
+the rulesets that came before it is a separate decision, not a consequence of
+the notation break itself: major 3 made that decision explicitly, retiring
+`BATTLE`, `CLASH` and `SKIRMISH` rather than carrying them forward (see
+`doc/ruleset/technical-notes.md`).
 
 The separator for editions is a **dash, not a dot** (`1-2:`, never `1.2:`): the
 id is a compound label rather than a decimal, and a dot invites decimal ordering,

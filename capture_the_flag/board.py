@@ -84,8 +84,8 @@ class BoardLayout:
     columns: int
     rows: int
     home_rows: int
-    lake_rows: tuple[int, ...]
-    lake_pattern: tuple[bool, ...]
+    lake_rows: tuple[int, ...] | None
+    lake_pattern: tuple[bool, ...] | None
     """Per column, `True` where a lake row is lake and `False` where it is open.
     Every lake row shares this pattern, which is what makes a lake a rectangular
     block and a lane a full-height column through the middle of the board.
@@ -138,7 +138,12 @@ class BoardLayout:
                 f"{self.layout_id}: columns must be 1-{MAX_COLUMNS}, "
                 f"got {self.columns}"
             )
-        if len(self.lake_pattern) != self.columns:
+        if self.lake_pattern is None:
+            if self.lake_rows is not None:
+                raise ValueError(
+                    "lake_rows must be None if lake_pattern is None"
+                )
+        elif len(self.lake_pattern) != self.columns:
             raise ValueError(
                 f"{self.layout_id}: lake pattern covers {len(self.lake_pattern)} "
                 f"columns, board has {self.columns}"
@@ -157,7 +162,7 @@ class BoardLayout:
         # of every derived set by `contains`, so the layout silently becomes a
         # board with no lakes and no lanes -- and `TOWER_PLACEMENT` silently inert
         # on it.
-        for row in self.lake_rows:
+        for row in self.lake_rows or []:
             if not 1 <= row <= self.rows:
                 raise ValueError(
                     f"{self.layout_id}: lake row {row} is not on a "
@@ -177,16 +182,16 @@ class BoardLayout:
             "lake_squares",
             frozenset(
                 Square(column, row)
-                for row in self.lake_rows
+                for row in self.lake_rows or []
                 for column in range(self.columns)
-                if self.lake_pattern[column]
+                if self.lake_pattern is not None and self.lake_pattern[column]
             ),
         )
         lanes = frozenset(
             Square(column, row)
-            for row in self.lake_rows
+            for row in self.lake_rows or []
             for column in range(self.columns)
-            if not self.lake_pattern[column]
+            if self.lake_pattern is None or not self.lake_pattern[column]
         )
         object.__setattr__(self, "lane_squares", lanes)
         object.__setattr__(
@@ -301,9 +306,22 @@ sooner. That is deliberate — it is part of what makes Skirmish the faster game
 and it is also what puts a home-zone square directly in front of every lane,
 which is the geometry the `TOWER_PLACEMENT` flag exists to address."""
 
+SIMPLE_64: BoardLayout = BoardLayout(
+    layout_id="simple_64",
+    columns=8,
+    rows=8,
+    home_rows=2,
+    lake_rows=None,
+    lake_pattern=None,
+)
+"""The Simple board: 8x8, 2 home / 4 neutral / 2 home.
+
+**No special squares.** Each home zone is two rows, with a neutral zone
+in between. There are no lake squares on the board."""
+
 BOARD_LAYOUTS: dict[str, BoardLayout] = {
     layout.layout_id: layout
-    for layout in (STANDARD_144, ASYMMETRIC_100, STANDARD_64)
+    for layout in (STANDARD_144, ASYMMETRIC_100, STANDARD_64, SIMPLE_64)
 }
 """Every `BOARD_LAYOUT` value this build can actually play, keyed by its label.
 

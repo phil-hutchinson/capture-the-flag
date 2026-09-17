@@ -16,6 +16,7 @@ def test_board_dimensions():
 
 
 def test_lake_pattern_spans_the_board():
+    assert STANDARD_144.lake_pattern is not None
     assert len(STANDARD_144.lake_pattern) == STANDARD_144.columns
     # Three 2x2 lakes => six lake columns per lake row.
     assert sum(STANDARD_144.lake_pattern) == 6

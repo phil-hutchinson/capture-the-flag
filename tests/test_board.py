@@ -4,7 +4,9 @@ import pytest
 
 from capture_the_flag.board import (
     ASYMMETRIC_100,
+    SIMPLE_64,
     STANDARD_144,
+    STANDARD_64,
     BoardLayout,
     Square,
     parse_square,
@@ -93,6 +95,26 @@ def test_clash_lakes_split_the_lake_rows_evenly_but_unequally():
     # open at both far edges, and not its own mirror image.
     assert ASYMMETRIC_100.is_lake(Square(0, 5))
     assert not ASYMMETRIC_100.is_lake(Square(9, 5))
+
+
+def test_simple_64_is_an_8x8_lake_free_layout_with_two_home_rows():
+    assert SIMPLE_64.columns == 8
+    assert SIMPLE_64.rows == 8
+    assert SIMPLE_64.white_home_squares == {
+        Square(c, r) for r in (1, 2) for c in range(8)
+    }
+    assert SIMPLE_64.black_home_squares == {
+        Square(c, r) for r in (7, 8) for c in range(8)
+    }
+
+
+def test_the_three_existing_layouts_are_unchanged_by_simple_64():
+    assert (STANDARD_144.columns, STANDARD_144.rows) == (12, 12)
+    assert (ASYMMETRIC_100.columns, ASYMMETRIC_100.rows) == (10, 10)
+    assert (STANDARD_64.columns, STANDARD_64.rows) == (8, 8)
+    assert len(STANDARD_144.lake_squares) == 12
+    assert len(ASYMMETRIC_100.lake_squares) == 10
+    assert len(STANDARD_64.lake_squares) == 8
 
 
 def test_clash_home_zones_and_lakes_do_not_overlap():

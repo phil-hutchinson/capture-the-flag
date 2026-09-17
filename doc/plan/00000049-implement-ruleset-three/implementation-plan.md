@@ -96,9 +96,7 @@ CLAUDE.md` returning nothing outside this story's own folder.
 Add the 8 × 8, two-home-row, lake-free layout to `board.py` alongside the three
 existing ones, and register it in `BOARD_LAYOUTS` under an id that is **not** a
 published `BOARD_LAYOUT` label — `standard_64` permanently names the Skirmish
-board, which is 8 × 8 *with* lakes. No lake rows and an all-open lake pattern
-express it within the existing `BoardLayout`, so nothing about the type changes
-yet.
+board, which is 8 × 8 *with* lakes.
 
 Depends on: Step 1 (the board is `rules.md` §2.1's).
 
@@ -107,8 +105,8 @@ means step 3 finds the board it needs already present rather than introducing a
 board and an army together.
 
 Verification (automated): a test asserting the layout's dimensions, that each home
-zone is two rows of eight squares, that its lake and lane square sets are empty,
-and that the existing three layouts are unchanged. `pytest tests/test_board.py`.
+zone is two rows of eight squares, and that the existing three layouts are
+unchanged. `pytest tests/test_board.py`.
 
 ---
 

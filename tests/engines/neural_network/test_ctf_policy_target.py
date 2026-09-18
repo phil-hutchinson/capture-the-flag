@@ -2,7 +2,7 @@ import pytest
 import torch
 from torch import Tensor
 
-from capture_the_flag.board import STANDARD_144
+from capture_the_flag.board import SIMPLE_64
 from capture_the_flag.engines.neural_network.ctf_policy_target import (
     ctf_policy_loss_for,
     transform_policies_to_white_perspective,
@@ -10,12 +10,12 @@ from capture_the_flag.engines.neural_network.ctf_policy_target import (
 from capture_the_flag.position import CtfPosition
 from capture_the_flag.side import Side
 from tests.engines.neural_network.small_networks import (
-    BATTLE_TENSOR_LAYOUT,
-    SKIRMISH_TENSOR_LAYOUT,
+    OTHER_TENSOR_LAYOUT,
+    PRE_RELEASE_TENSOR_LAYOUT,
 )
 
-ACTION_SPACE_SHAPE = BATTLE_TENSOR_LAYOUT.action_space_shape
-ctf_policy_loss = ctf_policy_loss_for(BATTLE_TENSOR_LAYOUT)
+ACTION_SPACE_SHAPE = PRE_RELEASE_TENSOR_LAYOUT.action_space_shape
+ctf_policy_loss = ctf_policy_loss_for(PRE_RELEASE_TENSOR_LAYOUT)
 
 
 def _create_policy_logits_bottom_left(a1a2: float, a1a3: float, b1b2: float, b1b3: float) -> Tensor:
@@ -30,27 +30,27 @@ def _create_policy_logits_bottom_left(a1a2: float, a1a3: float, b1b2: float, b1b
 
 
 def test_transform_policies_to_white_perspective_transforms_black():
-    position = CtfPosition({}, Side.BLACK, 0, STANDARD_144)
+    position = CtfPosition({}, Side.BLACK, 0, SIMPLE_64)
 
     policy_orig: dict[str, float] = {
         "A3A4": 3.0,
-        "F10H10": 5.0,
+        "F6H6": 5.0,
     }
 
     policy_conv = transform_policies_to_white_perspective([position], [policy_orig])[0]
 
     assert len(policy_conv) == 2
-    assert "L10L9" in policy_conv
-    assert policy_conv["L10L9"] == 3.0
-    assert "G3E3" in policy_conv
-    assert policy_conv["G3E3"] == 5.0
+    assert "H6H5" in policy_conv
+    assert policy_conv["H6H5"] == 3.0
+    assert "C3A3" in policy_conv
+    assert policy_conv["C3A3"] == 5.0
 
 def test_transform_policies_to_white_perspective_leaves_white_unchanged():
-    position = CtfPosition({}, Side.WHITE, 0, STANDARD_144)
+    position = CtfPosition({}, Side.WHITE, 0, SIMPLE_64)
 
     policy_orig: dict[str, float] = {
         "A3A4": 3.0,
-        "F10H10": 5.0,
+        "F6H6": 5.0,
     }
 
     policy_conv = transform_policies_to_white_perspective([position], [policy_orig])[0]
@@ -58,8 +58,8 @@ def test_transform_policies_to_white_perspective_leaves_white_unchanged():
     assert len(policy_conv) == 2
     assert "A3A4" in policy_conv
     assert policy_conv["A3A4"] == 3.0
-    assert "F10H10" in policy_conv
-    assert policy_conv["F10H10"] == 5.0
+    assert "F6H6" in policy_conv
+    assert policy_conv["F6H6"] == 5.0
 
 def test_transform_resolves_the_frame_per_position_not_per_call():
     # One call spans a whole fleet turn, and the games in a fleet are independent,
@@ -67,35 +67,35 @@ def test_transform_resolves_the_frame_per_position_not_per_call():
     # frame once — from the first position, say — would rotate the White entry too
     # and pass every single-mover test above.
     positions = [
-        CtfPosition({}, Side.BLACK, 0, STANDARD_144),
-        CtfPosition({}, Side.WHITE, 0, STANDARD_144),
+        CtfPosition({}, Side.BLACK, 0, SIMPLE_64),
+        CtfPosition({}, Side.WHITE, 0, SIMPLE_64),
     ]
     policies: list[dict[str, float]] = [{"A3A4": 3.0}, {"A3A4": 3.0}]
 
     transformed = transform_policies_to_white_perspective(positions, policies)
 
     assert len(transformed) == 2
-    assert transformed[0] == {"L10L9": 3.0}  # Black to move: re-keyed
+    assert transformed[0] == {"H6H5": 3.0}  # Black to move: re-keyed
     assert transformed[1] == {"A3A4": 3.0}   # White to move: untouched
 
 def test_transform_rejects_a_policy_batch_that_does_not_match_the_positions():
-    positions = [CtfPosition({}, Side.BLACK, 0, STANDARD_144)]
+    positions = [CtfPosition({}, Side.BLACK, 0, SIMPLE_64)]
 
     with pytest.raises(ValueError):
         transform_policies_to_white_perspective(positions, [{"A3A4": 3.0}, {"A3A4": 3.0}])
 
 def test_transform_and_loss_pipeline_correct():
-    black_position = CtfPosition({}, Side.BLACK, 0, STANDARD_144)
+    black_position = CtfPosition({}, Side.BLACK, 0, SIMPLE_64)
     black_target: dict[str, float] = {
         "C3C4": 2.5,
-        "F10H10": 7.0,
+        "F6H6": 7.0,
     }
     black_target_conv = transform_policies_to_white_perspective([black_position], [black_target])[0]
 
-    white_position = CtfPosition({}, Side.WHITE, 0, STANDARD_144)
+    white_position = CtfPosition({}, Side.WHITE, 0, SIMPLE_64)
     white_target: dict[str, float] = {
-        "J10J9": 2.5,
-        "G3E3": 7.0,
+        "F6F5": 2.5,
+        "C3A3": 7.0,
     }
     white_target_conv = transform_policies_to_white_perspective([white_position], [white_target])[0] # should be nullop
 
@@ -129,8 +129,8 @@ def test_ctf_policy_loss_means_over_batch():
     policy_1: dict[str, float] = {
         "A1A2": 0.25,
         "F1F3": 0.25,
-        "L10K10": 0.25,
-        "D6D8": 0.25,
+        "D6D5": 0.25,
+        "E1G1": 0.25,
     }
     logits_1 = torch.rand(size=(ACTION_SPACE_SHAPE))
     loss_1 = ctf_policy_loss(logits_1.unsqueeze(0), [policy_1])
@@ -138,8 +138,8 @@ def test_ctf_policy_loss_means_over_batch():
     policy_2: dict[str, float] = {
         "A1A2": 0.25,
         "F1F3": 0.25,
-        "L10K10": 0.25,
-        "D6D8": 0.25,
+        "D6D5": 0.25,
+        "E1G1": 0.25,
     }
     logits_2 = torch.rand(size=(ACTION_SPACE_SHAPE))
     loss_2 = ctf_policy_loss(logits_2.unsqueeze(0), [policy_2])
@@ -147,8 +147,8 @@ def test_ctf_policy_loss_means_over_batch():
     policy_3: dict[str, float] = {
         "A1A2": 0.25,
         "F1F3": 0.25,
-        "L10K10": 0.25,
-        "D6D8": 0.25,
+        "D6D5": 0.25,
+        "E1G1": 0.25,
     }
     logits_3 = torch.rand(size=(ACTION_SPACE_SHAPE))
     loss_3 = ctf_policy_loss(logits_3.unsqueeze(0), [policy_3])
@@ -175,14 +175,14 @@ def test_ctf_policy_loss_builds_its_target_on_the_logits_device():
 
 def test_ctf_policy_loss_is_bound_to_its_board():
     # The targets arrive as bare `str(ply)` keys, so the board they are laid out
-    # against comes from the tensor layout the loss was built for -- an 8x8
-    # action space here, and a source square that only exists on Battle's board
-    # cannot be indexed into it.
-    skirmish_loss = ctf_policy_loss_for(SKIRMISH_TENSOR_LAYOUT)
-    logits = torch.rand(size=SKIRMISH_TENSOR_LAYOUT.action_space_shape).unsqueeze(0)
+    # against comes from the tensor layout the loss was built for -- a 4x6 action
+    # space here, and a source square that only exists on a bigger board cannot
+    # be indexed into it.
+    other_loss = ctf_policy_loss_for(OTHER_TENSOR_LAYOUT)
+    logits = torch.rand(size=OTHER_TENSOR_LAYOUT.action_space_shape).unsqueeze(0)
 
-    loss = skirmish_loss(logits, [{"A1A2": 0.5, "H8H7": 0.5}])
+    loss = other_loss(logits, [{"A1A2": 0.5, "D6D5": 0.5}])
     assert loss.item() > 0
 
     with pytest.raises(IndexError):
-        skirmish_loss(logits, [{"L10L9": 1.0}])
+        other_loss(logits, [{"L10L9": 1.0}])

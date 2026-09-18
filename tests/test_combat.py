@@ -61,11 +61,6 @@ def test_rank_order_table(attacker_piece, defender_piece):
 
 
 @pytest.mark.parametrize("attacker_piece", NUMBERED_PIECES)
-def test_any_attack_on_a_tower_is_a_mutual_loss(attacker_piece):
-    assert _resolve(attacker_piece, P.TOWER) is CombatResult.MUTUAL_LOSS
-
-
-@pytest.mark.parametrize("attacker_piece", NUMBERED_PIECES)
 def test_flag_is_always_captured(attacker_piece):
     assert _resolve(attacker_piece, P.FLAG) is CombatResult.ATTACKER_WINS
 
@@ -83,43 +78,60 @@ def test_flag_capture_ignores_formation_bonus():
 
 
 def test_defender_formation_bonus_draws_against_one_rank_higher():
-    # Champion (2) beats Knight (3) cleanly, but a friendly Knight beside the
-    # defending Knight turns the loss into a draw (both removed).
-    friend = {Square(4, 3): (Side.BLACK, P.KNIGHT)}  # E3, adjacent to D3
-    assert _resolve(P.CHAMPION, P.KNIGHT) is CombatResult.ATTACKER_WINS
-    assert _resolve(P.CHAMPION, P.KNIGHT, extra=friend) is CombatResult.MUTUAL_LOSS
+    # Foot Soldier (3) beats Champion (4) cleanly under the current (not yet
+    # inverted -- story 00000049 step 14) rank order, but a friendly Champion
+    # beside the defending Champion turns the loss into a draw (both removed).
+    friend = {Square(4, 3): (Side.BLACK, P.CHAMPION)}  # E3, adjacent to D3
+    assert _resolve(P.FOOT_SOLDIER, P.CHAMPION) is CombatResult.ATTACKER_WINS
+    assert (
+        _resolve(P.FOOT_SOLDIER, P.CHAMPION, extra=friend)
+        is CombatResult.MUTUAL_LOSS
+    )
 
 
 def test_attacker_formation_bonus_draws_against_one_rank_higher():
-    # A Knight (3) attacking a Champion (2) normally loses; a friendly Knight
-    # beside the attacker (checked at its pre-move square) makes it a draw.
-    friend = {Square(4, 2): (Side.WHITE, P.KNIGHT)}  # E2, adjacent to D2
-    assert _resolve(P.KNIGHT, P.CHAMPION) is CombatResult.ATTACKER_LOSES
-    assert _resolve(P.KNIGHT, P.CHAMPION, extra=friend) is CombatResult.MUTUAL_LOSS
+    # A Champion (4) attacking a Foot Soldier (3) normally loses; a friendly
+    # Champion beside the attacker (checked at its pre-move square) makes it a
+    # draw.
+    friend = {Square(4, 2): (Side.WHITE, P.CHAMPION)}  # E2, adjacent to D2
+    assert _resolve(P.CHAMPION, P.FOOT_SOLDIER) is CombatResult.ATTACKER_LOSES
+    assert (
+        _resolve(P.CHAMPION, P.FOOT_SOLDIER, extra=friend)
+        is CombatResult.MUTUAL_LOSS
+    )
 
 
 def test_formation_bonus_counts_diagonal_neighbours():
-    friend = {Square(4, 4): (Side.BLACK, P.KNIGHT)}  # E4, diagonal to D3
-    assert _resolve(P.CHAMPION, P.KNIGHT, extra=friend) is CombatResult.MUTUAL_LOSS
+    friend = {Square(4, 4): (Side.BLACK, P.CHAMPION)}  # E4, diagonal to D3
+    assert (
+        _resolve(P.FOOT_SOLDIER, P.CHAMPION, extra=friend)
+        is CombatResult.MUTUAL_LOSS
+    )
 
 
 def test_no_formation_bonus_when_rank_gap_exceeds_one():
-    # Master-of-Arms (1) vs Knight (3): a two-rank gap, so a friendly Knight
-    # beside the defender provides no rescue.
-    friend = {Square(4, 3): (Side.BLACK, P.KNIGHT)}
-    assert _resolve(P.MASTER_OF_ARMS, P.KNIGHT, extra=friend) is (
+    # Peasant (1) vs Champion (4): more than a one-rank gap, so a friendly
+    # Champion beside the defender provides no rescue.
+    friend = {Square(4, 3): (Side.BLACK, P.CHAMPION)}
+    assert _resolve(P.PEASANT, P.CHAMPION, extra=friend) is (
         CombatResult.ATTACKER_WINS
     )
 
 
 def test_no_formation_bonus_from_a_different_rank_neighbour():
     # A friendly neighbour of a *different* rank does not form a formation.
-    friend = {Square(4, 3): (Side.BLACK, P.MILITIA)}  # rank 6, not 3
-    assert _resolve(P.CHAMPION, P.KNIGHT, extra=friend) is CombatResult.ATTACKER_WINS
+    friend = {Square(4, 3): (Side.BLACK, P.MILITIA)}  # rank 2, not 4
+    assert (
+        _resolve(P.FOOT_SOLDIER, P.CHAMPION, extra=friend)
+        is CombatResult.ATTACKER_WINS
+    )
 
 
 def test_no_formation_bonus_from_an_enemy_neighbour():
     # An equal-rank neighbour on the *attacker's* side does not help the
-    # defending Knight.
-    enemy = {Square(4, 3): (Side.WHITE, P.KNIGHT)}
-    assert _resolve(P.CHAMPION, P.KNIGHT, extra=enemy) is CombatResult.ATTACKER_WINS
+    # defending Champion.
+    enemy = {Square(4, 3): (Side.WHITE, P.CHAMPION)}
+    assert (
+        _resolve(P.FOOT_SOLDIER, P.CHAMPION, extra=enemy)
+        is CombatResult.ATTACKER_WINS
+    )

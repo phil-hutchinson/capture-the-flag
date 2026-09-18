@@ -1,21 +1,16 @@
 """Tests for the interactive game view."""
 
-import random
 from dataclasses import replace
 
-from capture_the_flag.game_setup import BATTLE_SETUP
+from capture_the_flag.game_setup import PRE_RELEASE_SETUP
 from capture_the_flag.game_view import render_game_view
+from capture_the_flag.match import stub_start_position
 from capture_the_flag.pieces import PieceType
-from capture_the_flag.placement import assemble_position, random_placement
 from capture_the_flag.side import Side
 
 
 def _start_position():
-    return assemble_position(
-        random_placement(Side.WHITE, BATTLE_SETUP, random.Random(1)),
-        random_placement(Side.BLACK, BATTLE_SETUP, random.Random(2)),
-        BATTLE_SETUP,
-    )
+    return stub_start_position(PRE_RELEASE_SETUP)
 
 
 def _without_pieces(position, removals):
@@ -30,19 +25,19 @@ def _without_pieces(position, removals):
 
 
 def test_board_is_labelled_with_the_move_notation_frame():
-    lines = render_game_view(_start_position(), BATTLE_SETUP).splitlines()
-    header, board_lines = lines[0], lines[1:13]
+    lines = render_game_view(_start_position(), PRE_RELEASE_SETUP).splitlines()
+    header, board_lines = lines[0], lines[1:9]
     # Column letters sit over the middle character of each 3-character cell.
     assert header.index("A") == 5
-    assert header.index("L") == 5 + 11 * 4
-    assert board_lines[0].startswith("12  ")
-    assert board_lines[11].startswith(" 1  ")
+    assert header.index("H") == 5 + 7 * 4
+    assert board_lines[0].startswith(" 8  ")
+    assert board_lines[7].startswith(" 1  ")
     # The labelled cells align under the header letters.
     assert board_lines[0][4] in "[*"
 
 
 def test_start_position_status_lines():
-    view = render_game_view(_start_position(), BATTLE_SETUP)
+    view = render_game_view(_start_position(), PRE_RELEASE_SETUP)
     assert "White to move" in view
     assert "Captured — White: none" in view
     assert "Captured — Black: none" in view
@@ -53,14 +48,14 @@ def test_captured_pieces_are_derived_from_the_board():
     position = _without_pieces(
         _start_position(),
         [
-            (Side.BLACK, PieceType.KNIGHT, 2),
-            (Side.BLACK, PieceType.HALBERDIER, 1),
+            (Side.BLACK, PieceType.CHAMPION, 2),
+            (Side.BLACK, PieceType.FOOT_SOLDIER, 1),
             (Side.WHITE, PieceType.MILITIA, 1),
         ],
     )
-    view = render_game_view(position, BATTLE_SETUP)
+    view = render_game_view(position, PRE_RELEASE_SETUP)
     # Multiples get a count, singles just the name, in piece-rank order.
-    assert "Captured — Black: Knight x2, Halberdier" in view
+    assert "Captured — Black: Champion x2, Foot Soldier" in view
     assert "Captured — White: Militia" in view
 
 
@@ -70,6 +65,6 @@ def test_turn_and_clock_line_reports_the_position_fields():
         side_to_move=Side.BLACK,
         inactivity_counter=7,
     )
-    view = render_game_view(position, BATTLE_SETUP)
+    view = render_game_view(position, PRE_RELEASE_SETUP)
     assert "Black to move" in view
     assert "Inactivity — 7/50" in view

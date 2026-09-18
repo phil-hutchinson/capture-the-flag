@@ -8,15 +8,15 @@ from capture_the_flag.engines.neural_network.ctf_crn import (
 )
 from capture_the_flag.engines.neural_network.tensor_layout import TensorLayout
 from tests.engines.neural_network.small_networks import (
-    BATTLE_TENSOR_LAYOUT,
-    SKIRMISH_TENSOR_LAYOUT,
+    OTHER_TENSOR_LAYOUT,
+    PRE_RELEASE_TENSOR_LAYOUT,
 )
 
 _BATCH_SIZE = 2
 
 
 def _random_input(
-    tensor_layout: TensorLayout = BATTLE_TENSOR_LAYOUT, seed=987
+    tensor_layout: TensorLayout = PRE_RELEASE_TENSOR_LAYOUT, seed=987
 ) -> torch.Tensor:
     torch.manual_seed(seed)
     return torch.randint(
@@ -29,7 +29,7 @@ def test_ctf_crn_basic_properties() -> None:
 
     # The one place the default architecture is exercised end to end: everywhere
     # else that only needs *a* network builds a small one.
-    crn = CtfCrn(BATTLE_TENSOR_LAYOUT)
+    crn = CtfCrn(PRE_RELEASE_TENSOR_LAYOUT)
 
     value, policy_logits = crn.forward(input)
 
@@ -37,18 +37,17 @@ def test_ctf_crn_basic_properties() -> None:
     assert value.shape == (_BATCH_SIZE, 1)
     assert ((-1 <= value) & (value <= 1)).all()
     # policy head shape
-    assert policy_logits.shape == (_BATCH_SIZE, *BATTLE_TENSOR_LAYOUT.action_space_shape)
+    assert policy_logits.shape == (_BATCH_SIZE, *PRE_RELEASE_TENSOR_LAYOUT.action_space_shape)
 
 
 @pytest.mark.parametrize(
     "tensor_layout",
-    [BATTLE_TENSOR_LAYOUT, SKIRMISH_TENSOR_LAYOUT],
-    ids=["battle", "skirmish"],
+    [PRE_RELEASE_TENSOR_LAYOUT, OTHER_TENSOR_LAYOUT],
+    ids=["pre_release", "other"],
 )
 def test_ctf_crn_is_shaped_by_its_tensor_layout(tensor_layout: TensorLayout) -> None:
-    # The network's whole I/O shape follows the configured board: a Skirmish
-    # network takes an 8x8 input and emits an 8x8 policy, and neither is a
-    # constant any more.
+    # The network's whole I/O shape follows the configured board: `OTHER_TENSOR_LAYOUT`
+    # takes a 4x6 input and emits a 4x6 policy, and neither is a constant any more.
     crn = CtfCrn(tensor_layout, feature_count=8, residual_block_count=2)
 
     value, policy_logits = crn.forward(_random_input(tensor_layout))
@@ -59,18 +58,19 @@ def test_ctf_crn_is_shaped_by_its_tensor_layout(tensor_layout: TensorLayout) -> 
 
 
 def test_ctf_crn_rejects_an_input_shaped_for_another_board() -> None:
-    # The value head flattens the board, so a Battle-shaped input meeting a
-    # Skirmish network is a shape error rather than a silently wrong evaluation.
-    crn = CtfCrn(SKIRMISH_TENSOR_LAYOUT, feature_count=8, residual_block_count=2)
+    # The value head flattens the board, so an input shaped for one board
+    # meeting a network built for another is a shape error rather than a
+    # silently wrong evaluation.
+    crn = CtfCrn(OTHER_TENSOR_LAYOUT, feature_count=8, residual_block_count=2)
 
     with pytest.raises(RuntimeError):
-        crn.forward(_random_input(BATTLE_TENSOR_LAYOUT))
+        crn.forward(_random_input(PRE_RELEASE_TENSOR_LAYOUT))
 
 
 def test_ctf_crn_honours_requested_width_and_depth() -> None:
     input = _random_input()
 
-    crn = CtfCrn(BATTLE_TENSOR_LAYOUT, feature_count=10, residual_block_count=3)
+    crn = CtfCrn(PRE_RELEASE_TENSOR_LAYOUT, feature_count=10, residual_block_count=3)
 
     # The requested sizes are what the network reports (this is what a checkpoint
     # stamps) and what it is actually built out of...
@@ -85,7 +85,7 @@ def test_ctf_crn_honours_requested_width_and_depth() -> None:
     # ...and the heads still produce the same contract at any trunk size.
     value, policy_logits = crn.forward(input)
     assert value.shape == (_BATCH_SIZE, 1)
-    assert policy_logits.shape == (_BATCH_SIZE, *BATTLE_TENSOR_LAYOUT.action_space_shape)
+    assert policy_logits.shape == (_BATCH_SIZE, *PRE_RELEASE_TENSOR_LAYOUT.action_space_shape)
 
 
 @pytest.mark.parametrize(
@@ -104,16 +104,16 @@ def test_ctf_crn_rejects_out_of_range_architecture(kwargs, expected) -> None:
     # would otherwise build a trunkless network that trains and checkpoints
     # perfectly happily, surfacing as an inexplicably weak run rather than an error.
     with pytest.raises(ValueError, match=expected):
-        CtfCrn(BATTLE_TENSOR_LAYOUT, **kwargs)
+        CtfCrn(PRE_RELEASE_TENSOR_LAYOUT, **kwargs)
 
 
 def test_ctf_crn_same_seed_reproducible() -> None:
     input = _random_input()
 
     torch.manual_seed(123)
-    crn_a = CtfCrn(BATTLE_TENSOR_LAYOUT, feature_count=8, residual_block_count=2)
+    crn_a = CtfCrn(PRE_RELEASE_TENSOR_LAYOUT, feature_count=8, residual_block_count=2)
     torch.manual_seed(123)
-    crn_b = CtfCrn(BATTLE_TENSOR_LAYOUT, feature_count=8, residual_block_count=2)
+    crn_b = CtfCrn(PRE_RELEASE_TENSOR_LAYOUT, feature_count=8, residual_block_count=2)
 
     value_a, policy_logits_a = crn_a.forward(input)
     value_b, policy_logits_b = crn_b.forward(input)

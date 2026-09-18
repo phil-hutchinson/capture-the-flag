@@ -8,7 +8,7 @@ determinism property the story relies on for before/after comparisons.
 
 from types import MappingProxyType
 
-from capture_the_flag.board import STANDARD_144, Square
+from capture_the_flag.board import Square
 from capture_the_flag.engines.neural_network.ctf_position_factory import (
     CtfPositionFactory,
 )
@@ -24,10 +24,11 @@ from capture_the_flag.timing_regions import (
     OUTCOME_REASON,
     STARTING_POSITION,
 )
-from tests.engines.neural_network.small_networks import BATTLE_SETUP
+from tests.engines.neural_network.small_networks import PRE_RELEASE_SETUP
 
-_WHITE_FLAG_SQUARE = Square(11, 1)  # L1
-_BLACK_FLAG_SQUARE = Square(11, 12)  # L12
+_WHITE_FLAG_SQUARE = Square(7, 1)  # H1
+_BLACK_FLAG_SQUARE = Square(7, 8)  # H8
+_LAYOUT = PRE_RELEASE_SETUP.layout
 
 
 def ongoing_position() -> CtfPosition:
@@ -39,12 +40,12 @@ def ongoing_position() -> CtfPosition:
                 _WHITE_FLAG_SQUARE: (Side.WHITE, P.FLAG),
                 _BLACK_FLAG_SQUARE: (Side.BLACK, P.FLAG),
                 Square(3, 2): (Side.WHITE, P.FOOT_SOLDIER),
-                Square(5, 8): (Side.BLACK, P.FOOT_SOLDIER),
+                Square(4, 7): (Side.BLACK, P.FOOT_SOLDIER),
             }
         ),
         side_to_move=Side.WHITE,
         inactivity_counter=0,
-        layout=STANDARD_144,
+        layout=_LAYOUT,
     )
 
 
@@ -107,7 +108,7 @@ def test_a_short_circuiting_outcome_does_not_generate_plies() -> None:
         board=ongoing_position().board,
         side_to_move=Side.WHITE,
         inactivity_counter=INACTIVITY_LIMIT,
-        layout=STANDARD_144,
+        layout=_LAYOUT,
     )
     with timing_session("test") as session:
         assert drawn.outcome == 0
@@ -132,7 +133,7 @@ def test_mechanics_nest_under_whatever_region_is_open() -> None:
 
 
 def test_starting_position_generation_is_timed() -> None:
-    factory = CtfPositionFactory(setup=BATTLE_SETUP)
+    factory = CtfPositionFactory(setup=PRE_RELEASE_SETUP)
     with timing_session("test") as session:
         for _ in range(2):
             factory()

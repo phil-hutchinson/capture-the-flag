@@ -23,7 +23,7 @@ from capture_the_flag.engines.neural_network.neural_ctf_player import (
     NeuralCtfPlayer,
     build_neural_player,
 )
-from capture_the_flag.game_setup import BATTLE_SETUP
+from capture_the_flag.game_setup import PRE_RELEASE_SETUP
 from capture_the_flag.match import play_match
 from capture_the_flag.outcome import (
     REASON_FLAG_CAPTURED,
@@ -32,8 +32,8 @@ from capture_the_flag.outcome import (
 )
 from capture_the_flag.player import RandomCtfPlayer
 from tests.engines.neural_network.small_networks import (
-    BATTLE_TENSOR_LAYOUT,
-    SKIRMISH_SETUP,
+    OTHER_SETUP,
+    PRE_RELEASE_TENSOR_LAYOUT,
     small_network,
 )
 
@@ -52,14 +52,14 @@ def test_neural_player_completes_full_match_against_random():
     # legality does not depend on the trunk's size.
     torch.manual_seed(0)
     engine = MCTSEngine(
-        evaluator=CtfNNEvaluator(small_network(), BATTLE_TENSOR_LAYOUT),
+        evaluator=CtfNNEvaluator(small_network(), PRE_RELEASE_TENSOR_LAYOUT),
         iterations=25,
         temperature=0.0,
     )
     neural_player = NeuralCtfPlayer(engine, name="neural")
     random_player = RandomCtfPlayer(name="random", rng=random.Random(1234))
 
-    result = play_match(neural_player, random_player, BATTLE_SETUP).game_result
+    result = play_match(neural_player, random_player, PRE_RELEASE_SETUP).game_result
 
     # A legal terminal result: a valid outcome, ended for a known reason, with a
     # non-empty log of the plies that were actually applied.
@@ -72,17 +72,17 @@ def test_a_network_built_for_another_board_cannot_be_seated():
     # Not slow: the refusal happens before any forward pass. Without it the
     # mismatch surfaces as a torch shape error from inside the trunk, which says
     # nothing about which board was wrong.
-    battle_network = small_network(BATTLE_TENSOR_LAYOUT)
+    pre_release_network = small_network(PRE_RELEASE_TENSOR_LAYOUT)
 
-    with pytest.raises(ValueError, match="standard_144") as rejection:
-        build_neural_player("neural", SKIRMISH_SETUP, network=battle_network)
+    with pytest.raises(ValueError, match="simple_64") as rejection:
+        build_neural_player("neural", OTHER_SETUP, network=pre_release_network)
     # Both sides named, so the message says which way round the mismatch is.
-    assert "standard_64" in str(rejection.value)
+    assert "test_only_small" in str(rejection.value)
 
 
 def test_a_network_built_for_this_board_is_seated():
     player = build_neural_player(
-        "neural", BATTLE_SETUP, network=small_network(BATTLE_TENSOR_LAYOUT)
+        "neural", PRE_RELEASE_SETUP, network=small_network(PRE_RELEASE_TENSOR_LAYOUT)
     )
 
     assert isinstance(player, NeuralCtfPlayer)

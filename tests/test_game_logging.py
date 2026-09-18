@@ -5,7 +5,7 @@ from types import MappingProxyType
 
 from capture_the_flag.board import STANDARD_144, Square
 from capture_the_flag.game_logging import CtfGameLogging
-from capture_the_flag.game_setup import BATTLE_SETUP
+from capture_the_flag.game_setup import PRE_RELEASE_SETUP
 from capture_the_flag.match import play_match
 from capture_the_flag.pieces import PieceType as P
 from capture_the_flag.player import RandomCtfPlayer
@@ -46,18 +46,20 @@ def test_no_attack_uses_plain_dash_form():
 
 
 def test_attacker_wins_marks_the_defender():
-    # A Champion (rank 2) beats a Militia (rank 6): the defender is removed.
+    # Rank comparison is not yet inverted (story 00000049 step 14): a Militia
+    # (rank 2) beats a Champion (rank 4), and the defender is removed.
     position = _position(
-        {_D5: (Side.WHITE, P.CHAMPION), _D6: (Side.BLACK, P.MILITIA)}
+        {_D5: (Side.WHITE, P.MILITIA), _D6: (Side.BLACK, P.CHAMPION)}
     )
     assert _annotate_move(position, CtfPly(_D5, _D6)) == "D5-D6x"
 
 
 def test_attacker_loses_marks_the_attacker():
-    # A Militia (rank 6) attacking a Master-of-Arms (rank 1) is a complete
-    # sacrifice: attacker removed, defender stays.
+    # A Master-of-Arms (rank 5) attacking a Peasant (rank 1) is a complete
+    # sacrifice under the not-yet-inverted rank comparison: attacker removed,
+    # defender stays.
     position = _position(
-        {_D5: (Side.WHITE, P.MILITIA), _D6: (Side.BLACK, P.MASTER_OF_ARMS)}
+        {_D5: (Side.WHITE, P.MASTER_OF_ARMS), _D6: (Side.BLACK, P.PEASANT)}
     )
     assert _annotate_move(position, CtfPly(_D5, _D6)) == "D5x-D6"
 
@@ -66,14 +68,6 @@ def test_mutual_loss_marks_both():
     # Equal-rank attack trades both pieces.
     position = _position(
         {_D5: (Side.WHITE, P.FOOT_SOLDIER), _D6: (Side.BLACK, P.FOOT_SOLDIER)}
-    )
-    assert _annotate_move(position, CtfPly(_D5, _D6)) == "D5x-D6x"
-
-
-def test_tower_attack_marks_both():
-    # Any attack on a Tower is a mutual loss (rules.md Section 4.3).
-    position = _position(
-        {_D5: (Side.WHITE, P.MILITIA), _D6: (Side.BLACK, P.TOWER)}
     )
     assert _annotate_move(position, CtfPly(_D5, _D6)) == "D5x-D6x"
 
@@ -93,7 +87,7 @@ def test_every_logged_ply_in_a_real_game_is_extended_form():
     # ply, and the squares still match the plain identity string.
     white = RandomCtfPlayer("W", random.Random(1))
     black = RandomCtfPlayer("B", random.Random(2))
-    result = play_match(white, black, BATTLE_SETUP).game_result
+    result = play_match(white, black, PRE_RELEASE_SETUP).game_result
     assert result.game_log
     for annotation, _board in result.game_log:
         assert annotation.count("-") == 1

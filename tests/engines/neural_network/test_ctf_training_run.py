@@ -31,11 +31,12 @@ from capture_the_flag.engines.neural_network.ctf_training_run import (
 )
 from capture_the_flag.record import (
     DEFAULT_EDITION,
+    RuleFlag,
     RulesetConfiguration,
     active_configuration,
 )
 from tests.engines.neural_network.small_networks import (
-    BATTLE_TENSOR_LAYOUT,
+    PRE_RELEASE_TENSOR_LAYOUT,
     SMALL_FEATURE_COUNT,
     SMALL_RESIDUAL_BLOCK_COUNT,
 )
@@ -152,7 +153,7 @@ def test_resume_rejects_a_run_whose_config_and_checkpoint_disagree(tmp_path):
     # A checkpoint at a *different* depth than the config claims.
     save_checkpoint(
         CtfCrn(
-            BATTLE_TENSOR_LAYOUT,
+            PRE_RELEASE_TENSOR_LAYOUT,
             feature_count=SMALL_FEATURE_COUNT,
             residual_block_count=2,
         ),
@@ -186,7 +187,7 @@ def _assembled_run(tmp_path, configuration=None):
     _write_run_config(run_dir, config, configuration)
     save_checkpoint(
         CtfCrn(
-            BATTLE_TENSOR_LAYOUT,
+            PRE_RELEASE_TENSOR_LAYOUT,
             feature_count=SMALL_FEATURE_COUNT,
             residual_block_count=SMALL_RESIDUAL_BLOCK_COUNT,
         ),
@@ -250,12 +251,21 @@ def test_resume_stamps_its_own_checkpoints_with_the_configuration_it_adopted(
 ):
     # The stamp is adopted, not merely verified: a resume continues under the
     # configuration its weights were trained under, so the generations it appends
-    # must carry that configuration and not the current active one. The deviation
-    # is a real published flag at a real published value, and one that is inert on
-    # Battle's board — so what this pins is the *stamp* travelling intact through a
-    # resume, with no behavioural difference propping it up.
+    # must carry that configuration and not the current active one. Major 3
+    # publishes no flags at all (`record.RULE_FLAGS` is empty), so there is no
+    # real deviation to exercise this with -- a synthetic flag is injected into
+    # the real registry for the duration of the test, the same way
+    # `test_record.py` exercises flag resolution generically.
+    monkeypatch.setattr(
+        "capture_the_flag.record.RULE_FLAGS",
+        {
+            "SYNTHETIC_FLAG": RuleFlag(
+                flag_id="SYNTHETIC_FLAG", values=("off", "on"), default="off"
+            )
+        },
+    )
     trained_under = RulesetConfiguration(
-        DEFAULT_EDITION, {"TOWER_PLACEMENT": "spacing_and_lanes"}
+        DEFAULT_EDITION, {"SYNTHETIC_FLAG": "on"}
     )
     run_dir = _assembled_run(tmp_path, configuration=trained_under)
     # Self-play and gradient descent are not what is under test, and running them

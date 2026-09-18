@@ -48,27 +48,15 @@ class RuleFlag:
     default: str
 
 
-RULE_FLAGS: dict[str, RuleFlag] = {
-    flag.flag_id: flag
-    for flag in (
-        RuleFlag(
-            flag_id="BOARD_LAYOUT",
-            values=("standard_144", "asymmetric_100", "standard_64"),
-            default="standard_144",
-        ),
-        RuleFlag(
-            flag_id="ARMY_COMPOSITION",
-            values=("standard_battle", "standard_clash", "standard_skirmish"),
-            default="standard_battle",
-        ),
-        RuleFlag(
-            flag_id="TOWER_PLACEMENT",
-            values=("spacing_only", "spacing_and_lanes"),
-            default="spacing_only",
-        ),
-    )
-}
+RULE_FLAGS: dict[str, RuleFlag] = {}
 """The published flag registry, keyed by flag id.
+
+**Empty at major 3.** Major 3 publishes no rule flags at all (`rules.md`
+Appendix A; `doc/ruleset/CLAUDE.md`) — the board and army each collapse to a
+single value named directly by the edition, not selected through a flag — so
+there is nothing to register. Major 2's three flags (`BOARD_LAYOUT`,
+`ARMY_COMPOSITION`, `TOWER_PLACEMENT`) lived here; they are gone with the
+editions that carried them, not superseded by entries of the same name.
 
 Flags are created lazily — standard behavior stays unflagged until someone wants
 to test a variant of it — so this grows one entry at a time as variants graduate
@@ -76,15 +64,7 @@ from `doc/ruleset/proposed-variants.md`.
 
 The document appendices are the source of truth for what is published (see
 `doc/ruleset/rules.md` Appendix A); this is the engine's own copy of the part it
-must act on. Every default reproduces what `1-2:PRE-RELEASE` played, which is what
-made introducing each one a no-op for every edition and record that predates it —
-`TOWER_PLACEMENT` included, since no published edition sets it away from
-`spacing_only` at the point it is registered.
-
-A value label appearing here is a claim about what is *published*, not about what
-this build can set up: `board.BOARD_LAYOUTS` and `pieces.ARMY_COMPOSITIONS` say
-which labels resolve to something playable, and `unsupported_aspects` reports the
-difference.
+must act on.
 """
 
 
@@ -129,7 +109,7 @@ class Edition:
 
 
 ACTIVE_EDITIONS: frozenset[str] = frozenset(
-    {"2-0:BATTLE", "2-0:CLASH", "2-1:SKIRMISH"}
+    {"3-0:PRE-RELEASE"}
 )
 """The editions this build implements, and therefore the ones it can stamp.
 
@@ -147,15 +127,13 @@ Note the dash in an edition id — it is a compound label, not a decimal, so a
 minor 10 would not sort before a minor 2.
 """
 
-DEFAULT_EDITION = "2-0:BATTLE"
+DEFAULT_EDITION = "3-0:PRE-RELEASE"
 """The edition a run plays when it is not told which.
 
-Not an arbitrary pick among the Active editions: `BOARD_LAYOUT` and
-`ARMY_COMPOSITION` both default to Battle's values (`standard_144`,
-`standard_battle`), so Battle *is* what the rules resolve to in the absence of a
-choice. Publishing further editions does not disturb that — a flag's default is
-permanent, so the default edition follows from the flags rather than from which
-rulesets happen to be Active.
+Not an arbitrary pick: it is the one member of `ACTIVE_EDITIONS`. Major 2 had
+several Active editions at once and a default among them had to be justified by
+what the (then three) flags defaulted to; major 3 publishes none, so there is
+only one edition to default to in the first place.
 """
 
 ACTIVE_RULESETS: dict[str, str] = {
@@ -179,6 +157,7 @@ as a name, so the two cannot drift apart."""
 EDITIONS: dict[str, Edition] = {
     edition.edition_id: edition
     for edition in (
+        Edition(edition_id="3-0:PRE-RELEASE", flag_values={}),
         Edition(
             edition_id="2-0:BATTLE",
             flag_values={
@@ -224,9 +203,11 @@ Membership is therefore *not* implementability: a historical entry is a label
 this code can recognise, not a ruleset it can run. `unsupported_aspects` draws
 that line.
 
-`1-2:PRE-RELEASE` sets no flag values because it predates all three flags, so each
-resolves to its own registry default — which is exactly the behavior it was
-played under, since a flag's default is always what preceded it.
+`1-2:PRE-RELEASE` sets no flag values because it predates all three major-2
+flags, so each resolved to its own registry default — which is exactly the
+behavior it was played under, since a flag's default is always what preceded it.
+`3-0:PRE-RELEASE` also sets none, for the opposite reason: major 3 publishes no
+flags at all (see `RULE_FLAGS`), so there is nothing for it to set.
 
 `2-0:SKIRMISH` states `TOWER_PLACEMENT=spacing_only` explicitly even though that
 is also the registry default. It is what `rules.md` Appendix B publishes for it,

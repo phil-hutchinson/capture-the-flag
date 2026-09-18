@@ -30,8 +30,8 @@ from capture_the_flag.engines.neural_network.ctf_self_play import (
 )
 from capture_the_flag.position import CtfPosition
 from tests.engines.neural_network.small_networks import (
-    BATTLE_SETUP,
-    BATTLE_TENSOR_LAYOUT,
+    PRE_RELEASE_SETUP,
+    PRE_RELEASE_TENSOR_LAYOUT,
     small_network,
 )
 
@@ -39,7 +39,7 @@ from tests.engines.neural_network.small_networks import (
 def _evaluator() -> CtfNNEvaluator:
     # These tests collect real self-play games; what the network says is
     # irrelevant to every assertion, so the tiny one keeps them affordable.
-    return CtfNNEvaluator(small_network(), BATTLE_TENSOR_LAYOUT)
+    return CtfNNEvaluator(small_network(), PRE_RELEASE_TENSOR_LAYOUT)
 
 
 def _fast_engine_factory(evaluator: CtfNNEvaluator) -> CtfEngineFactory:
@@ -50,7 +50,7 @@ def _fast_engine_factory(evaluator: CtfNNEvaluator) -> CtfEngineFactory:
 
 def test_build_self_play_collector_wires_the_game_specific_pieces():
     evaluator = _evaluator()
-    collector = build_self_play_collector(evaluator, BATTLE_SETUP)
+    collector = build_self_play_collector(evaluator, PRE_RELEASE_SETUP)
 
     assert isinstance(collector, SelfPlayCollector)
     assert collector._evaluator is evaluator
@@ -66,9 +66,9 @@ def test_collect_produces_structurally_valid_samples():
     # Every game in the fleet starts from the same placement, which is what makes
     # the fleet-width assertion below countable; the games still diverge, since
     # the search is stochastic at this temperature.
-    start = CtfPositionFactory(setup=BATTLE_SETUP)()
+    start = CtfPositionFactory(setup=PRE_RELEASE_SETUP)()
     collector = build_self_play_collector(
-        evaluator, BATTLE_SETUP, _fast_engine_factory(evaluator), lambda: start
+        evaluator, PRE_RELEASE_SETUP, _fast_engine_factory(evaluator), lambda: start
     )
 
     samples = collector.collect(2)
@@ -87,7 +87,7 @@ def test_collect_produces_structurally_valid_samples():
     assert starts == 2
 
     for sample in samples:
-        assert tuple(sample.encoded_position.shape) == BATTLE_TENSOR_LAYOUT.input_shape
+        assert tuple(sample.encoded_position.shape) == PRE_RELEASE_TENSOR_LAYOUT.input_shape
         assert sample.target_value in (-1.0, 0.0, 1.0)
         probs = list(sample.target_policy.values())
         assert probs  # a distribution over at least one ply
@@ -99,7 +99,7 @@ def test_collect_produces_structurally_valid_samples():
 def test_target_values_alternate_within_a_game():
     evaluator = _evaluator()
     collector = build_self_play_collector(
-        evaluator, BATTLE_SETUP, _fast_engine_factory(evaluator)
+        evaluator, PRE_RELEASE_SETUP, _fast_engine_factory(evaluator)
     )
 
     values = [sample.target_value for sample in collector.collect(1)]
@@ -126,7 +126,7 @@ def test_capture_time_transform_reframes_black_to_move_distributions():
     collector = SelfPlayCollector(
         evaluator=evaluator,
         engine_factory=_fast_engine_factory(evaluator),
-        position_factory=CtfPositionFactory(setup=BATTLE_SETUP),
+        position_factory=CtfPositionFactory(setup=PRE_RELEASE_SETUP),
         policy_transform=spy_transform,
     )
     collector.collect(1)

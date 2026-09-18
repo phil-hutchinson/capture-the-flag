@@ -62,9 +62,6 @@ from .tensor_layout import (
     FP_OUR_RANK_4_QUANTITY,
     FP_OUR_RANK_5,
     FP_OUR_RANK_5_QUANTITY,
-    FP_OUR_RANK_6,
-    FP_OUR_RANK_6_QUANTITY,
-    FP_OUR_TOWER,
     FP_PASSABLE,
     FP_THEIR_FLAG,
     FP_THEIR_FLAG_RELATIVE_COLUMN,
@@ -79,9 +76,6 @@ from .tensor_layout import (
     FP_THEIR_RANK_4_QUANTITY,
     FP_THEIR_RANK_5,
     FP_THEIR_RANK_5_QUANTITY,
-    FP_THEIR_RANK_6,
-    FP_THEIR_RANK_6_QUANTITY,
-    FP_THEIR_TOWER,
     MOVEMENT_INDEX,
     TensorLayout,
 )
@@ -138,42 +132,40 @@ def policy_logit_location_for_ply(
 
 class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
 
+    # Keyed by rank (1-5 since major 3; the Tower is gone and rank 6 with it —
+    # `ENG_NN_3`'s Tower and sixth-rank planes are left unmapped so the encoder
+    # still resolves. `eng-nn-4.md` (story 00000049 steps 5-6) retires them
+    # properly.
     _OUR_FP = {
         PieceType.FLAG: FP_OUR_FLAG,
-        PieceType.TOWER: FP_OUR_TOWER,
-        PieceType.MASTER_OF_ARMS: FP_OUR_RANK_1,
-        PieceType.CHAMPION: FP_OUR_RANK_2,
-        PieceType.KNIGHT: FP_OUR_RANK_3,
-        PieceType.HALBERDIER: FP_OUR_RANK_4,
-        PieceType.FOOT_SOLDIER: FP_OUR_RANK_5,
-        PieceType.MILITIA: FP_OUR_RANK_6,
+        PieceType.PEASANT: FP_OUR_RANK_1,
+        PieceType.MILITIA: FP_OUR_RANK_2,
+        PieceType.FOOT_SOLDIER: FP_OUR_RANK_3,
+        PieceType.CHAMPION: FP_OUR_RANK_4,
+        PieceType.MASTER_OF_ARMS: FP_OUR_RANK_5,
     }
 
     _THEIR_FP = {
         PieceType.FLAG: FP_THEIR_FLAG,
-        PieceType.TOWER: FP_THEIR_TOWER,
-        PieceType.MASTER_OF_ARMS: FP_THEIR_RANK_1,
-        PieceType.CHAMPION: FP_THEIR_RANK_2,
-        PieceType.KNIGHT: FP_THEIR_RANK_3,
-        PieceType.HALBERDIER: FP_THEIR_RANK_4,
-        PieceType.FOOT_SOLDIER: FP_THEIR_RANK_5,
-        PieceType.MILITIA: FP_THEIR_RANK_6,
+        PieceType.PEASANT: FP_THEIR_RANK_1,
+        PieceType.MILITIA: FP_THEIR_RANK_2,
+        PieceType.FOOT_SOLDIER: FP_THEIR_RANK_3,
+        PieceType.CHAMPION: FP_THEIR_RANK_4,
+        PieceType.MASTER_OF_ARMS: FP_THEIR_RANK_5,
     }
 
     _FP_PIECE_QUANTITY = {
         #key: our piece, rank
-        (True, PieceType.MASTER_OF_ARMS): FP_OUR_RANK_1_QUANTITY,
-        (True, PieceType.CHAMPION): FP_OUR_RANK_2_QUANTITY,
-        (True, PieceType.KNIGHT): FP_OUR_RANK_3_QUANTITY,
-        (True, PieceType.HALBERDIER): FP_OUR_RANK_4_QUANTITY,
-        (True, PieceType.FOOT_SOLDIER): FP_OUR_RANK_5_QUANTITY,
-        (True, PieceType.MILITIA): FP_OUR_RANK_6_QUANTITY,
-        (False, PieceType.MASTER_OF_ARMS): FP_THEIR_RANK_1_QUANTITY,
-        (False, PieceType.CHAMPION): FP_THEIR_RANK_2_QUANTITY,
-        (False, PieceType.KNIGHT): FP_THEIR_RANK_3_QUANTITY,
-        (False, PieceType.HALBERDIER): FP_THEIR_RANK_4_QUANTITY,
-        (False, PieceType.FOOT_SOLDIER): FP_THEIR_RANK_5_QUANTITY,
-        (False, PieceType.MILITIA): FP_THEIR_RANK_6_QUANTITY,
+        (True, PieceType.PEASANT): FP_OUR_RANK_1_QUANTITY,
+        (True, PieceType.MILITIA): FP_OUR_RANK_2_QUANTITY,
+        (True, PieceType.FOOT_SOLDIER): FP_OUR_RANK_3_QUANTITY,
+        (True, PieceType.CHAMPION): FP_OUR_RANK_4_QUANTITY,
+        (True, PieceType.MASTER_OF_ARMS): FP_OUR_RANK_5_QUANTITY,
+        (False, PieceType.PEASANT): FP_THEIR_RANK_1_QUANTITY,
+        (False, PieceType.MILITIA): FP_THEIR_RANK_2_QUANTITY,
+        (False, PieceType.FOOT_SOLDIER): FP_THEIR_RANK_3_QUANTITY,
+        (False, PieceType.CHAMPION): FP_THEIR_RANK_4_QUANTITY,
+        (False, PieceType.MASTER_OF_ARMS): FP_THEIR_RANK_5_QUANTITY,
     }
 
     def __init__(self, model: nn.Module, tensor_layout: TensorLayout) -> None:

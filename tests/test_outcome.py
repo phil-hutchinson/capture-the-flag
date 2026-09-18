@@ -42,10 +42,9 @@ def _ongoing_board() -> dict:
 
 
 def _boxed_in_white_board() -> dict:
-    # White has only immobile pieces (Flag + Tower), so no legal ply.
+    # White has only the immobile Flag, so no legal ply.
     return {
         Square(0, 1): (Side.WHITE, P.FLAG),
-        Square(0, 2): (Side.WHITE, P.TOWER),
         _BLACK_FLAG_SQUARE: (Side.BLACK, P.FLAG),
         Square(5, 8): (Side.BLACK, P.FOOT_SOLDIER),
     }

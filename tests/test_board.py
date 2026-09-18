@@ -5,8 +5,8 @@ import pytest
 from capture_the_flag.board import (
     ASYMMETRIC_100,
     SIMPLE_64,
-    STANDARD_144,
     STANDARD_64,
+    STANDARD_144,
     BoardLayout,
     Square,
     parse_square,
@@ -42,6 +42,7 @@ def test_parse_square_accepts_coordinates_beyond_a_given_board():
 
 def test_lake_squares_are_the_twelve_expected_squares():
     assert len(STANDARD_144.lake_squares) == 12
+    assert STANDARD_144.lake_pattern is not None
     expected = {
         Square(c, r)
         for r in (6, 7)

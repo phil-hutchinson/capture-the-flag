@@ -1,9 +1,8 @@
 """Golden test for the position-block text rendering and parsing.
 
-A representative revamped-ruleset setup (both sides given the same formation):
-three of each numbered rank, six spaced Towers and a Flag on the back rank, and
-empty home squares rendered as `---`, plus the documented lake columns
-(B, C, F, G, J, K).
+A representative setup (both sides given the same formation): one of each
+numbered rank and a Flag scattered across the home rows, empty home squares
+rendered as `---`, plus the documented lake columns (B, C, F, G, J, K).
 """
 
 import pytest
@@ -14,30 +13,33 @@ from capture_the_flag.rendering import parse_position_block, render_position_blo
 from capture_the_flag.side import Side
 
 # One army's row-by-row formation, back rank first, reused for both sides. `None`
-# marks an empty home square. Towers on the back rank are spaced so no two are
-# adjacent (rules.md Section 3).
-_BACK_RANK = [P.FLAG, P.TOWER, None, P.TOWER, None, P.TOWER, None, P.TOWER, None, P.TOWER, None, P.TOWER]
+# marks an empty home square.
+_BACK_RANK = [P.FLAG, *([None] * 11)]
 _ROW_2 = [None] * 12
-_ROW_3 = [P.MASTER_OF_ARMS, P.CHAMPION, P.KNIGHT, P.HALBERDIER, P.FOOT_SOLDIER, P.MILITIA, *([None] * 6)]
+_ROW_3 = [
+    P.MASTER_OF_ARMS, P.CHAMPION, P.FOOT_SOLDIER, P.MILITIA, P.PEASANT,
+    *([None] * 7),
+]
 _FRONT_RANK = [
-    P.MASTER_OF_ARMS, P.CHAMPION, P.KNIGHT, P.HALBERDIER, P.FOOT_SOLDIER, P.MILITIA,
-    P.MASTER_OF_ARMS, P.CHAMPION, P.KNIGHT, P.HALBERDIER, P.FOOT_SOLDIER, P.MILITIA,
+    P.MASTER_OF_ARMS, P.CHAMPION, P.FOOT_SOLDIER, P.MILITIA, P.PEASANT,
+    P.MASTER_OF_ARMS, P.CHAMPION, P.FOOT_SOLDIER, P.MILITIA, P.PEASANT,
+    None, None,
 ]
 
 EXPECTED_BLOCK = "\n".join(
     [
-        "*F* *T* --- *T* --- *T* --- *T* --- *T* --- *T*",
+        "*F* --- --- --- --- --- --- --- --- --- --- ---",
         "--- --- --- --- --- --- --- --- --- --- --- ---",
-        "*1* *2* *3* *4* *5* *6* --- --- --- --- --- ---",
-        "*1* *2* *3* *4* *5* *6* *1* *2* *3* *4* *5* *6*",
+        "*5* *4* *3* *2* *1* --- --- --- --- --- --- ---",
+        "*5* *4* *3* *2* *1* *5* *4* *3* *2* *1* --- ---",
         "--- --- --- --- --- --- --- --- --- --- --- ---",
         "--- XXX XXX --- --- XXX XXX --- --- XXX XXX ---",
         "--- XXX XXX --- --- XXX XXX --- --- XXX XXX ---",
         "--- --- --- --- --- --- --- --- --- --- --- ---",
-        "[1] [2] [3] [4] [5] [6] [1] [2] [3] [4] [5] [6]",
-        "[1] [2] [3] [4] [5] [6] --- --- --- --- --- ---",
+        "[5] [4] [3] [2] [1] [5] [4] [3] [2] [1] --- ---",
+        "[5] [4] [3] [2] [1] --- --- --- --- --- --- ---",
         "--- --- --- --- --- --- --- --- --- --- --- ---",
-        "[F] [T] --- [T] --- [T] --- [T] --- [T] --- [T]",
+        "[F] --- --- --- --- --- --- --- --- --- --- ---",
     ]
 )
 
@@ -94,11 +96,11 @@ def test_parse_position_block_reads_its_own_dimensions():
     # The block states its size: three rows of four cells parse as a 4x3 board
     # with no layout supplied. This is the size-parametric property major 2's
     # notation exists to provide.
-    block = "\n".join(["--- *F* --- ---", "XXX --- --- [T]", "[1] --- --- ---"])
+    block = "\n".join(["--- *F* --- ---", "XXX --- --- [2]", "[5] --- --- ---"])
     parsed = parse_position_block(block)
     assert parsed == {
         Square(1, 3): (Side.BLACK, P.FLAG),
-        Square(3, 2): (Side.WHITE, P.TOWER),
+        Square(3, 2): (Side.WHITE, P.MILITIA),
         Square(0, 1): (Side.WHITE, P.MASTER_OF_ARMS),
     }
 

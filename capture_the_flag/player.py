@@ -5,7 +5,6 @@ through."""
 import random
 from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Protocol
 
 from game_engine_core.engines.random_engine import RandomEngine
@@ -13,36 +12,13 @@ from game_engine_core.protocols.player import Player
 
 from .game_setup import GameSetup
 from .game_ui import CtfGameUI
-from .placement import Placement, random_placement
-from .placement_file import (
-    DEFAULT_PLACEMENT_DIR,
-    PlacementFileError,
-    load_placement_file,
-)
 from .ply import CtfPly
 from .position import CtfPosition
-from .side import Side
-
-CLEAR_SCREEN = "\033[2J\033[H"
-"""ANSI clear-screen-and-home, printed to wipe the placement dialogue."""
 
 
 class CtfPlayer(Player[CtfPly, CtfPosition], Protocol):
-    """A `Player` that can also produce a phase-1 placement.
-
-    A match wrapper calls `get_placement` for each side before phase 2
-    begins, then hands the resulting `CtfPosition` to the library's
-    `StandardGame`, which drives `select_ply` as usual.
+    """`Player` base class
     """
-
-    def get_placement(self, side: Side, setup: GameSetup) -> Placement:
-        """This player's phase-1 home-zone placement for `side` under `setup`.
-
-        The board and army are passed in rather than held by the player: they are
-        properties of the game being played, not of who is playing it, so one
-        player can be seated for either ruleset.
-        """
-        ...
 
 
 class RandomCtfPlayer:
@@ -67,9 +43,6 @@ class RandomCtfPlayer:
     @property
     def render_before_ply(self) -> bool:
         return self._render_before_ply
-
-    def get_placement(self, side: Side, setup: GameSetup) -> Placement:
-        return random_placement(side, setup, self._rng)
 
     def select_ply(self, position: CtfPosition) -> CtfPly:
         return self._engine.select_ply(position)
@@ -102,14 +75,12 @@ class HumanCtfPlayer:
         self,
         name: str,
         game_ui: CtfGameUI,
-        placement_dir: Path = DEFAULT_PLACEMENT_DIR,
         rng: random.Random | None = None,
         input_fn: Callable[[str], str] = input,
         print_fn: Callable[[str], None] = print,
     ) -> None:
         self._name = name
         self._game_ui = game_ui
-        self._placement_dir = placement_dir
         self._rng = rng if rng is not None else random.Random()
         self._input = input_fn
         self._print = print_fn
@@ -121,26 +92,6 @@ class HumanCtfPlayer:
     @property
     def render_before_ply(self) -> bool:
         return True
-
-    def get_placement(self, side: Side, setup: GameSetup) -> Placement:
-        prompt = (
-            f"{self._name} ({side.name.title()}) — placement file name in "
-            f"{self._placement_dir}/, or 'random': "
-        )
-        while True:
-            text = self._input(prompt).strip()
-            if text.lower() == "random":
-                placement = random_placement(side, setup, self._rng)
-                break
-            try:
-                placement = load_placement_file(
-                    text, side, setup, self._placement_dir
-                )
-                break
-            except PlacementFileError as error:
-                self._print(str(error))
-        self._print(f"{CLEAR_SCREEN}{self._name}'s placement is locked in.")
-        return placement
 
     def select_ply(self, position: CtfPosition) -> CtfPly:
         return self._game_ui.get_next_ply(position)
@@ -170,7 +121,6 @@ class PlayerContext:
     placement (and random play)."""
 
     game_ui: CtfGameUI | None = None
-    placements_dir: Path = DEFAULT_PLACEMENT_DIR
     rng: random.Random | None = None
     setup: GameSetup | None = None
     """The game being seated for. Only the `neural` kind reads it — its evaluator
@@ -205,7 +155,6 @@ def make_player(
         return HumanCtfPlayer(
             name,
             context.game_ui,
-            placement_dir=context.placements_dir,
             rng=context.rng,
         )
     if kind == "random":

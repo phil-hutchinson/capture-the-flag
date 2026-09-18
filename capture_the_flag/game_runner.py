@@ -1,4 +1,4 @@
-"""Single-game terminal runner: any kind of player vs any kind, placement to
+"""Single-game terminal runner: any kind of player vs any kind, start to
 outcome.
 
 Runnable as a module: `python -m capture_the_flag.game_runner [options]`. Each
@@ -14,14 +14,12 @@ to avoid drawing the board twice around a move the human didn't make).
 import argparse
 import random
 from collections.abc import Sequence
-from pathlib import Path
 
 from game_engine_core.models.game_result import GameResult
 
 from .game_setup import setup_for_ruleset
 from .game_ui import CtfGameUI
 from .match import play_match
-from .placement_file import DEFAULT_PLACEMENT_DIR
 from .player import PLAYER_KINDS, PlayerContext, make_player
 from .record import ACTIVE_RULESETS, DEFAULT_RULESET
 
@@ -68,17 +66,10 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="display name of the second-moving player (default: Black)",
     )
     parser.add_argument(
-        "-p",
-        "--placements-dir",
-        type=Path,
-        default=DEFAULT_PLACEMENT_DIR,
-        help="folder placement files are read from (default: ./placements)",
-    )
-    parser.add_argument(
         "--seed",
         type=int,
         default=None,
-        help="seed placement, random play, and neural network init for reproducibility",
+        help="seed random play and neural network init for reproducibility",
     )
     parser.add_argument(
         "--ruleset",
@@ -123,9 +114,7 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     setup = setup_for_ruleset(args.ruleset)
     game_ui = CtfGameUI(setup=setup)
-    context = PlayerContext(
-        game_ui=game_ui, placements_dir=args.placements_dir, rng=rng, setup=setup
-    )
+    context = PlayerContext(game_ui=game_ui, rng=rng, setup=setup)
     # Machine seats render only when there is no human in the game (so a
     # machine-vs-machine game is watchable, but a human-vs-machine game renders
     # around the human's turns alone). Human seats always render regardless.

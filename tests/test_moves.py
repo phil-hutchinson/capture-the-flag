@@ -106,14 +106,12 @@ def test_sacrificial_attack_is_legal_regardless_of_rank():
 
 
 def test_immobile_pieces_have_no_plies():
-    # Each immobile piece has an enemy on its diagonal, so this also pins down
-    # that the diagonal is a direction a *mover* gains, not one that gives a
-    # Tower or the Flag something to do.
+    # The Flag has an enemy on its diagonal, which also pins down that the
+    # diagonal is a direction a *mover* gains, not one that gives the Flag
+    # something to do.
     board = {
-        Square(5, 5): (Side.WHITE, P.TOWER),
-        Square(4, 4): (Side.BLACK, P.MILITIA),
         Square(0, 1): (Side.WHITE, P.FLAG),
-        Square(1, 2): (Side.BLACK, P.KNIGHT),
+        Square(1, 2): (Side.BLACK, P.MILITIA),
     }
     position = _position(board)
     assert position.legal_plies == ()
@@ -165,14 +163,14 @@ def test_no_diagonal_move_onto_an_empty_square():
     assert "D3E2" not in strings
 
 
-def test_towers_and_the_flag_cannot_be_attacked_diagonally():
-    # A Tower on E4 and the enemy Flag on C4 both encumber D3 -- so the
-    # orthogonal steps shorten to one square -- but neither is a legal diagonal
-    # target. This is what leaves the Flag capturable only from an orthogonally
-    # adjacent square (rules.md Section 5.1).
+def test_the_flag_cannot_be_attacked_diagonally():
+    # The enemy Flag on C4 encumbers D3 -- so the orthogonal steps shorten to
+    # one square -- but it is not a legal diagonal target: the movable-target
+    # restriction (removed at story 00000049 step 13) still applies. This is
+    # what leaves the Flag capturable only from an orthogonally adjacent square
+    # (rules.md Section 5.1).
     board = {
         Square(3, 3): (Side.WHITE, P.FOOT_SOLDIER),
-        Square(4, 4): (Side.BLACK, P.TOWER),
         Square(2, 4): (Side.BLACK, P.FLAG),
     }
     position = _position(board)
@@ -223,11 +221,11 @@ def test_all_ply_strings_distinct_in_a_dense_position():
     board = {
         Square(1, 2): (Side.WHITE, P.MASTER_OF_ARMS),
         Square(4, 3): (Side.WHITE, P.CHAMPION),
-        Square(7, 2): (Side.WHITE, P.KNIGHT),
-        Square(9, 4): (Side.WHITE, P.HALBERDIER),
+        Square(7, 2): (Side.WHITE, P.PEASANT),
+        Square(9, 4): (Side.WHITE, P.MILITIA),
         Square(2, 4): (Side.WHITE, P.FOOT_SOLDIER),
         Square(6, 5): (Side.BLACK, P.MILITIA),
-        Square(10, 5): (Side.BLACK, P.KNIGHT),
+        Square(10, 5): (Side.BLACK, P.PEASANT),
     }
     position = _position(board)
     strings = [str(ply) for ply in position.legal_plies]

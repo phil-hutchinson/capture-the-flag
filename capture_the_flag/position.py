@@ -33,9 +33,9 @@ class CtfPosition:
     `layout` is the board being played on. It rides on the position rather than
     sitting in a module constant because `legal_plies` is a protocol property
     with no arguments, so this is the only channel move generation has to reach
-    the board's dimensions and lakes. It carries no default deliberately: a
-    default would silently hand Battle's geometry to any caller that forgot to
-    say which board it meant.
+    the board's dimensions. It carries no default deliberately: a default would
+    silently hand one board's geometry to any caller that forgot to say which
+    board it meant.
     """
 
     board: Mapping[Square, tuple[Side, PieceType]]

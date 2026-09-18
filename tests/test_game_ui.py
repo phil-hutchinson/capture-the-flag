@@ -4,7 +4,7 @@ from types import MappingProxyType
 
 import pytest
 
-from capture_the_flag.board import STANDARD_144, Square
+from capture_the_flag.board import SIMPLE_64, Square
 from capture_the_flag.game_setup import PRE_RELEASE_SETUP
 from capture_the_flag.game_ui import CtfGameUI
 from capture_the_flag.pieces import PieceType as P
@@ -18,7 +18,7 @@ def _position(board: dict, side_to_move: Side = Side.WHITE) -> CtfPosition:
         board=MappingProxyType(board),
         side_to_move=side_to_move,
         inactivity_counter=0,
-        layout=STANDARD_144,
+        layout=SIMPLE_64,
     )
 
 
@@ -74,15 +74,15 @@ def test_malformed_input_reprompts_with_a_message():
 def test_illegal_moves_reprompt_naming_the_problem():
     board = {
         Square(3, 2): (Side.WHITE, P.FOOT_SOLDIER),
-        Square(0, 12): (Side.BLACK, P.MILITIA),
+        Square(0, 8): (Side.BLACK, P.MILITIA),
     }
     # D2D5 is three squares — too far even for an unencumbered piece.
-    scripted = _ScriptedUI(["E5E6", "A12A11", "D2D5", "D2D3"])
+    scripted = _ScriptedUI(["E5E6", "A8A7", "D2D5", "D2D3"])
     ply = scripted.ui.get_next_ply(_position(board))
     assert ply == CtfPly(Square(3, 2), Square(3, 3))
     assert scripted.messages == [
         "Illegal move: no piece on E5.",
-        "Illegal move: the piece on A12 is not yours.",
+        "Illegal move: the piece on A8 is not yours.",
         "Illegal move: your Foot Soldier on D2 cannot move to D5.",
     ]
 

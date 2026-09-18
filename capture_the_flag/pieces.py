@@ -23,10 +23,9 @@ from types import MappingProxyType
 class Mobility(Enum):
     """How a piece is permitted to move, independent of combat legality.
 
-    Under the revamped ruleset every mobile piece shares one movement rule (a
-    one-square orthogonal step, extended to two when unencumbered — see
-    `moves.py`), so mobility is a simple binary: the Tower and Flag never move,
-    everything else does.
+    Every mobile piece shares one movement rule (a one-square orthogonal step,
+    extended to two when unencumbered — see `moves.py`), so mobility is a
+    simple binary: the Flag never moves, everything else does.
     """
 
     IMMOBILE = "immobile"
@@ -34,11 +33,11 @@ class Mobility(Enum):
 
 
 class PieceType(Enum):
-    """One of the eight piece types, with its rank, symbol, and mobility.
+    """One of the six piece types, with its rank, symbol, and mobility.
 
-    `rank` is `None` for the two pieces that never fight by rank (Tower, Flag);
-    the six numbered pieces form a strict strength order from rank 1 (strongest)
-    to rank 6 (weakest).
+    `rank` is `None` for the Flag, the one piece that never fights by rank; the
+    five numbered pieces form a strict strength order from rank 5 (strongest)
+    to rank 1 (weakest).
 
     Every piece type is defined here whether or not a given army fields any: the
     enum is the vocabulary of the game, and how many of each an army holds is an

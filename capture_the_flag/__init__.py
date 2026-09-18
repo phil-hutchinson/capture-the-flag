@@ -17,8 +17,6 @@ later stories.
 from .board import (
     BOARD_LAYOUTS,
     SIMPLE_64,
-    STANDARD_64,
-    STANDARD_144,
     BoardLayout,
     Square,
     parse_square,
@@ -65,8 +63,6 @@ __all__ = [
     "DEFAULT_EDITION",
     "PRE_RELEASE_SETUP",
     "SIMPLE_64",
-    "STANDARD_64",
-    "STANDARD_144",
     "STANDARD_ARMY",
     "ArmyComposition",
     "BoardLayout",

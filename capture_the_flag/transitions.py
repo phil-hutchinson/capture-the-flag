@@ -36,8 +36,8 @@ def apply_ply(position: CtfPosition, ply: CtfPly) -> CtfPosition:
 
     # Inactivity clock (Section 5.3): every attack removes at least one piece --
     # a winning attack the defender, a complete sacrifice the attacker, a mutual
-    # loss (including tower destruction) both -- so any attack resets the shared
-    # counter, and every non-attacking ply raises it by 1.
+    # loss both -- so any attack resets the shared counter, and every
+    # non-attacking ply raises it by 1.
     new_inactivity_counter = 0 if is_attack else position.inactivity_counter + 1
 
     return CtfPosition(

@@ -4,7 +4,7 @@
 
 from types import MappingProxyType
 
-from capture_the_flag.board import STANDARD_144, Square
+from capture_the_flag.board import SIMPLE_64, Square
 from capture_the_flag.pieces import PieceType as P
 from capture_the_flag.ply import CtfPly
 from capture_the_flag.position import CtfPosition
@@ -20,7 +20,7 @@ def _position(
         board=MappingProxyType(board),
         side_to_move=side_to_move,
         inactivity_counter=inactivity_counter,
-        layout=STANDARD_144,
+        layout=SIMPLE_64,
     )
 
 
@@ -83,7 +83,7 @@ def test_complete_sacrifice_resets_the_clock():
 def test_clock_accumulates_across_consecutive_non_attacks():
     board = {
         Square(3, 2): (Side.WHITE, P.FOOT_SOLDIER),
-        Square(8, 11): (Side.BLACK, P.FOOT_SOLDIER),
+        Square(4, 7): (Side.BLACK, P.FOOT_SOLDIER),
     }
     position = _position(board, inactivity_counter=10)
 
@@ -91,5 +91,5 @@ def test_clock_accumulates_across_consecutive_non_attacks():
     assert after_white.inactivity_counter == 11
     assert after_white.side_to_move is Side.BLACK
 
-    after_black = after_white.apply_ply(CtfPly(Square(8, 11), Square(8, 10)))
+    after_black = after_white.apply_ply(CtfPly(Square(4, 7), Square(4, 6)))
     assert after_black.inactivity_counter == 12

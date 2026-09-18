@@ -6,7 +6,7 @@ import torch.nn as nn
 from game_engine_core.engines.mcts_engine import MCTSEngine
 from torch import Tensor
 
-from capture_the_flag.board import SIMPLE_64, STANDARD_64, STANDARD_144, Square
+from capture_the_flag.board import SIMPLE_64, Square
 from capture_the_flag.engines.neural_network.ctf_nn_evaluator import (
     CtfNNEvaluator,
     policy_logit_location_for_ply,
@@ -149,7 +149,7 @@ _ATTRITION_COUNTS: dict[Side, dict[P, int]] = {
 
 def _ranked_pieces(side: Side, counts: dict[P, int], start_row: int) -> dict[Square, tuple[Side, P]]:
     # Up to 15 pieces (5 ranks x roster of 3) spread across two consecutive
-    # rows of SIMPLE_64's 8 columns. SIMPLE_64 has no lakes, so unlike Battle
+    # rows of SIMPLE_64's 8 columns. SIMPLE_64 has no impassable squares, so
     # any pair of rows is fair game.
     squares = (
         Square(column, row)
@@ -221,9 +221,8 @@ def _check_flag_relative_planes(
             )
 
 def _check_tensor_all_passable(encoded: Tensor) -> None:
-    # SIMPLE_64 has no lakes at all (`doc/ruleset/CLAUDE.md`), so the
-    # passability plane is uniformly open -- unlike Battle, there is no lake
-    # pattern to pin down here.
+    # SIMPLE_64 has no impassable squares at all (`doc/ruleset/CLAUDE.md`), so
+    # the passability plane is uniformly open here.
     for column in range(SIMPLE_64.columns):
         for row in range(SIMPLE_64.rows):
             assert encoded[FP_PASSABLE, row, column] == 1
@@ -428,8 +427,8 @@ def test_encode_rejects_a_position_with_a_flag_missing(missing_side, expected):
 
 @pytest.mark.parametrize(
     "layout",
-    [STANDARD_144, STANDARD_64],
-    ids=["standard_144", "standard_64"],
+    [SIMPLE_64, OTHER_SETUP.layout],
+    ids=["simple_64", "other"],
 )
 def test_rotate_square_involution(layout):
     for column in range(layout.columns):
@@ -443,16 +442,16 @@ def test_rotate_square_involution(layout):
 @pytest.mark.parametrize(
     "rotation",
     [
-        (0, 1, 11, 12), # A1 => L12
-        (11, 1, 0, 12), # L1 => A12
-        (3, 6, 8, 7) # D6 => I7
+        (0, 1, 7, 8), # A1 => H8
+        (7, 1, 0, 8), # H1 => A8
+        (3, 6, 4, 3), # D6 => E3
     ]
 )
 def test_rotate_square_rotates_180_degrees(rotation):
     column_original, row_original, column_expected, row_expected = rotation
 
     original_square = Square(column_original, row_original)
-    rotated_square = rotate_square(original_square, STANDARD_144)
+    rotated_square = rotate_square(original_square, SIMPLE_64)
 
     assert rotated_square.column == column_expected
     assert rotated_square.row == row_expected
@@ -460,14 +459,14 @@ def test_rotate_square_rotates_180_degrees(rotation):
 def test_rotate_square_rotates_about_its_own_board():
     # The same square rotates to two different places on two different boards --
     # which is the whole reason the layout is a parameter rather than a constant.
-    assert str(rotate_square(Square(0, 1), STANDARD_144)) == "L12"
-    assert str(rotate_square(Square(0, 1), STANDARD_64)) == "H8"
+    assert str(rotate_square(Square(0, 1), SIMPLE_64)) == "H8"
+    assert str(rotate_square(Square(0, 1), OTHER_SETUP.layout)) == "D6"
 
 def test_rotate_ply_rotates_180_degrees():
     original = CtfPly(Square(2, 3), Square(2, 4))
-    rotated = rotate_ply(original, STANDARD_144)
+    rotated = rotate_ply(original, SIMPLE_64)
 
-    assert str(rotated) == "J10J9"
+    assert str(rotated) == "F6F5"
 
 @pytest.mark.parametrize(
     "active_player_id",
@@ -480,7 +479,7 @@ def test_rotate_ply_rotates_180_degrees():
     ids=["pre_release", "other"],
 )
 def test_policy_logit_location_for_ply_is_bijective(tensor_layout, active_player_id):
-    # note: this does include illegal moves (from/to lakes, to off the board locations) that exist in the policy_logit
+    # note: this does include illegal moves (to off-board locations) that exist in the policy_logit
     layout = tensor_layout.layout
     action_space_shape = tensor_layout.action_space_shape
     filled: set[tuple[int,int,int]] = set()
@@ -698,22 +697,17 @@ def test_encode_is_shaped_by_the_configured_board():
     assert tuple(encoded.shape) == OTHER_TENSOR_LAYOUT.input_shape
     assert tuple(encoded.shape) == (34, 6, 4)
 
-def test_encode_reads_lakes_from_the_configured_board():
-    # `OTHER_SETUP`'s lakes sit on columns A/D of rows 3-4, which on the one
-    # published board (no lakes at all, since major 3) do not exist -- so a
-    # wrongly-shaped encoder would fill this plane somewhere else entirely, or
-    # not at all.
+def test_encode_leaves_the_passable_plane_uniformly_open_on_any_board():
+    # `BoardLayout` carries no impassable squares since major 3 deleted lakes
+    # (story 00000049 step 4), on `OTHER_SETUP`'s board as much as the
+    # published one -- so this plane reads 1.0 everywhere regardless of which
+    # board is configured. `eng-nn-4.md` (steps 5-6) is what removes the plane
+    # properly.
     evaluator = CtfNNEvaluator(_dummy_model(), OTHER_TENSOR_LAYOUT)
 
     encoded = evaluator.encode_positions([_other_full_army_position()])[0]
 
-    impassable = {
-        (row, column)
-        for row in range(OTHER_SETUP.layout.rows)
-        for column in range(OTHER_SETUP.layout.columns)
-        if encoded[FP_PASSABLE, row, column] == 0
-    }
-    assert impassable == {(row, column) for row in (2, 3) for column in (0, 3)}
+    assert torch.all(encoded[FP_PASSABLE] == 1)
 
 def test_army_strength_normalises_by_the_configured_composition():
     # `OTHER_SETUP` fields 3 of rank 1 only, so a full army reads 1.0 there --

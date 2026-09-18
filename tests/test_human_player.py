@@ -2,7 +2,7 @@
 
 from types import MappingProxyType
 
-from capture_the_flag.board import STANDARD_144, Square
+from capture_the_flag.board import SIMPLE_64, Square
 from capture_the_flag.game_setup import PRE_RELEASE_SETUP
 from capture_the_flag.game_ui import CtfGameUI
 from capture_the_flag.pieces import PieceType
@@ -46,7 +46,7 @@ def test_select_ply_delegates_to_the_ui_prompt():
         board=MappingProxyType({Square(3, 2): (Side.WHITE, PieceType.FOOT_SOLDIER)}),
         side_to_move=Side.WHITE,
         inactivity_counter=0,
-        layout=STANDARD_144,
+        layout=SIMPLE_64,
     )
     scripted = _ScriptedPlayer(["D2D3"])
     assert scripted.player.select_ply(position) == CtfPly(Square(3, 2), Square(3, 3))

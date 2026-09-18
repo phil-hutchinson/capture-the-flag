@@ -2,7 +2,7 @@
 
 from types import MappingProxyType
 
-from capture_the_flag.board import STANDARD_144, Square
+from capture_the_flag.board import SIMPLE_64, Square
 from capture_the_flag.outcome import (
     REASON_FLAG_CAPTURED,
     REASON_INACTIVITY,
@@ -14,8 +14,8 @@ from capture_the_flag.side import Side
 
 # Neutral squares to park each side's Flag in tests that aren't about flag
 # capture -- the outcome check for Section 5.1 requires both to be present.
-_WHITE_FLAG_SQUARE = Square(11, 1)  # L1
-_BLACK_FLAG_SQUARE = Square(11, 12)  # L12
+_WHITE_FLAG_SQUARE = Square(7, 1)  # H1
+_BLACK_FLAG_SQUARE = Square(7, 8)  # H8
 
 
 def _position(
@@ -27,7 +27,7 @@ def _position(
         board=MappingProxyType(board),
         side_to_move=side_to_move,
         inactivity_counter=inactivity_counter,
-        layout=STANDARD_144,
+        layout=SIMPLE_64,
     )
 
 

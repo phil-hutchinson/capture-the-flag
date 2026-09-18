@@ -44,8 +44,6 @@ OTHER_SETUP = GameSetup(
         columns=4,
         rows=6,
         home_rows=1,
-        lake_rows=(3, 4),
-        lake_pattern=(True, False, False, True),
     ),
     composition=ArmyComposition(
         composition_id="test_only_small_army",

@@ -7,7 +7,7 @@ supplies the run-directory / checkpoint-path naming, so the `torch.save` /
 
 Every checkpoint also stamps the engine I/O spec its weights were produced
 against — the spec name qualified by the board it was trained on
-(`TensorLayout.spec`, e.g. `ENG_NN_3/standard_144`). `CtfCrn`'s shape follows its
+(`TensorLayout.spec`, e.g. `ENG_NN_3/simple_64`). `CtfCrn`'s shape follows its
 `TensorLayout` directly, so a checkpoint saved against a superseded or
 differently-shaped contract (an `ENG_NN_1` checkpoint from before this story, or
 an 8 x 8 one met by a 12 x 12 run) would otherwise fail to load with an opaque

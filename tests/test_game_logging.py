@@ -3,7 +3,7 @@
 import random
 from types import MappingProxyType
 
-from capture_the_flag.board import STANDARD_144, Square
+from capture_the_flag.board import SIMPLE_64, Square
 from capture_the_flag.game_logging import CtfGameLogging
 from capture_the_flag.game_setup import PRE_RELEASE_SETUP
 from capture_the_flag.match import play_match
@@ -14,7 +14,7 @@ from capture_the_flag.position import CtfPosition
 from capture_the_flag.side import Side
 
 _WHITE_FLAG = Square(0, 1)  # A1 -- both flags present so no position is terminal.
-_BLACK_FLAG = Square(11, 12)  # L12
+_BLACK_FLAG = Square(7, 8)  # H8
 _D5 = Square(3, 5)
 _D6 = Square(3, 6)  # one square ahead of D5: a legal orthogonal step (D is open).
 
@@ -31,7 +31,7 @@ def _position(extra: dict) -> CtfPosition:
         board=MappingProxyType(board),
         side_to_move=Side.WHITE,
         inactivity_counter=0,
-        layout=STANDARD_144,
+        layout=SIMPLE_64,
     )
 
 

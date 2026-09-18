@@ -1,11 +1,11 @@
 """Board geometry for Capture the Flag.
 
-Since major 2 a board is a **rectangular grid of any size**, not a fixed 12x12:
-two home zones of equal depth at the two ends, lake rows somewhere between them,
-and any rows left over as neutral buffer. `BoardLayout` is that shape as a value,
-and `STANDARD_144` is the Battle board expressed in it. Coordinates follow the
-global, White's-perspective frame used throughout the project (columns lettered
-from A left to right, rows numbered from 1 with row 1 as White's back rank) — see
+A board is a **rectangular grid of any size**: two home zones of equal depth at
+the two ends, and any rows left over between them as neutral buffer.
+`BoardLayout` is that shape as a value, and `SIMPLE_64` is the one published
+board expressed in it (`rules.md` Section 2.1). Coordinates follow the global,
+White's-perspective frame used throughout the project (columns lettered from A
+left to right, rows numbered from 1 with row 1 as White's back rank) — see
 `doc/ruleset/rules.md` Section 2.1 and Section 4.4.
 
 **A layout is a value, never a module constant.** A `CtfPosition` carries the one
@@ -13,7 +13,7 @@ it is played on, which is the only way move generation can reach it:
 `legal_plies` implements a `game-engine-core` protocol property and takes no
 arguments, so the position is its sole channel. Code that reads geometry from
 anywhere else is assuming a single board, which `doc/ruleset/CLAUDE.md` names as
-a bug even when it happens to be right about Battle.
+a bug even when it happens to be right today.
 """
 
 from dataclasses import dataclass, field
@@ -63,7 +63,7 @@ def parse_square(text: str) -> Square:
 
 @dataclass(frozen=True)
 class BoardLayout:
-    """One complete board: grid dimensions, home-zone depth, and lake placement.
+    """One complete board: grid dimensions and home-zone depth.
 
     A layout names a **complete** board rather than a size, which is what keeps
     board geometry from needing several independent axes — an 8x8 grid with two
@@ -76,28 +76,13 @@ class BoardLayout:
 
     Rows run 1..`rows` from White's back rank. White's home zone is the first
     `home_rows` of them and Black's the last `home_rows`; whatever remains in the
-    middle is lake rows and neutral buffer. Buffer rows are not stated because
-    they are exactly the middle rows that are not lake rows.
+    middle is neutral buffer.
     """
 
     layout_id: str
     columns: int
     rows: int
     home_rows: int
-    lake_rows: tuple[int, ...] | None
-    lake_pattern: tuple[bool, ...] | None
-    """Per column, `True` where a lake row is lake and `False` where it is open.
-    Every lake row shares this pattern, which is what makes a lake a rectangular
-    block and a lane a full-height column through the middle of the board.
-
-    One pattern for all lake rows is also what keeps the diagonal *squeeze*
-    unreachable — a lake column is lake in every lake row, so a diagonal with two
-    lake flanks has a lake as its own source or destination and is not a legal
-    attack to begin with. That holds for any pattern this field can express, of
-    any block width and with no symmetry required, which is why
-    `technical-notes.md` can reserve the squeeze decision rather than settle it
-    (`tests/test_moves.py` asserts it over every registered layout). Per-row lake
-    patterns would be the change that makes it reachable."""
 
     white_home_rows: range = field(init=False, compare=False, repr=False)
     black_home_rows: range = field(init=False, compare=False, repr=False)
@@ -107,27 +92,6 @@ class BoardLayout:
     black_home_squares: frozenset[Square] = field(
         init=False, compare=False, repr=False
     )
-    lake_squares: frozenset[Square] = field(init=False, compare=False, repr=False)
-    lane_squares: frozenset[Square] = field(init=False, compare=False, repr=False)
-    """The open squares within the lake rows — the only squares a piece can cross
-    the middle of the board through, which is what makes them lanes.
-
-    A property of the lake pattern rather than a second way of stating it: a
-    column is lane exactly where it is not lake, so this is the lake rows'
-    complement and cannot drift from `lake_squares`."""
-
-    lane_adjacent_squares: frozenset[Square] = field(
-        init=False, compare=False, repr=False
-    )
-    """Squares one orthogonal step from a lane square, the lanes themselves
-    included where two lane rows meet.
-
-    Derived rather than listed because the answer differs completely by board and
-    a listing would have to be right about each one separately: on a board whose
-    home zones abut the lake rows this reaches into both home zones, and on one
-    with a neutral buffer row it reaches only into the buffer. The `TOWER_PLACEMENT`
-    flag is what reads it (`game_setup.GameSetup.forbidden_tower_squares`); the
-    geometry itself is board fact and stays here."""
 
     def __post_init__(self) -> None:
         # Derived members are excluded from equality: they are a function of the
@@ -138,16 +102,6 @@ class BoardLayout:
                 f"{self.layout_id}: columns must be 1-{MAX_COLUMNS}, "
                 f"got {self.columns}"
             )
-        if self.lake_pattern is None:
-            if self.lake_rows is not None:
-                raise ValueError(
-                    "lake_rows must be None if lake_pattern is None"
-                )
-        elif len(self.lake_pattern) != self.columns:
-            raise ValueError(
-                f"{self.layout_id}: lake pattern covers {len(self.lake_pattern)} "
-                f"columns, board has {self.columns}"
-            )
         if self.home_rows < 1 or 2 * self.home_rows >= self.rows:
             raise ValueError(
                 f"{self.layout_id}: {self.home_rows} home rows do not fit "
@@ -156,53 +110,11 @@ class BoardLayout:
 
         white_home = range(1, self.home_rows + 1)
         black_home = range(self.rows - self.home_rows + 1, self.rows + 1)
-        # A lake off the board or inside a home zone is far more likely a typo in
-        # a new layout than an intended board, and neither fails loudly on its
-        # own: an off-board lake row lands in `lake_squares` but is filtered out
-        # of every derived set by `contains`, so the layout silently becomes a
-        # board with no lakes and no lanes -- and `TOWER_PLACEMENT` silently inert
-        # on it.
-        for row in self.lake_rows or []:
-            if not 1 <= row <= self.rows:
-                raise ValueError(
-                    f"{self.layout_id}: lake row {row} is not on a "
-                    f"{self.rows}-row board"
-                )
-            if row in white_home or row in black_home:
-                raise ValueError(
-                    f"{self.layout_id}: lake row {row} lies inside a home zone"
-                )
 
         object.__setattr__(self, "white_home_rows", white_home)
         object.__setattr__(self, "black_home_rows", black_home)
         object.__setattr__(self, "white_home_squares", self._zone(white_home))
         object.__setattr__(self, "black_home_squares", self._zone(black_home))
-        object.__setattr__(
-            self,
-            "lake_squares",
-            frozenset(
-                Square(column, row)
-                for row in self.lake_rows or []
-                for column in range(self.columns)
-                if self.lake_pattern is not None and self.lake_pattern[column]
-            ),
-        )
-        lanes = frozenset(
-            Square(column, row)
-            for row in self.lake_rows or []
-            for column in range(self.columns)
-            if self.lake_pattern is None or not self.lake_pattern[column]
-        )
-        object.__setattr__(self, "lane_squares", lanes)
-        object.__setattr__(
-            self,
-            "lane_adjacent_squares",
-            frozenset(
-                neighbour
-                for lane in lanes
-                for neighbour in self.orthogonal_neighbors(lane)
-            ),
-        )
 
     def _zone(self, rows: range) -> frozenset[Square]:
         return frozenset(
@@ -215,12 +127,8 @@ class BoardLayout:
         return _COLUMN_LETTERS[: self.columns]
 
     def contains(self, square: Square) -> bool:
-        """Whether `square` lies on this board at all (edges only, not lakes)."""
+        """Whether `square` lies on this board at all."""
         return 0 <= square.column < self.columns and 1 <= square.row <= self.rows
-
-    def is_lake(self, square: Square) -> bool:
-        """Whether `square` is a lake, and so impassable to every piece."""
-        return square in self.lake_squares
 
     def home_squares(self, side: Side) -> frozenset[Square]:
         """The home zone `side` places its army in (`rules.md` Section 3)."""
@@ -233,8 +141,8 @@ class BoardLayout:
     def orthogonal_neighbors(self, square: Square) -> tuple[Square, ...]:
         """On-board squares one orthogonal step from `square`.
 
-        Board-edge only: does not account for lakes or piece occupancy, which are
-        move-legality concerns (see `moves.py`).
+        Board-edge only: does not account for piece occupancy, which is a
+        move-legality concern (see `moves.py`).
         """
         candidates = (
             Square(square.column, square.row + 1),
@@ -245,83 +153,19 @@ class BoardLayout:
         return tuple(s for s in candidates if self.contains(s))
 
 
-_L = True
-_O = False
-
-STANDARD_144: BoardLayout = BoardLayout(
-    layout_id="standard_144",
-    columns=12,
-    rows=12,
-    home_rows=4,
-    lake_rows=(6, 7),
-    # 1 open | 2 lake | 2 open | 2 lake | 2 open | 2 lake | 1 open — three
-    # separate 2x2 lakes, single-column lanes at the two edges and double-column
-    # lanes through the interior (rules.md Section 2.1).
-    lake_pattern=(_O, _L, _L, _O, _O, _L, _L, _O, _O, _L, _L, _O),
-)
-"""The Battle board: 12x12, 4 home / 1 buffer / 2 lake / 1 buffer / 4 home."""
-
-ASYMMETRIC_100: BoardLayout = BoardLayout(
-    layout_id="asymmetric_100",
-    columns=10,
-    rows=10,
-    home_rows=3,
-    lake_rows=(5, 6),
-    # 1 lake | 2 open | 1 lake | 2 open | 3 lake | 1 open — lake blocks of three
-    # different widths, and the only published pattern that is not its own mirror
-    # image: column A is lake where every other board is open at both edges, and
-    # the single-column lane sits at the far side, column J
-    # (rules.md Section 2.1).
-    lake_pattern=(_L, _O, _O, _L, _O, _O, _L, _L, _L, _O),
-)
-"""The Clash board: 10x10, 3 home / 1 buffer / 2 lake / 1 buffer / 3 home.
-
-**The lakes are asymmetric left-to-right, and unevenly sized.** Neither is a
-property anything may rely on being absent from a layout: code that mirrors a
-lake row, or assumes a lane at each board edge, is wrong here and was only ever
-right by coincidence on the other two. The 50:50 split of lake to open squares
-within the lake rows is the same as theirs — 10 of each — just distributed
-unevenly.
-
-Column letters are fixed to physical position and do not flip per player
-(`rules.md` Section 4.4), so the asymmetry reads identically for both sides; the
-board is symmetric where fairness needs it to be, top to bottom."""
-
-STANDARD_64: BoardLayout = BoardLayout(
-    layout_id="standard_64",
-    columns=8,
-    rows=8,
-    home_rows=3,
-    lake_rows=(4, 5),
-    # The 12x12 pattern scaled down: two separate 2x2 lakes, single-column lanes
-    # at the two edges and one double-column lane through the interior
-    # (rules.md Section 2.1).
-    lake_pattern=(_O, _L, _L, _O, _O, _L, _L, _O),
-)
-"""The Skirmish board: 8x8, 3 home / 2 lake / 3 home.
-
-**No neutral buffer rows.** Each home zone sits directly against the lakes, so
-the two front ranks start 3 rows apart instead of Battle's 4 and contact happens
-sooner. That is deliberate — it is part of what makes Skirmish the faster game —
-and it is also what puts a home-zone square directly in front of every lane,
-which is the geometry the `TOWER_PLACEMENT` flag exists to address."""
-
 SIMPLE_64: BoardLayout = BoardLayout(
     layout_id="simple_64",
     columns=8,
     rows=8,
     home_rows=2,
-    lake_rows=None,
-    lake_pattern=None,
 )
 """The Simple board: 8x8, 2 home / 4 neutral / 2 home.
 
-**No special squares.** Each home zone is two rows, with a neutral zone
-in between. There are no lake squares on the board."""
+**No special squares.** Each home zone is two rows, with a neutral zone in
+between, and every square on the board is passable."""
 
 BOARD_LAYOUTS: dict[str, BoardLayout] = {
-    layout.layout_id: layout
-    for layout in (STANDARD_144, ASYMMETRIC_100, STANDARD_64, SIMPLE_64)
+    layout.layout_id: layout for layout in (SIMPLE_64,)
 }
 """Every `BOARD_LAYOUT` value this build can actually play, keyed by its label.
 

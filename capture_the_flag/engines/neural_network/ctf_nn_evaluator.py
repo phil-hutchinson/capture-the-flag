@@ -5,7 +5,7 @@
 side-to-move's perspective: when Black is to move, the board is rotated 180
 degrees and ownership relabelled, so the network always sees "own side moving up
 the board" and never knows which colour it is playing. Most planes are one-hot
-piece/lake indicators, but the engineered planes (flag-relative offsets,
+piece indicators, but the engineered planes (flag-relative offsets,
 army-strength ratios) are continuous-valued broadcasts — see `tensor_layout.py`
 for the full plane layout.
 
@@ -13,7 +13,8 @@ An evaluator is built for one `TensorLayout` and encodes only that board and
 army: the extent of every plane and the divisor of every army-strength plane come
 from it. The board-shaped helpers below therefore take the layout they are
 rotating or indexing within rather than reading a module constant, which is what
-lets a Skirmish position and a Battle position be encoded in the same process.
+lets a position on one board and a position on another be encoded in the same
+process.
 
 Two coordinate conventions meet here and nowhere else: `Square` is
 column-first and 1-indexed on rows (matching the rules' "A3" notation), while
@@ -289,13 +290,10 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
             quantity_fp = CtfNNEvaluator._FP_PIECE_QUANTITY.get((ours, piece_type))
             if quantity_fp is not None:
                 piece_strength[quantity_fp] += 1
-        # Passable squares / Lake squares
+        # Passable squares. The one published board has no impassable squares at
+        # all (`doc/ruleset/CLAUDE.md`), so this plane is currently a constant;
+        # `eng-nn-4.md` (story 00000049 steps 5-6) is what removes it properly.
         encoded[FP_PASSABLE, :, :].fill_(1)
-        for lake_square in self._layout.lake_squares:
-            tensor_row, tensor_column = tensor_position(
-                lake_square, position.active_player_id, self._layout
-            )
-            encoded[FP_PASSABLE, tensor_row, tensor_column] = 0
         # Draw-by-inactivity counter
         move_limit_ratio = position.inactivity_counter / INACTIVITY_LIMIT
         encoded[FP_INACTIVITY_COUNT, :, :].fill_(move_limit_ratio)

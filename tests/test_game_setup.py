@@ -20,8 +20,6 @@ _SMALL_BOARD = BoardLayout(
     columns=4,
     rows=8,
     home_rows=2,  # 8 home squares per side
-    lake_rows=(4, 5),
-    lake_pattern=(False, True, True, False),
 )
 
 

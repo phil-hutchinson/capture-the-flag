@@ -16,25 +16,12 @@ from capture_the_flag.engines.neural_network.ctf_nn_evaluator import (
 from capture_the_flag.engines.neural_network.tensor_layout import (
     FP_INACTIVITY_COUNT,
     FP_OUR_FLAG,
-    FP_OUR_FLAG_RELATIVE_COLUMN,
-    FP_OUR_FLAG_RELATIVE_ROW,
-    FP_OUR_RANK_1_QUANTITY,
-    FP_OUR_RANK_2_QUANTITY,
-    FP_OUR_RANK_3_QUANTITY,
-    FP_OUR_RANK_4_QUANTITY,
     FP_OUR_RANK_5,
-    FP_OUR_RANK_5_QUANTITY,
     FP_PASSABLE,
     FP_THEIR_FLAG,
-    FP_THEIR_FLAG_RELATIVE_COLUMN,
-    FP_THEIR_FLAG_RELATIVE_ROW,
-    FP_THEIR_RANK_1_QUANTITY,
-    FP_THEIR_RANK_2_QUANTITY,
-    FP_THEIR_RANK_3_QUANTITY,
     FP_THEIR_RANK_4,
-    FP_THEIR_RANK_4_QUANTITY,
-    FP_THEIR_RANK_5_QUANTITY,
     MOVEMENT_INDEX,
+    TOTAL_FP_COUNT,
 )
 from capture_the_flag.outcome import INACTIVITY_LIMIT
 from capture_the_flag.pieces import PieceType as P
@@ -103,122 +90,17 @@ def _base_position(side_to_move: Side, inactivity_counter: int = 0) -> CtfPositi
     return _position(board,side_to_move=side_to_move,inactivity_counter=inactivity_counter)
 
 
-_MOBILE_RANKS: tuple[P, ...] = (
-    P.PEASANT,
-    P.MILITIA,
-    P.FOOT_SOLDIER,
-    P.CHAMPION,
-    P.MASTER_OF_ARMS,
-)
-
-_OUR_RANK_QUANTITY_FP: tuple[int, ...] = (
-    FP_OUR_RANK_1_QUANTITY,
-    FP_OUR_RANK_2_QUANTITY,
-    FP_OUR_RANK_3_QUANTITY,
-    FP_OUR_RANK_4_QUANTITY,
-    FP_OUR_RANK_5_QUANTITY,
-)
-
-_THEIR_RANK_QUANTITY_FP: tuple[int, ...] = (
-    FP_THEIR_RANK_1_QUANTITY,
-    FP_THEIR_RANK_2_QUANTITY,
-    FP_THEIR_RANK_3_QUANTITY,
-    FP_THEIR_RANK_4_QUANTITY,
-    FP_THEIR_RANK_5_QUANTITY,
-)
-
-# Deliberately asymmetric and distinct per side, so a bug that swaps "our" and
-# "their" (e.g. under rotation) produces a detectably wrong ratio rather than
-# an accidental match.
-_ATTRITION_COUNTS: dict[Side, dict[P, int]] = {
-    Side.WHITE: {
-        P.PEASANT: 3,
-        P.MILITIA: 0,
-        P.FOOT_SOLDIER: 1,
-        P.CHAMPION: 2,
-        P.MASTER_OF_ARMS: 3,
-    },
-    Side.BLACK: {
-        P.PEASANT: 0,
-        P.MILITIA: 1,
-        P.FOOT_SOLDIER: 2,
-        P.CHAMPION: 3,
-        P.MASTER_OF_ARMS: 1,
-    },
-}
-
-def _ranked_pieces(side: Side, counts: dict[P, int], start_row: int) -> dict[Square, tuple[Side, P]]:
-    # Up to 15 pieces (5 ranks x roster of 3) spread across two consecutive
-    # rows of SIMPLE_64's 8 columns. SIMPLE_64 has no impassable squares, so
-    # any pair of rows is fair game.
-    squares = (
-        Square(column, row)
-        for row in (start_row, start_row + 1)
-        for column in range(SIMPLE_64.columns)
-    )
-    board: dict[Square, tuple[Side, P]] = {}
-    for rank in _MOBILE_RANKS:
-        for _ in range(counts[rank]):
-            board[next(squares)] = (side, rank)
-    return board
-
-def _full_army_position(side_to_move: Side = Side.WHITE) -> CtfPosition:
-    full_counts = {rank: 3 for rank in _MOBILE_RANKS}
-    board: dict[Square, tuple[Side, P]] = {
-        Square(0, 1): (Side.WHITE, P.FLAG),
-        Square(7, 8): (Side.BLACK, P.FLAG),
-    }
-    board.update(_ranked_pieces(Side.WHITE, full_counts, start_row=3))
-    board.update(_ranked_pieces(Side.BLACK, full_counts, start_row=6))
-    return _position(board, side_to_move=side_to_move)
-
-def _attrition_position(side_to_move: Side = Side.WHITE) -> CtfPosition:
-    board: dict[Square, tuple[Side, P]] = {
-        Square(0, 1): (Side.WHITE, P.FLAG),
-        Square(7, 8): (Side.BLACK, P.FLAG),
-    }
-    board.update(_ranked_pieces(Side.WHITE, _ATTRITION_COUNTS[Side.WHITE], start_row=3))
-    board.update(_ranked_pieces(Side.BLACK, _ATTRITION_COUNTS[Side.BLACK], start_row=6))
-    return _position(board, side_to_move=side_to_move)
-
-def _check_uniform_plane_value(encoded: Tensor, feature_plane: int, expected_value: float) -> None:
-    for row in range(SIMPLE_64.rows):
-        for column in range(SIMPLE_64.columns):
-            assert encoded[feature_plane, row, column] == pytest.approx(expected_value)
-
 def _check_tensor_piece_fill(encoded: Tensor, expected_piece_placements: set[tuple[int, int, int]]) -> None:
     # Expected tuples are (plane, column, row) — board-natural order, 0-based —
     # transposed to the tensor's (plane, row, column) at the point of indexing.
-    for fp in range(16):
+    # Bounded at FP_PASSABLE, the first non-piece plane: passability and
+    # inactivity are constant broadcasts, not piece placements, so they are out
+    # of scope for a checker that asserts everything else reads zero.
+    for fp in range(FP_PASSABLE):
         for column in range(8):
             for row in range(8):
                 expected_value = 1 if (fp, column, row) in expected_piece_placements else 0
                 assert encoded[fp, row, column] == expected_value
-
-def _check_flag_relative_planes(
-    encoded: Tensor,
-    our_flag_position: tuple[int, int],
-    their_flag_position: tuple[int, int],
-) -> None:
-    # Positions are (tensor row, tensor column) of each flag, in the frame
-    # `encoded` was built in. Checked at every square, since the offset is
-    # defined board-wide, not just at sampled points.
-    our_flag_row, our_flag_column = our_flag_position
-    their_flag_row, their_flag_column = their_flag_position
-    for row in range(SIMPLE_64.rows):
-        for column in range(SIMPLE_64.columns):
-            assert encoded[FP_OUR_FLAG_RELATIVE_ROW, row, column] == pytest.approx(
-                (our_flag_row - row) / SIMPLE_64.rows
-            )
-            assert encoded[FP_OUR_FLAG_RELATIVE_COLUMN, row, column] == pytest.approx(
-                (our_flag_column - column) / SIMPLE_64.columns
-            )
-            assert encoded[FP_THEIR_FLAG_RELATIVE_ROW, row, column] == pytest.approx(
-                (their_flag_row - row) / SIMPLE_64.rows
-            )
-            assert encoded[FP_THEIR_FLAG_RELATIVE_COLUMN, row, column] == pytest.approx(
-                (their_flag_column - column) / SIMPLE_64.columns
-            )
 
 def _check_tensor_all_passable(encoded: Tensor) -> None:
     # SIMPLE_64 has no impassable squares at all (`doc/ruleset/CLAUDE.md`), so
@@ -324,106 +206,6 @@ def test_inactivity_counter_populated(inactivity_counter):
     for row in range(8):
         for column in range(8):
             assert encoded[FP_INACTIVITY_COUNT, row, column] == pytest.approx(expected_value)
-
-@pytest.mark.parametrize(
-    "position, our_flag_position, their_flag_position",
-    [
-        (_matching_white_position(), (0, 0), (7, 7)),
-        (_matching_black_position(), (0, 0), (7, 7)),
-    ],
-    ids=["white_board", "black_board"],
-)
-def test_flag_relative_planes_normalized_correctly(position, our_flag_position, their_flag_position):
-    # Both fixtures are the same position, one from each side's perspective, so
-    # both flags land at the same tensor coordinates once re-based into the
-    # mover's frame -- (0, 0) for the mover's own flag, (7, 7) for the enemy's.
-    evaluator = CtfNNEvaluator(_dummy_model(), PRE_RELEASE_TENSOR_LAYOUT)
-    encoded = evaluator.encode_positions([position])[0]
-    _check_flag_relative_planes(encoded, our_flag_position, their_flag_position)
-
-@pytest.mark.parametrize(
-    "inactivity_counter",
-    [0, 10, 39]
-)
-def test_flag_relative_planes_equivalent_under_rotation(inactivity_counter):
-    white_position = _matching_white_position(inactivity_counter)
-    black_position = _matching_black_position(inactivity_counter)
-
-    evaluator = CtfNNEvaluator(_dummy_model(), PRE_RELEASE_TENSOR_LAYOUT)
-    white_encoded = evaluator.encode_positions([white_position])[0]
-    black_encoded = evaluator.encode_positions([black_position])[0]
-
-    for fp in (
-        FP_OUR_FLAG_RELATIVE_ROW,
-        FP_OUR_FLAG_RELATIVE_COLUMN,
-        FP_THEIR_FLAG_RELATIVE_ROW,
-        FP_THEIR_FLAG_RELATIVE_COLUMN,
-    ):
-        assert torch.equal(white_encoded[fp], black_encoded[fp])
-
-def test_army_strength_planes_full_army_is_one():
-    position = _full_army_position(Side.WHITE)
-
-    evaluator = CtfNNEvaluator(_dummy_model(), PRE_RELEASE_TENSOR_LAYOUT)
-    encoded = evaluator.encode_positions([position])[0]
-
-    for fp in _OUR_RANK_QUANTITY_FP + _THEIR_RANK_QUANTITY_FP:
-        _check_uniform_plane_value(encoded, fp, 1.0)
-
-@pytest.mark.parametrize(
-    "side_to_move",
-    [Side.WHITE, Side.BLACK],
-    ids=["White", "Black"],
-)
-def test_army_strength_planes_reflect_attrition(side_to_move):
-    position = _attrition_position(side_to_move)
-    our_counts = _ATTRITION_COUNTS[side_to_move]
-    their_counts = _ATTRITION_COUNTS[side_to_move.opponent]
-
-    evaluator = CtfNNEvaluator(_dummy_model(), PRE_RELEASE_TENSOR_LAYOUT)
-    encoded = evaluator.encode_positions([position])[0]
-
-    for rank, our_fp, their_fp in zip(_MOBILE_RANKS, _OUR_RANK_QUANTITY_FP, _THEIR_RANK_QUANTITY_FP, strict=True):
-        _check_uniform_plane_value(encoded, our_fp, our_counts[rank] / 3)
-        _check_uniform_plane_value(encoded, their_fp, their_counts[rank] / 3)
-
-@pytest.mark.parametrize(
-    "inactivity_counter",
-    [0, 10, 39]
-)
-def test_army_strength_planes_equivalent_under_rotation(inactivity_counter):
-    white_position = _matching_white_position(inactivity_counter)
-    black_position = _matching_black_position(inactivity_counter)
-
-    evaluator = CtfNNEvaluator(_dummy_model(), PRE_RELEASE_TENSOR_LAYOUT)
-    white_encoded = evaluator.encode_positions([white_position])[0]
-    black_encoded = evaluator.encode_positions([black_position])[0]
-
-    for fp in _OUR_RANK_QUANTITY_FP + _THEIR_RANK_QUANTITY_FP:
-        assert torch.equal(white_encoded[fp], black_encoded[fp])
-
-@pytest.mark.parametrize(
-    "missing_side, expected",
-    [(Side.WHITE, "own"), (Side.BLACK, "enemy")],
-    ids=["own_flag", "enemy_flag"],
-)
-def test_encode_rejects_a_position_with_a_flag_missing(missing_side, expected):
-    # A flag leaves the board only by being captured, which ends the game, so this
-    # is a terminal position. Nothing in the engine's wiring encodes one (MCTS and
-    # the self-play collector both short-circuit on `outcome`), but `encode_positions`
-    # is public, and the offset planes have no defined value here — so it names the
-    # problem rather than raising a bare StopIteration from the flag lookup.
-    board = {
-        square: piece
-        for square, piece in _matching_white_position().board.items()
-        if piece != (missing_side, P.FLAG)
-    }
-    position = _position(board, side_to_move=Side.WHITE, inactivity_counter=0)
-
-    evaluator = CtfNNEvaluator(_dummy_model(), PRE_RELEASE_TENSOR_LAYOUT)
-
-    with pytest.raises(ValueError, match=expected):
-        evaluator.encode_positions([position])
 
 @pytest.mark.parametrize(
     "layout",
@@ -660,8 +442,7 @@ def test_evaluator_in_engine_with_actual_nn_returns_valid_ply(side_to_move):
 # (`doc/ruleset/CLAUDE.md`); `OTHER_SETUP` (a hand-built setup naming no
 # published edition, see `small_networks.py`) plays it now. These assert the
 # part that is no longer a build constant: the tensor's extent comes from the
-# configured layout and the army-strength divisors from the configured
-# composition.
+# configured layout.
 
 def _other_position(
     board: dict, side_to_move: Side = Side.WHITE, inactivity_counter: int = 0
@@ -695,54 +476,20 @@ def test_encode_is_shaped_by_the_configured_board():
     encoded = evaluator.encode_positions([_other_full_army_position()])[0]
 
     assert tuple(encoded.shape) == OTHER_TENSOR_LAYOUT.input_shape
-    assert tuple(encoded.shape) == (34, 6, 4)
+    assert tuple(encoded.shape) == (TOTAL_FP_COUNT, 6, 4)
 
 def test_encode_leaves_the_passable_plane_uniformly_open_on_any_board():
     # `BoardLayout` carries no impassable squares since major 3 deleted lakes
     # (story 00000049 step 4), on `OTHER_SETUP`'s board as much as the
     # published one -- so this plane reads 1.0 everywhere regardless of which
-    # board is configured. `eng-nn-4.md` (steps 5-6) is what removes the plane
-    # properly.
+    # board is configured. It is retained rather than dropped: it is what lets
+    # the network tell a real edge square from the zero-padding a convolution
+    # adds at the border (`eng-nn-4.md`).
     evaluator = CtfNNEvaluator(_dummy_model(), OTHER_TENSOR_LAYOUT)
 
     encoded = evaluator.encode_positions([_other_full_army_position()])[0]
 
     assert torch.all(encoded[FP_PASSABLE] == 1)
-
-def test_army_strength_normalises_by_the_configured_composition():
-    # `OTHER_SETUP` fields 3 of rank 1 only, so a full army reads 1.0 there --
-    # the rank the published army also fields 3 of, which is why the ranks it
-    # does *not* field are the discriminating case below.
-    evaluator = CtfNNEvaluator(_dummy_model(), OTHER_TENSOR_LAYOUT)
-
-    encoded = evaluator.encode_positions([_other_full_army_position()])[0]
-
-    for fp in (FP_OUR_RANK_1_QUANTITY, FP_THEIR_RANK_1_QUANTITY):
-        for row in range(OTHER_SETUP.layout.rows):
-            for column in range(OTHER_SETUP.layout.columns):
-                assert encoded[fp, row, column] == pytest.approx(1.0)
-
-def test_planes_for_ranks_the_composition_omits_are_present_and_zero():
-    # The plane layout is one contract across compositions (tensor_layout's
-    # TOTAL_FP_COUNT): `OTHER_SETUP` fields no rank above 1, so ranks 2-5 still
-    # have presence and quantity planes and every one of them reads zero. A
-    # divisor of 0 must not produce a NaN or an exception.
-    evaluator = CtfNNEvaluator(_dummy_model(), OTHER_TENSOR_LAYOUT)
-
-    encoded = evaluator.encode_positions([_other_full_army_position()])[0]
-
-    for fp in (
-        FP_OUR_RANK_2_QUANTITY,
-        FP_OUR_RANK_3_QUANTITY,
-        FP_OUR_RANK_4_QUANTITY,
-        FP_OUR_RANK_5_QUANTITY,
-        FP_THEIR_RANK_2_QUANTITY,
-        FP_THEIR_RANK_3_QUANTITY,
-        FP_THEIR_RANK_4_QUANTITY,
-        FP_THEIR_RANK_5_QUANTITY,
-    ):
-        assert torch.all(encoded[fp] == 0.0)
-    assert encoded.isnan().sum() == 0
 
 def test_encode_rejects_a_position_from_another_board():
     # A 4x6 board's squares are all valid 8x8 indices, so a position from the

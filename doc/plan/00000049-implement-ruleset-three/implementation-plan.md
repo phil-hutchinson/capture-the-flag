@@ -171,12 +171,14 @@ the changelog references to them).
 ### Step 5 — Write the `ENG_NN_4` specification
 
 Write `doc/neuralnetwork/eng-nn-4.md`: the plane list for major 3 (Tower and
-rank-6 presence planes gone, five ranks per side with 5 strongest, the passability
-plane gone on a board with no impassable squares, and the twelve per-rank quantity
-planes **removed**), the unchanged twelve-offset action space, and
-`3-0:PRE-RELEASE` as the one compatible ruleset combination. State the two
-arguments that look like problems until they are written down: why the action space
-needs no change (the new rules only remove legality, which is never part of the
+rank-6 presence planes gone, five ranks per side with 5 strongest, the four
+flag-relative offset planes and the twelve per-rank quantity planes **removed**,
+and the passability plane **retained** despite the board having no impassable
+squares — it still separates a real board square from a convolution's
+zero-padding), the unchanged twelve-offset action space, and `3-0:PRE-RELEASE`
+as the one compatible ruleset combination. State the two arguments that look
+like problems until they are written down: why the action space needs no
+change (the new rules only remove legality, which is never part of the
 compatibility test) and why White's one-square first ply needs no plane (a repeat
 of the starting arrangement is only reachable by non-capturing plies, which raise
 the already-encoded inactivity counter, so the two positions do encode
@@ -197,9 +199,9 @@ spec stays in the folder unchanged.
 ### Step 6 — Implement `ENG_NN_4`
 
 Bring `tensor_layout.py`, the evaluator's encoding, and the checkpoint spec stamp
-to the spec written in step 5: the new plane constants and count, the quantity
-planes and their per-rank normalisers deleted, the passability plane deleted, and
-`ENGINE_SPEC_NAME` bumped to `ENG_NN_4`.
+to the spec written in step 5: the new plane constants and count, the flag-offset
+and quantity planes and their per-rank normalisers deleted, the passability plane
+kept as-is, and `ENGINE_SPEC_NAME` bumped to `ENG_NN_4`.
 
 Depends on: Step 5 (the spec), Step 3 (the army and board it encodes).
 

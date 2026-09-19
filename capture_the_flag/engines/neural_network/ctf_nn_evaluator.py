@@ -4,17 +4,15 @@
 `TOTAL_FP_COUNT`-plane image the size of the configured board, always from the
 side-to-move's perspective: when Black is to move, the board is rotated 180
 degrees and ownership relabelled, so the network always sees "own side moving up
-the board" and never knows which colour it is playing. Most planes are one-hot
-piece indicators, but the engineered planes (flag-relative offsets,
-army-strength ratios) are continuous-valued broadcasts — see `tensor_layout.py`
-for the full plane layout.
+the board" and never knows which colour it is playing. Piece planes are one-hot
+indicators; passability and the inactivity count are constant broadcasts — see
+`tensor_layout.py` for the full plane layout.
 
 An evaluator is built for one `TensorLayout` and encodes only that board and
-army: the extent of every plane and the divisor of every army-strength plane come
-from it. The board-shaped helpers below therefore take the layout they are
-rotating or indexing within rather than reading a module constant, which is what
-lets a position on one board and a position on another be encoded in the same
-process.
+army: the extent of every plane comes from it. The board-shaped helpers below
+therefore take the layout they are rotating or indexing within rather than
+reading a module constant, which is what lets a position on one board and a
+position on another be encoded in the same process.
 
 Two coordinate conventions meet here and nowhere else: `Square` is
 column-first and 1-indexed on rows (matching the rules' "A3" notation), while
@@ -51,32 +49,18 @@ from ...timing_regions import (
 from .tensor_layout import (
     FP_INACTIVITY_COUNT,
     FP_OUR_FLAG,
-    FP_OUR_FLAG_RELATIVE_COLUMN,
-    FP_OUR_FLAG_RELATIVE_ROW,
     FP_OUR_RANK_1,
-    FP_OUR_RANK_1_QUANTITY,
     FP_OUR_RANK_2,
-    FP_OUR_RANK_2_QUANTITY,
     FP_OUR_RANK_3,
-    FP_OUR_RANK_3_QUANTITY,
     FP_OUR_RANK_4,
-    FP_OUR_RANK_4_QUANTITY,
     FP_OUR_RANK_5,
-    FP_OUR_RANK_5_QUANTITY,
     FP_PASSABLE,
     FP_THEIR_FLAG,
-    FP_THEIR_FLAG_RELATIVE_COLUMN,
-    FP_THEIR_FLAG_RELATIVE_ROW,
     FP_THEIR_RANK_1,
-    FP_THEIR_RANK_1_QUANTITY,
     FP_THEIR_RANK_2,
-    FP_THEIR_RANK_2_QUANTITY,
     FP_THEIR_RANK_3,
-    FP_THEIR_RANK_3_QUANTITY,
     FP_THEIR_RANK_4,
-    FP_THEIR_RANK_4_QUANTITY,
     FP_THEIR_RANK_5,
-    FP_THEIR_RANK_5_QUANTITY,
     MOVEMENT_INDEX,
     TensorLayout,
 )
@@ -133,10 +117,7 @@ def policy_logit_location_for_ply(
 
 class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
 
-    # Keyed by rank (1-5 since major 3; the Tower is gone and rank 6 with it —
-    # `ENG_NN_3`'s Tower and sixth-rank planes are left unmapped so the encoder
-    # still resolves. `eng-nn-4.md` (story 00000049 steps 5-6) retires them
-    # properly.
+    # Keyed by rank (1-5 since major 3; there is no Tower and no rank 6).
     _OUR_FP = {
         PieceType.FLAG: FP_OUR_FLAG,
         PieceType.PEASANT: FP_OUR_RANK_1,
@@ -155,20 +136,6 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
         PieceType.MASTER_OF_ARMS: FP_THEIR_RANK_5,
     }
 
-    _FP_PIECE_QUANTITY = {
-        #key: our piece, rank
-        (True, PieceType.PEASANT): FP_OUR_RANK_1_QUANTITY,
-        (True, PieceType.MILITIA): FP_OUR_RANK_2_QUANTITY,
-        (True, PieceType.FOOT_SOLDIER): FP_OUR_RANK_3_QUANTITY,
-        (True, PieceType.CHAMPION): FP_OUR_RANK_4_QUANTITY,
-        (True, PieceType.MASTER_OF_ARMS): FP_OUR_RANK_5_QUANTITY,
-        (False, PieceType.PEASANT): FP_THEIR_RANK_1_QUANTITY,
-        (False, PieceType.MILITIA): FP_THEIR_RANK_2_QUANTITY,
-        (False, PieceType.FOOT_SOLDIER): FP_THEIR_RANK_3_QUANTITY,
-        (False, PieceType.CHAMPION): FP_THEIR_RANK_4_QUANTITY,
-        (False, PieceType.MASTER_OF_ARMS): FP_THEIR_RANK_5_QUANTITY,
-    }
-
     def __init__(self, model: nn.Module, tensor_layout: TensorLayout) -> None:
         """`tensor_layout` is the board and army this evaluator encodes — the
         run's, not a build default, so the same code encodes either ruleset."""
@@ -176,51 +143,10 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
         self._tensor_layout = tensor_layout
         self._layout = tensor_layout.layout
 
-        # What each per-rank quantity plane is normalised by: the army's full
-        # count of that rank, so a plane reads 1.0 at full strength and falls as
-        # the rank is attrited.
-        #
-        # A rank the composition does not field has a divisor of 0, and its plane
-        # reads a constant 0.0 rather than a ratio — the rank is present in the
-        # contract (see `TOTAL_FP_COUNT`) but absent from the army, so "none of
-        # it remains" is both the true statement and the only finite one.
-        self._rank_totals = {
-            quantity_plane: tensor_layout.composition.count(piece)
-            for (_ours, piece), quantity_plane in self._FP_PIECE_QUANTITY.items()
-        }
-
-        # Precomputed once per evaluator rather than per encoding: each is a
-        # single row/column vector the flag-offset planes broadcast against, and
-        # encoding is the hot path in self-play.
-        self._row_indices = torch.arange(
-            self._layout.rows, dtype=torch.float32
-        ).unsqueeze(1)
-        self._column_indices = torch.arange(
-            self._layout.columns, dtype=torch.float32
-        ).unsqueeze(0)
-
     @property
     def tensor_layout(self) -> TensorLayout:
         """The tensor contract this evaluator encodes to."""
         return self._tensor_layout
-
-    def _fill_flag_offset_planes(
-        self, encoded: Tensor, flag: tuple[int, int], row_plane: int, column_plane: int
-    ) -> None:
-        """Fill one flag's pair of signed offset planes, `flag` being its `(row,
-        column)` in the mover's frame.
-
-        Each square carries `(flag coordinate - own coordinate) / board extent`
-        along one axis, so the sign tells the network which side of the flag it
-        sits on -- in front of vs. behind, left vs. right -- which an absolute
-        distance discards. Each plane varies along one axis only, so a single
-        row/column vector broadcasts across it.
-        """
-        flag_row, flag_column = flag
-        encoded[row_plane] = (flag_row - self._row_indices) / self._layout.rows
-        encoded[column_plane] = (
-            flag_column - self._column_indices
-        ) / self._layout.columns
 
     @timed(EVALUATE_POSITION)
     def evaluate_positions(self, positions: Sequence[CtfPosition]) -> Sequence[PositionEvaluation]:
@@ -268,13 +194,7 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
         # batch will be handled later - we just need to do the last three here
         encoded = torch.zeros(self._tensor_layout.input_shape, dtype=torch.float32)
 
-        # Current pieces on board. This single pass also collects what the two
-        # engineered plane families need — where each flag stands, and how many
-        # of each mobile rank survive — since both are functions of the same
-        # board traversal, and encoding is the hot path in self-play.
-        our_flag: tuple[int, int] | None = None
-        their_flag: tuple[int, int] | None = None
-        piece_strength = dict.fromkeys(CtfNNEvaluator._FP_PIECE_QUANTITY.values(), 0)
+        # Current pieces on board.
         for square, (side, piece_type) in position.board.items():
             tensor_row, tensor_column = tensor_position(
                 square, position.active_player_id, self._layout
@@ -282,45 +202,13 @@ class CtfNNEvaluator(NeuralNetworkEvaluator[CtfPosition]):
             ours = side == position.side_to_move
             fp = CtfNNEvaluator._OUR_FP[piece_type] if ours else CtfNNEvaluator._THEIR_FP[piece_type]
             encoded[fp, tensor_row, tensor_column] = 1
-            if piece_type is PieceType.FLAG:
-                if ours:
-                    our_flag = (tensor_row, tensor_column)
-                else:
-                    their_flag = (tensor_row, tensor_column)
-            quantity_fp = CtfNNEvaluator._FP_PIECE_QUANTITY.get((ours, piece_type))
-            if quantity_fp is not None:
-                piece_strength[quantity_fp] += 1
         # Passable squares. The one published board has no impassable squares at
-        # all (`doc/ruleset/CLAUDE.md`), so this plane is currently a constant;
-        # `eng-nn-4.md` (story 00000049 steps 5-6) is what removes it properly.
+        # all, so this plane is a constant 1 — it exists to let the network tell a
+        # real edge square from the zero-padding a convolution adds at the border.
         encoded[FP_PASSABLE, :, :].fill_(1)
         # Draw-by-inactivity counter
         move_limit_ratio = position.inactivity_counter / INACTIVITY_LIMIT
         encoded[FP_INACTIVITY_COUNT, :, :].fill_(move_limit_ratio)
-        # Flags relative position. Both flags stand on the board throughout play —
-        # a flag leaves it only by being captured, which ends the game — so a
-        # missing one means a terminal position reached the encoder. Nothing in
-        # the engine's own wiring does that (MCTS and the self-play collector both
-        # short-circuit on `outcome`), so this is a caller error worth naming
-        # rather than a state to encode some default for.
-        if our_flag is None or their_flag is None:
-            missing = "own" if our_flag is None else "enemy"
-            raise ValueError(
-                f"cannot encode a position with no {missing} flag on the board: "
-                "the flag-relative offset planes are undefined for it. A flag is "
-                "only ever removed by capture, which ends the game, so this is a "
-                "terminal position."
-            )
-        self._fill_flag_offset_planes(
-            encoded, our_flag, FP_OUR_FLAG_RELATIVE_ROW, FP_OUR_FLAG_RELATIVE_COLUMN
-        )
-        self._fill_flag_offset_planes(
-            encoded, their_flag, FP_THEIR_FLAG_RELATIVE_ROW, FP_THEIR_FLAG_RELATIVE_COLUMN
-        )
-        # Army strength
-        for feature_plane, quantity in piece_strength.items():
-            roster = self._rank_totals[feature_plane]
-            encoded[feature_plane, :, :].fill_(quantity / roster if roster else 0.0)
 
         return encoded
 

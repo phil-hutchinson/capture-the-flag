@@ -7,18 +7,18 @@ supplies the run-directory / checkpoint-path naming, so the `torch.save` /
 
 Every checkpoint also stamps the engine I/O spec its weights were produced
 against — the spec name qualified by the board it was trained on
-(`TensorLayout.spec`, e.g. `ENG_NN_3/simple_64`). `CtfCrn`'s shape follows its
+(`TensorLayout.spec`, e.g. `ENG_NN_4/simple_64`). `CtfCrn`'s shape follows its
 `TensorLayout` directly, so a checkpoint saved against a superseded or
-differently-shaped contract (an `ENG_NN_1` checkpoint from before this story, or
-an 8 x 8 one met by a 12 x 12 run) would otherwise fail to load with an opaque
-`state_dict` shape mismatch, or — worse, if the shapes ever happened to coincide
-— load "successfully" into a network that misinterprets its planes.
+differently-shaped contract (an `ENG_NN_3` checkpoint from before this story, or
+an 8 x 8 one met by a differently-sized run) would otherwise fail to load with an
+opaque `state_dict` shape mismatch, or — worse, if the shapes ever happened to
+coincide — load "successfully" into a network that misinterprets its planes.
 `load_network` checks the stamp before touching the network at all, so that
 failure is immediate and names the mismatch.
 
 The board qualifies the spec rather than minting a spec per board because
-`ENG_NN_3` is one *contract*, stated parametrically in the board's dimensions
-(see `doc/neuralnetwork/eng-nn-3.md`). Two boards are two instances of it, and
+`ENG_NN_4` is one *contract*, stated parametrically in the board's dimensions
+(see `doc/neuralnetwork/eng-nn-4.md`). Two boards are two instances of it, and
 their weights are not interchangeable, so the stamp has to distinguish them even
 though the document does not.
 

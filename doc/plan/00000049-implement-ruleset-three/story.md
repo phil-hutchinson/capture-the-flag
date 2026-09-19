@@ -337,8 +337,11 @@ number:
 - the Tower presence planes have no subject;
 - there is no rank 6, and rank 1 is now the weakest rather than the strongest, so
   every rank plane's meaning changes even where its index does not;
-- the passability plane is constant on a board with no lakes;
-- **the per-rank quantity planes are removed entirely** (see below).
+- the passability plane is retained even though it is constant on a board with no
+  lakes — it still separates a real board square from the zero-padding a
+  convolution adds at its border;
+- **the four flag-relative offset planes are removed entirely** (see below);
+- **the twelve per-rank quantity planes are removed entirely** (see below).
 
 **The action space does not change.** All twelve movement offsets — one- and
 two-square orthogonal, and the four diagonals — still address every ply major 3
@@ -356,12 +359,21 @@ enough about material — a mutable rank, a smaller board, an army that fills it
 home rows — that the right form for a material summary is worth re-deciding on
 evidence rather than porting.
 
-**This is explicitly reversible and expected to be revisited.** Re-adding a
-material feature later is a new spec and a new document, which is the normal cost
-of a feature-engineering change and is what `doc/neuralnetwork/README.md` already
-requires. Removing them now means the first major 3 network is trained without
-them, so any later re-add has a baseline to be measured against — which the
-current arrangement, where they have never been ablated, does not provide.
+**The flag-relative offset planes go for a different reason: not broken, just
+unproven.** Nothing about major 3 invalidates them the way rank reduction
+invalidates the quantity planes' normaliser — a flag's position doesn't care what
+rank anything else is. They go because the case for frontloading them was a large
+board with lakes to route around, and major 3 has neither: whether the hint still
+earns its channel on an 8 × 8 open board is worth finding out rather than assuming
+forward.
+
+**Both removals are explicitly reversible and expected to be revisited.**
+Re-adding either family later is a new spec and a new document, which is the
+normal cost of a feature-engineering change and is what
+`doc/neuralnetwork/README.md` already requires. Removing them now means the first
+major 3 network is trained without them, so any later re-add has a baseline to be
+measured against — which the current arrangement, where neither has ever been
+ablated, does not provide.
 
 **No new plane is needed for White's first ply**, even though two positions with
 identical boards can differ in whether the restriction applies. Reaching a
@@ -423,10 +435,11 @@ checkpoints are rejected by either one alone. No migration path is written.
   and self-play under this story is the first opportunity to look at it.
 - **40 plies is provisional**, in the same sense 50 always was, and is the first
   number to revisit once games have been played.
-- **The removed quantity planes are an open question deferred, not settled**
-  (§9). Whether a material summary earns its place in the input, and in what form
-  now that a rank's population is unbounded, is to be decided on evidence from
-  major 3 training rather than now.
+- **The removed quantity and flag-relative offset planes are an open question
+  deferred, not settled** (§9). Whether a material summary earns its place in the
+  input, and in what form now that a rank's population is unbounded, and whether
+  the flag-offset hint still earns its channel on a smaller, lake-free board, are
+  both to be decided on evidence from major 3 training rather than now.
 - **Scale.** This is a rewrite of the rules layer rather than a change to it, and
   the test suite goes with it. The plan sequences it so that each step leaves the
   repository runnable, but there is no ordering under which the engine is playable

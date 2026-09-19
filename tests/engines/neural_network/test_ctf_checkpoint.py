@@ -351,8 +351,8 @@ def test_the_spec_stamp_is_qualified_by_the_board_it_was_trained_on(tmp_path: Pa
         "spec"
     ]
 
-    assert pre_release_stamp == "ENG_NN_3/simple_64"
-    assert other_stamp == "ENG_NN_3/test_only_small"
+    assert pre_release_stamp == "ENG_NN_4/simple_64"
+    assert other_stamp == "ENG_NN_4/test_only_small"
 
 
 def test_load_network_rejects_a_checkpoint_trained_on_another_board(tmp_path: Path):

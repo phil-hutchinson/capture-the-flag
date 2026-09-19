@@ -54,7 +54,13 @@ from .record import (
 )
 from .rendering import parse_position_block, render_position_block
 from .side import Side
-from .start_position import generate_start_position, strength_threshold
+from .start_position import (
+    decode_position_id,
+    generate_start_position,
+    mirror_of,
+    position_id,
+    strength_threshold,
+)
 from .transitions import apply_ply
 
 __all__ = [
@@ -88,13 +94,16 @@ __all__ = [
     "build_initial_position",
     "compute_outcome",
     "compute_outcome_reason",
+    "decode_position_id",
     "generate_start_position",
     "make_player",
+    "mirror_of",
     "parse_ply",
     "parse_position_block",
     "parse_square",
     "path_between",
     "play_match",
+    "position_id",
     "render_game_view",
     "render_position_block",
     "resolve_combat",

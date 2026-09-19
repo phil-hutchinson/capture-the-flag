@@ -3,13 +3,27 @@
 import random
 from collections import Counter
 
+import pytest
+
 from capture_the_flag.board import BoardLayout, Square
 from capture_the_flag.game_setup import PRE_RELEASE_SETUP, GameSetup
 from capture_the_flag.pieces import ArmyComposition, PieceType
 from capture_the_flag.side import Side
-from capture_the_flag.start_position import generate_start_position, strength_threshold
+from capture_the_flag.start_position import (
+    decode_position_id,
+    generate_start_position,
+    mirror_of,
+    position_id,
+    strength_threshold,
+)
 
 _SEEDS = range(300)
+
+# start-position.md Section 5: the worked example and the two documented
+# endpoints of the valid-code range.
+_WORKED_EXAMPLE = "2542333F54415211"
+_LOW_ENDPOINT = "1112223F33444555"
+_HIGH_ENDPOINT = "F555444333222111"
 
 
 def _rank(piece: PieceType) -> int:
@@ -154,3 +168,92 @@ def test_opening_plies_originate_only_from_the_front_row():
         for ply in legal_plies:
             assert ply.destination.column == ply.source.column
             assert ply.destination.row in (ply.source.row + 1, ply.source.row + 2)
+
+
+# --- Position IDs (start-position.md Section 5) ------------------------------
+
+
+def test_position_id_round_trips_every_generated_position():
+    for seed in _SEEDS:
+        position = generate_start_position(PRE_RELEASE_SETUP, random.Random(seed))
+        code = position_id(position)
+
+        assert len(code) == 16
+        decoded = decode_position_id(code, PRE_RELEASE_SETUP)
+        assert dict(decoded.board) == dict(position.board)
+
+
+def test_worked_example_decodes_to_the_documented_rows():
+    layout = PRE_RELEASE_SETUP.layout
+    position = decode_position_id(_WORKED_EXAMPLE, PRE_RELEASE_SETUP)
+
+    row_1 = "".join(position.board[Square(c, 1)][1].symbol for c in range(layout.columns))
+    row_2 = "".join(position.board[Square(c, 2)][1].symbol for c in range(layout.columns))
+    assert row_1 == "2542333F"
+    assert row_2 == "54415211"
+    assert position.side_to_move is Side.WHITE
+    assert position.inactivity_counter == 0
+
+
+@pytest.mark.parametrize("code", [_LOW_ENDPOINT, _HIGH_ENDPOINT], ids=["low", "high"])
+def test_documented_endpoints_validate(code):
+    decode_position_id(code, PRE_RELEASE_SETUP)  # must not raise
+
+
+def test_a_lowercase_code_normalises_before_decoding():
+    upper = decode_position_id(_LOW_ENDPOINT, PRE_RELEASE_SETUP)
+    lower = decode_position_id(_LOW_ENDPOINT.lower(), PRE_RELEASE_SETUP)
+    assert dict(upper.board) == dict(lower.board)
+
+
+def test_wrong_length_is_rejected():
+    with pytest.raises(ValueError, match="16 characters"):
+        decode_position_id(_LOW_ENDPOINT[:-1], PRE_RELEASE_SETUP)
+
+
+def test_wrong_rank_counts_are_rejected():
+    # Last '5' swapped for a '4': Master-of-Arms drops to two, Champion rises
+    # to four -- still 16 characters, still one Flag, just the wrong roster.
+    bad = _LOW_ENDPOINT[:-1] + "4"
+    with pytest.raises(ValueError, match="does not field"):
+        decode_position_id(bad, PRE_RELEASE_SETUP)
+
+
+def test_a_missing_flag_is_rejected():
+    # The document folds "exactly one F" into the same cardinality check as the
+    # rank counts (Section 5, "Not every code is a position"): replacing the
+    # Flag with another numbered digit is caught there, not by a separate rule.
+    bad = _LOW_ENDPOINT[:7] + "1" + _LOW_ENDPOINT[8:]
+    with pytest.raises(ValueError, match="does not field"):
+        decode_position_id(bad, PRE_RELEASE_SETUP)
+
+
+def test_a_flag_off_the_back_row_is_rejected():
+    # Swap the Flag with its row-2 neighbour: every rank count is untouched, so
+    # only the back-row check can be what rejects this.
+    chars = list(_LOW_ENDPOINT)
+    chars[7], chars[8] = chars[8], chars[7]
+    bad = "".join(chars)
+    assert Counter(bad) == Counter(_LOW_ENDPOINT)
+
+    with pytest.raises(ValueError, match="back row"):
+        decode_position_id(bad, PRE_RELEASE_SETUP)
+
+
+def test_mirror_of_is_an_involution():
+    for code in (_WORKED_EXAMPLE, _LOW_ENDPOINT, _HIGH_ENDPOINT):
+        mirrored = mirror_of(code, PRE_RELEASE_SETUP)
+        assert mirrored != code
+        assert mirror_of(mirrored, PRE_RELEASE_SETUP) == code
+
+
+def test_mirror_of_reflects_columns_and_leaves_rows_unchanged():
+    layout = PRE_RELEASE_SETUP.layout
+    original = decode_position_id(_WORKED_EXAMPLE, PRE_RELEASE_SETUP)
+    mirrored = decode_position_id(
+        mirror_of(_WORKED_EXAMPLE, PRE_RELEASE_SETUP), PRE_RELEASE_SETUP
+    )
+
+    for square, occupant in original.board.items():
+        mirrored_square = Square(layout.columns - 1 - square.column, square.row)
+        assert mirrored.board[mirrored_square] == occupant

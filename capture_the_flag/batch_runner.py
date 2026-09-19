@@ -22,7 +22,9 @@ from .game_setup import GameSetup, setup_for_ruleset
 from .instrumentation.timing import region
 from .match import build_initial_position
 from .player import MACHINE_PLAYER_KINDS, PlayerContext, make_player
+from .position import CtfPosition
 from .record import ACTIVE_RULESETS, DEFAULT_RULESET, write_record
+from .start_position import decode_position_id
 from .timing_record import (
     TIMING_ON_BY_DEFAULT,
     TIMING_RECORD_STEM,
@@ -76,6 +78,7 @@ def run_batch(
     temperature: float | None = None,
     timing: bool = TIMING_ON_BY_DEFAULT,
     ruleset: str = DEFAULT_RULESET,
+    start_position: str | None = None,
 ) -> BatchSummary:
     """Play `num_games` matches between the two chosen machine kinds, writing one
     game-record file per match into `output_dir` (created if needed), and return
@@ -85,19 +88,25 @@ def run_batch(
     players meet `num_games` times, and `Tournament` alternates which of them
     moves first (holds White) from game to game, so `white_wins` / `black_wins`
     below count first-mover / second-mover wins rather than a fixed player.
-    Phase-1 placement is supplied through the widened position factory
+    Start-position generation is supplied through the widened position factory
     (`build_initial_position`); scheduling, side alternation, and the game loop
     all come from `Tournament`.
 
     `ruleset` names which published ruleset the batch plays; every record it
     writes is stamped with the edition that name currently resolves to.
 
+    `start_position`, when given, names a 16-character position ID
+    (`doc/ruleset/start-position.md`) that every game in the batch is played
+    from, instead of each game drawing its own.
+
     `white_kind`/`black_kind` must be machine kinds (`MACHINE_PLAYER_KINDS`);
     `iterations`/`temperature` tune neural players only. Passing `seed` makes the
-    whole batch reproducible: it seeds phase-1 placement, the process-global
-    `random` module that `RandomCtfPlayer.select_ply`'s `RandomEngine` draws
-    from, and (for a neural seat) `torch` for the network's initial weights — the
-    three independent randomness sources a batch pulls from.
+    whole batch reproducible: it seeds start-position generation, the
+    process-global `random` module that `RandomCtfPlayer.select_ply`'s
+    `RandomEngine` draws from, and (for a neural seat) `torch` for the network's
+    initial weights — the three independent randomness sources a batch pulls
+    from. It has no effect on position generation when `start_position` is
+    given, since there is then nothing left to draw.
 
     With `timing`, the batch measures itself: the breakdown is printed and
     written to `timings.json` beside the game records, alongside the settings and
@@ -113,6 +122,9 @@ def run_batch(
     # property of the run, not of whether the run was measured.
     resolved_device = pipeline_device()
     setup = setup_for_ruleset(ruleset)
+    fixed_start_position = (
+        decode_position_id(start_position, setup) if start_position is not None else None
+    )
 
     with timing_run(ROOT_BATCH, enabled=timing) as session:
         summary = _play_batch(
@@ -124,6 +136,7 @@ def run_batch(
             iterations=iterations,
             temperature=temperature,
             setup=setup,
+            start_position=fixed_start_position,
         )
 
     if session is not None:
@@ -134,6 +147,7 @@ def run_batch(
             "iterations": iterations,
             "temperature": temperature,
             "seed": seed,
+            "start_position": start_position,
             "output_dir": str(output_dir),
         }
         # The batch's own tallies head the text record, so it reads as a whole
@@ -167,6 +181,7 @@ def _play_batch(
     iterations: int | None,
     temperature: float | None,
     setup: GameSetup,
+    start_position: CtfPosition | None,
 ) -> BatchSummary:
     """The batch itself: seat the players, play the games, write the records."""
     if num_games < 1:
@@ -209,7 +224,9 @@ def _play_batch(
         # The library's factory contract is two players and nothing else, so the
         # setup is bound here rather than passed per game -- every game in a batch
         # is played under one configuration.
-        position_factory=partial(build_initial_position, setup=setup),
+        position_factory=partial(
+            build_initial_position, setup=setup, start_position=start_position, rng=rng
+        ),
         game_logging=CtfGameLogging(),
         games_per_pairing=num_games,
     )
@@ -298,6 +315,14 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="seed the batch's random number generator for reproducibility",
     )
     parser.add_argument(
+        "--start-position",
+        default=None,
+        metavar="ID",
+        help="play every game in the batch from one starting position, named "
+        "by its 16-character position ID (doc/ruleset/start-position.md), "
+        "instead of each game drawing its own",
+    )
+    parser.add_argument(
         "--iterations",
         type=int,
         default=None,
@@ -345,6 +370,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         temperature=args.temperature,
         timing=args.timing,
         ruleset=args.ruleset,
+        start_position=args.start_position,
     )
     print(summary.format())
 

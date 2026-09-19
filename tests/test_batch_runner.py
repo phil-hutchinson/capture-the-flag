@@ -65,17 +65,6 @@ def test_run_batch_zero_pads_filenames_to_batch_width(tmp_path):
     assert record_files[-1].name == "game_12.ctfgame"
 
 
-@pytest.mark.xfail(
-    reason=(
-        "story 00000049 step 7 gave build_initial_position a real generator "
-        "(start_position.generate_start_position) but nothing yet threads "
-        "--seed into its draw -- that is step 9's job ('make --seed seed "
-        "start-position generation where it used to seed placement'). Until "
-        "then each game's starting position is drawn from an unseeded RNG, so "
-        "two 'identical' seeded batches diverge from the first ply."
-    ),
-    strict=True,
-)
 def test_run_batch_is_reproducible_with_a_seed(tmp_path):
     # A single `seed` covers every randomness source the batch pulls from
     # (placement, the process-global `random` behind RandomEngine, and torch),

@@ -4,11 +4,13 @@
 `SelfPlayCollector` calls once per game. It must return a legal, fully-placed
 starting position for the setup it was built with.
 
-Currently a thin wrapper over `match.stub_start_position` — the fixed
-placeholder story 00000049 steps 7-8 replace with real generation — so unlike
-before major 3, successive calls return the *same* board rather than
-independent draws.
+A thin wrapper over `start_position.generate_start_position`, using the
+factory's own `rng` so a training run that seeds it draws a reproducible
+sequence of starting positions across a self-play run, one fresh draw per
+game.
 """
+
+from random import Random
 
 from capture_the_flag.engines.neural_network.ctf_position_factory import (
     CtfPositionFactory,
@@ -60,10 +62,14 @@ def test_factory_keeps_each_side_in_its_home_zone():
     assert _squares_of(position, Side.BLACK) <= layout.black_home_squares
 
 
-def test_successive_calls_return_the_same_stub_position():
-    # Not the eventual contract (story 00000049 steps 7-8 make this a fresh
-    # draw each call, the way it always was pre-major-3) -- but it is the
-    # correct, honestly-tested behaviour of today's fixed stub.
-    factory = CtfPositionFactory(setup=PRE_RELEASE_SETUP)
+def test_successive_calls_return_independent_draws():
+    factory = CtfPositionFactory(Random(11), setup=PRE_RELEASE_SETUP)
 
-    assert dict(factory().board) == dict(factory().board)
+    assert dict(factory().board) != dict(factory().board)
+
+
+def test_a_seeded_factory_is_reproducible():
+    first = CtfPositionFactory(Random(11), setup=PRE_RELEASE_SETUP)()
+    second = CtfPositionFactory(Random(11), setup=PRE_RELEASE_SETUP)()
+
+    assert dict(first.board) == dict(second.board)

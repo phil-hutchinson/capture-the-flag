@@ -27,7 +27,7 @@ from .game_logging import CtfGameLogging
 from .game_setup import PRE_RELEASE_SETUP, GameSetup, resolve_setup, setup_for_ruleset
 from .game_ui import CtfGameUI
 from .game_view import render_game_view
-from .match import MatchResult, build_initial_position, play_match, stub_start_position
+from .match import MatchResult, build_initial_position, play_match
 from .outcome import compute_outcome, compute_outcome_reason
 from .pieces import (
     ARMY_COMPOSITIONS,
@@ -54,6 +54,7 @@ from .record import (
 )
 from .rendering import parse_position_block, render_position_block
 from .side import Side
+from .start_position import generate_start_position, strength_threshold
 from .transitions import apply_ply
 
 __all__ = [
@@ -87,6 +88,7 @@ __all__ = [
     "build_initial_position",
     "compute_outcome",
     "compute_outcome_reason",
+    "generate_start_position",
     "make_player",
     "parse_ply",
     "parse_position_block",
@@ -98,6 +100,6 @@ __all__ = [
     "resolve_combat",
     "resolve_setup",
     "setup_for_ruleset",
-    "stub_start_position",
+    "strength_threshold",
     "write_record",
 ]

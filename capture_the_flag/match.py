@@ -8,53 +8,21 @@ own runner.
 """
 
 from dataclasses import dataclass
-from types import MappingProxyType
 from typing import Literal
 
 from game_engine_core.game.standard_game import StandardGame
 from game_engine_core.models.game_result import GameResult
 from game_engine_core.protocols.player import Player
 
-from .board import Square
 from .game_logging import CtfGameLogging
 from .game_setup import GameSetup
 from .game_ui import CtfGameUI
 from .instrumentation.timing import region
-from .pieces import PieceType
 from .player import CtfPlayer
 from .ply import CtfPly
 from .position import CtfPosition
-from .side import Side
+from .start_position import generate_start_position
 from .timing_regions import STARTING_POSITION
-
-_STUB_WHITE_ROW_1: tuple[PieceType, ...] = (
-    PieceType.FLAG,
-    PieceType.MILITIA,
-    PieceType.MILITIA,
-    PieceType.FOOT_SOLDIER,
-    PieceType.FOOT_SOLDIER,
-    PieceType.CHAMPION,
-    PieceType.CHAMPION,
-    PieceType.CHAMPION,
-)
-_STUB_WHITE_ROW_2: tuple[PieceType, ...] = (
-    PieceType.PEASANT,
-    PieceType.PEASANT,
-    PieceType.PEASANT,
-    PieceType.MILITIA,
-    PieceType.FOOT_SOLDIER,
-    PieceType.MASTER_OF_ARMS,
-    PieceType.MASTER_OF_ARMS,
-    PieceType.MASTER_OF_ARMS,
-)
-"""White's fixed row 1 and row 2, columns A-H. A placeholder for real generation
-(`start-position.md` Sections 2-3, implemented in stories 00000049 steps 7-8):
-the Flag on row 1, and the seven numbered pieces in its half (B1-D1, A2-D2)
-summing to 12 — comfortably under the strength rule's 21 threshold, so this is
-an arrangement uniform generation could itself have produced rather than merely
-a legal-looking board. Black's half is this arrangement reflected top-to-bottom
-(`start-position.md` Section 3's reflection branch, which is what a Flag on the
-weak half always selects)."""
 
 
 @dataclass(frozen=True)
@@ -62,43 +30,6 @@ class MatchResult:
     """A completed match: the phase-2 `GameResult`."""
 
     game_result: GameResult
-
-
-def stub_start_position(setup: GameSetup) -> CtfPosition:
-    """The fixed starting position every match begins from, standing in for
-    `start-position.md`'s generated one until stories 00000049 steps 7-8 land.
-
-    Fixed to the one board and army this build plays: an 8-wide, two-home-row
-    layout and the 16-piece army, asserted here so a future setup this stub was
-    never built for fails loudly rather than silently misdealing pieces.
-    """
-    assert setup.layout.columns == 8 and setup.layout.rows == 8, (
-        f"the stub start position is fixed for an 8x8 board; "
-        f"{setup.layout.layout_id} is not one"
-    )
-    assert setup.layout.home_rows == 2, (
-        f"the stub start position is fixed for two home rows; "
-        f"{setup.layout.layout_id} has {setup.layout.home_rows}"
-    )
-    assert setup.composition.size == 16, (
-        f"the stub start position is fixed for the 16-piece army; "
-        f"{setup.composition.composition_id} has {setup.composition.size}"
-    )
-
-    board: dict[Square, tuple[Side, PieceType]] = {}
-    for column in range(8):
-        board[Square(column, 1)] = (Side.WHITE, _STUB_WHITE_ROW_1[column])
-        board[Square(column, 2)] = (Side.WHITE, _STUB_WHITE_ROW_2[column])
-        # Reflection: column unchanged, row r -> rows + 1 - r.
-        board[Square(column, 8)] = (Side.BLACK, _STUB_WHITE_ROW_1[column])
-        board[Square(column, 7)] = (Side.BLACK, _STUB_WHITE_ROW_2[column])
-
-    return CtfPosition(
-        board=MappingProxyType(board),
-        side_to_move=Side.WHITE,
-        inactivity_counter=0,
-        layout=setup.layout,
-    )
 
 
 def build_initial_position(
@@ -124,7 +55,7 @@ def build_initial_position(
     # callback — invoked once per game — is where a timing report gets its
     # per-game structure from.
     with region(STARTING_POSITION):
-        return stub_start_position(setup)
+        return generate_start_position(setup)
 
 
 def play_match(
@@ -141,7 +72,7 @@ def play_match(
     — happens only when a `game_ui` is supplied; the game record is always fed by
     `CtfGameLogging` independently of the UI.
     """
-    initial_position = stub_start_position(setup)
+    initial_position = generate_start_position(setup)
 
     players: dict[Literal[1, -1], Player[CtfPly, CtfPosition]] = {
         1: white_player,

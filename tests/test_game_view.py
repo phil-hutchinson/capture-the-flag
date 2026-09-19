@@ -1,16 +1,20 @@
 """Tests for the interactive game view."""
 
+import random
 from dataclasses import replace
 
 from capture_the_flag.game_setup import PRE_RELEASE_SETUP
 from capture_the_flag.game_view import render_game_view
-from capture_the_flag.match import stub_start_position
 from capture_the_flag.pieces import PieceType
 from capture_the_flag.side import Side
+from capture_the_flag.start_position import generate_start_position
 
 
 def _start_position():
-    return stub_start_position(PRE_RELEASE_SETUP)
+    # Any generated position has the same piece counts per side as any other --
+    # the composition is fixed regardless of arrangement -- so a fixed seed here
+    # is for reproducibility only, not because these tests care which squares.
+    return generate_start_position(PRE_RELEASE_SETUP, random.Random(1))
 
 
 def _without_pieces(position, removals):

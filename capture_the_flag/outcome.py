@@ -16,7 +16,7 @@ from .side import Side
 if TYPE_CHECKING:
     from .position import CtfPosition
 
-INACTIVITY_LIMIT = 50
+INACTIVITY_LIMIT = 40
 
 
 def _has_flag(position: "CtfPosition", side: Side) -> bool:

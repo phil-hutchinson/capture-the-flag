@@ -112,27 +112,27 @@ def test_attrition_precedes_inactivity():
     # Even with the inactivity counter also at its limit, an emptied army
     # reports as attrition.
     position = _position(
-        _white_attrition_board(), side_to_move=Side.WHITE, inactivity_counter=50
+        _white_attrition_board(), side_to_move=Side.WHITE, inactivity_counter=40
     )
     assert position.outcome == -1
     assert position.outcome_reason == REASON_ATTRITION
 
 
 def test_inactivity_at_limit_is_a_draw():
-    position = _position(_ongoing_board(), inactivity_counter=50)
+    position = _position(_ongoing_board(), inactivity_counter=40)
     assert position.outcome == 0
 
 
 def test_inactivity_draw_is_side_independent():
     # The shared counter draws for whoever is to move.
-    white = _position(_ongoing_board(), side_to_move=Side.WHITE, inactivity_counter=50)
-    black = _position(_ongoing_board(), side_to_move=Side.BLACK, inactivity_counter=50)
+    white = _position(_ongoing_board(), side_to_move=Side.WHITE, inactivity_counter=40)
+    black = _position(_ongoing_board(), side_to_move=Side.BLACK, inactivity_counter=40)
     assert white.outcome == 0
     assert black.outcome == 0
 
 
 def test_below_inactivity_limit_is_still_ongoing():
-    position = _position(_ongoing_board(), inactivity_counter=49)
+    position = _position(_ongoing_board(), inactivity_counter=39)
     assert position.outcome is None
 
 
@@ -167,5 +167,5 @@ def test_mutual_attrition_reason():
 
 
 def test_inactivity_reason():
-    position = _position(_ongoing_board(), inactivity_counter=50)
+    position = _position(_ongoing_board(), inactivity_counter=40)
     assert position.outcome_reason == REASON_INACTIVITY

@@ -45,7 +45,7 @@ def test_start_position_status_lines():
     assert "White to move" in view
     assert "Captured — White: none" in view
     assert "Captured — Black: none" in view
-    assert "Inactivity — 0/50" in view
+    assert "Inactivity — 0/40" in view
 
 
 def test_captured_pieces_are_derived_from_the_board():
@@ -71,4 +71,4 @@ def test_turn_and_clock_line_reports_the_position_fields():
     )
     view = render_game_view(position, PRE_RELEASE_SETUP)
     assert "Black to move" in view
-    assert "Inactivity — 7/50" in view
+    assert "Inactivity — 7/40" in view

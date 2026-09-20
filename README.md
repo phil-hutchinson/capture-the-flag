@@ -1,21 +1,19 @@
 # capture-the-flag
 
-A two-phase, perfect-information battlefield board game with an AI that learns to play
-it. Phase 1 is secret simultaneous placement of a full army; phase 2 is
-alternating, fully visible play until a flag is captured (or a
-player is left with no legal move, or an inactivity limit forces a draw).
+A single-phase, perfect-information battlefield board game with an AI that
+learns to play it. Every game begins from a generated starting position, fully
+visible to both players from the first move, and proceeds by alternating play
+until a flag is captured, a side is reduced to no numbered pieces (attrition),
+or an inactivity limit forces a draw.
 
-Three rulesets are published, sharing every rule but the board, the army, and one
-Skirmish-only placement restriction: **Battle** (12x12 board, 25 pieces per
-side), **Clash** (10x10, 20 pieces, and the one board whose lakes are not
-left-right symmetric), and **Skirmish** (8x8, 16 pieces), the smallest and
-fastest of the three. Every runner below takes `--ruleset battle|clash|skirmish`
-and defaults to Battle. See [`doc/ruleset/rules.md`](doc/ruleset/rules.md).
+One ruleset is published, **PRE-RELEASE**: an 8x8 board with no lakes and 16
+pieces per side (five ranks, three apiece, plus the Flag). See
+[`doc/ruleset/rules.md`](doc/ruleset/rules.md).
 
 The game is built on [game-engine-core](https://github.com/phil-hutchinson/game-engine-core),
 which provides the game-agnostic engine, MCTS/PUCT search, and learning
 infrastructure. This repository implements the Capture the Flag ruleset,
-position/ply types, evaluators, and the phase 1 / phase 2 training on top of it.
+position/ply types, evaluators, and the self-play training on top of it.
 
 > **Status:** the rules engine is fully implemented and playable — board and
 > piece geometry, legal move generation, combat resolution, and every ending
@@ -37,9 +35,10 @@ position/ply types, evaluators, and the phase 1 / phase 2 training on top of it.
 `capture_the_flag/` implements the ruleset in
 [`doc/ruleset/rules.md`](doc/ruleset/rules.md) as a `game-engine-core`-compatible
 game: `CtfPosition`/`CtfPly` (board state, legal moves, combat, endings), a
-placement seam that assembles a starting position from two per-side
-placements, and a `CtfPlayer` seam so `game-engine-core`'s players and
-`StandardGame` drive phase-2 play unchanged.
+starting-position generator that draws each game's opening arrangement from the
+constrained set [`doc/ruleset/start-position.md`](doc/ruleset/start-position.md)
+defines, and a `CtfPlayer` seam so `game-engine-core`'s players and
+`StandardGame` drive play unchanged.
 
 ## Running a batch of games
 
@@ -51,45 +50,40 @@ python -m capture_the_flag.batch_runner -n 100 -o games
 ```
 
 `-n`/`--games` sets the batch size and `-o`/`--output-dir` the record output
-directory; `--seed` seeds the batch for reproducible runs. `--white`/`--black`
-choose each seat's kind — `random` or `neural` (the learned engine); a neural
-seat's search is tuned with `--iterations`/`--temperature`. Each record names the
-result and how the game ended, stamps the ruleset edition the game was played
-under (`2-0:BATTLE` or `2-1:SKIRMISH`) so a stored game is self-describing about
-its rules, and renders moves in the ruleset's combat notation; the run prints an
-outcome split, an ending-category breakdown, and game-length statistics. Record files
-follow the format documented in
+directory; `--seed` seeds the batch (including start-position generation) for
+reproducible runs, and `--start-position <ID>` plays every game in the batch
+from one named starting position instead. `--white`/`--black` choose each
+seat's kind — `random` or `neural` (the learned engine); a neural seat's search
+is tuned with `--iterations`/`--temperature`. Each record names the result and
+how the game ended (Flag Captured, Attrition, Mutual Attrition, or
+Inactivity), stamps the ruleset edition the game was played under
+(`3-0:PRE-RELEASE`) and the starting position's ID, and renders moves in the
+ruleset's combat notation; the run prints an outcome split, an ending-category
+breakdown, and game-length statistics. Record files follow the format
+documented in
 [`doc/ruleset/technical-notes.md`](doc/ruleset/technical-notes.md), and the batch
 also writes a `timings.json`/`timings.txt` breakdown of where its time went (see
 [Measuring where the time goes](#measuring-where-the-time-goes)).
 
 ## Playing a game in the terminal
 
-The single-game runner plays one complete game — placement, alternating play, and
-an announced result — between any two player kinds. `--white`/`--black` choose
-each seat: `human`, `random`, or `neural` (both default to `human`, so with no
-options it is a human-vs-human game); `--white-name`/`--black-name` set display
-names, and `--iterations`/`--temperature` tune a neural seat's search.
+The single-game runner plays one complete game — starting-position generation,
+alternating play, and an announced result — between any two player kinds.
+`--white`/`--black` choose each seat: `human`, `random`, or `neural` (both
+default to `human`, so with no options it is a human-vs-human game);
+`--white-name`/`--black-name` set display names, and
+`--iterations`/`--temperature` tune a neural seat's search.
 
 ```bash
 python -m capture_the_flag.game_runner --white human --black neural \
     --white-name Alice
 ```
 
-The board is rendered before a human's turn (and throughout a
-machine-vs-machine game, so it can be watched). Each human player supplies
-their phase-1 setup at a prompt: either the name of a placement file read from
-the gitignored `placements/` folder (`-p`/`--placements-dir` overrides the
-folder), or `random` for a random legal placement. A placement file is one row
-per home-zone row, each as wide as the board — 4 rows of 12 for Battle, 3 rows
-of 10 for Clash, 3 rows of 8 for Skirmish — where each character is a
-one-character piece symbol (`1`–`6`, `T`, `F`) or `-` for an empty square,
-since a home zone holds more squares than the army fills. It is written from
-the owning player's seat (first line nearest the lakes, last line the back
-rank), so the same file produces the same setup for either side, and its shape
-is what identifies which board it is for. The folder is gitignored and **ships
-empty** — placement files are yours to write, and no example ones are checked
-in.
+The starting position's 16-character ID is printed before play begins, so a
+game worth replaying can be read off later; `--seed` seeds its generation (and
+random play), and `--start-position <ID>` plays a specific position instead of
+generating one. The board is rendered before a human's turn (and throughout a
+machine-vs-machine game, so it can be watched).
 
 Moves are typed in the simple source–destination notation (e.g. `A2A3`);
 malformed or illegal input re-prompts with an explanation, and each turn's
@@ -127,8 +121,9 @@ that stamp rather than under current defaults — a network is only valid for th
 rules it was trained on. A checkpoint is refused rather than loaded silently when
 its stamp is one this code cannot implement, when it has no stamp at all
 (anything saved before stamping existed), or when it names a ruleset other than
-the one the run is playing: a Skirmish-trained network cannot be seated in a
-Battle game. Such runs have to be started again from scratch.
+the one the run is playing — a network trained for one board and army cannot be
+seated in a run playing another. Such runs have to be started again from
+scratch.
 
 ## Measuring where the time goes
 

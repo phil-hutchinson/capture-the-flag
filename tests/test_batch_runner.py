@@ -1,14 +1,21 @@
 """Tests for the headless batch runner."""
 
+import re
+
 import pytest
 
 from capture_the_flag.batch_runner import run_batch
+from capture_the_flag.game_setup import PRE_RELEASE_SETUP
 from capture_the_flag.outcome import (
     REASON_ATTRITION,
     REASON_FLAG_CAPTURED,
     REASON_INACTIVITY,
     REASON_MUTUAL_ATTRITION,
 )
+from capture_the_flag.rendering import render_position_block
+from capture_the_flag.start_position import decode_position_id
+
+_START_POSITION_TAG_RE = re.compile(r'\[StartPosition "([0-9A-Fa-f]{16})"\]')
 
 _KNOWN_REASONS = frozenset(
     {
@@ -92,6 +99,22 @@ def test_run_batch_rejects_interactive_player_kinds(tmp_path):
     # A headless batch has no UI, so a human seat is refused up front.
     with pytest.raises(ValueError, match="machine kind"):
         run_batch(1, tmp_path, white_kind="human")
+
+
+def test_run_batch_writes_a_start_position_tag_that_reproduces_the_position_block(
+    tmp_path,
+):
+    run_batch(3, tmp_path, seed=7)
+
+    record_files = sorted(tmp_path.glob("*.ctfgame"))
+    assert len(record_files) == 3
+    for record_file in record_files:
+        text = record_file.read_text(encoding="utf-8")
+        match = _START_POSITION_TAG_RE.search(text)
+        assert match, text
+        _header, position_block, _moves = text.strip("\n").split("\n\n")
+        decoded = decode_position_id(match.group(1), PRE_RELEASE_SETUP)
+        assert render_position_block(decoded.board, decoded.layout) == position_block
 
 
 def test_run_batch_seats_a_neural_player(tmp_path):

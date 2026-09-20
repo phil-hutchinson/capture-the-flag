@@ -549,6 +549,7 @@ def write_record(
     site: str | None = None,
     date: str | None = None,
     round_number: str | None = None,
+    start_position: str | None = None,
 ) -> str:
     """Build a complete game-record file for a finished game.
 
@@ -563,6 +564,12 @@ def write_record(
     a moving pointer. It is passed in rather than read from a build constant:
     since major 2 a build implements several editions and the game was played
     under whichever one this run selected.
+
+    `start_position`, when given, is the 16-character ID (`start-position.md`
+    Section 5) naming the game's starting arrangement, written as the optional
+    `StartPosition` tag (`technical-notes.md`, "Record file format"). It is
+    redundant for replay -- the position block that follows already carries
+    the full starting board -- so it is omitted when not supplied.
 
     Tag values are escaped for the `[Name "value"]` syntax (see
     `_escape_tag_value`): `\\` and `"` are backslash-escaped and newlines are
@@ -585,6 +592,8 @@ def write_record(
     header_lines.append(f'[Ruleset "{_escape_tag_value(configuration.render())}"]')
     header_lines.append(f'[Result "{_RESULT_TAGS[game_result.outcome]}"]')
     header_lines.append(f'[ResultReason "{_escape_tag_value(game_result.result_reason)}"]')
+    if start_position is not None:
+        header_lines.append(f'[StartPosition "{_escape_tag_value(start_position)}"]')
 
     header = "\n".join(header_lines)
     move_sequence = _build_move_sequence(game_result.game_log)

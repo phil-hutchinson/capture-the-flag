@@ -11,9 +11,9 @@ import random
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from functools import partial
 from pathlib import Path
 
+from game_engine_core.protocols.player import Player
 from game_engine_core.tournament.tournament import Tournament
 
 from .device import pipeline_device
@@ -22,9 +22,10 @@ from .game_setup import GameSetup, setup_for_ruleset
 from .instrumentation.timing import region
 from .match import build_initial_position
 from .player import MACHINE_PLAYER_KINDS, PlayerContext, make_player
+from .ply import CtfPly
 from .position import CtfPosition
 from .record import ACTIVE_RULESETS, DEFAULT_RULESET, write_record
-from .start_position import decode_position_id
+from .start_position import decode_position_id, position_id
 from .timing_record import (
     TIMING_ON_BY_DEFAULT,
     TIMING_RECORD_STEM,
@@ -219,14 +220,26 @@ def _play_batch(
         black_kind, black_name, context=context,
         iterations=iterations, temperature=temperature,
     )
+    # `Tournament` calls the factory exactly once per game, synchronously and in
+    # the same order it appends to `result.records` (see
+    # `Tournament._play_game`), so recording each draw here and zipping it back
+    # against `result.records` below recovers the ID -- otherwise unreachable,
+    # since `GameResult` carries only the rendered opening board, not the
+    # `CtfPosition` it came from -- for the `StartPosition` record tag.
+    start_position_ids: list[str] = []
+
+    def _position_factory(
+        side_one: Player[CtfPly, CtfPosition], side_other: Player[CtfPly, CtfPosition]
+    ) -> CtfPosition:
+        position = build_initial_position(
+            side_one, side_other, setup=setup, start_position=start_position, rng=rng
+        )
+        start_position_ids.append(position_id(position))
+        return position
+
     tournament = Tournament(
         players=[white_player, black_player],
-        # The library's factory contract is two players and nothing else, so the
-        # setup is bound here rather than passed per game -- every game in a batch
-        # is played under one configuration.
-        position_factory=partial(
-            build_initial_position, setup=setup, start_position=start_position, rng=rng
-        ),
+        position_factory=_position_factory,
         game_logging=CtfGameLogging(),
         games_per_pairing=num_games,
     )
@@ -262,6 +275,7 @@ def _play_batch(
                 white_name=record.players[1],
                 black_name=record.players[-1],
                 round_number=str(game_number),
+                start_position=start_position_ids[game_number - 1],
             )
             record_path = output_dir / f"game_{game_number:0{width}d}.ctfgame"
             record_path.write_text(text, encoding="utf-8")

@@ -145,6 +145,23 @@ def test_write_record_result_reflects_absolute_outcome():
     assert f'[Result "{expected_result}"]' in record
 
 
+def test_write_record_start_position_tag_is_omitted_by_default():
+    match_result = _play(5)
+    record = write_record(match_result.game_result, configuration=PRE_RELEASE_SETUP.stamp)
+    assert "[StartPosition " not in record
+
+
+def test_write_record_includes_the_start_position_tag_when_given():
+    match_result = _play(5)
+    record = write_record(
+        match_result.game_result,
+        configuration=PRE_RELEASE_SETUP.stamp,
+        start_position="1112223F33444555",
+    )
+    header = record.strip("\n").split("\n\n")[0]
+    assert header.splitlines()[-1] == '[StartPosition "1112223F33444555"]'
+
+
 def test_write_record_result_reason_reflects_the_ending():
     # ResultReason now carries the terminal position's outcome_reason, never
     # the old "Unknown" placeholder.

@@ -1,6 +1,7 @@
-"""Tests for CtfGameLogging: the combat-notation ply annotation (rules.md 4.4)."""
+"""Tests for CtfGameLogging: the combat-notation ply annotation (rules.md 4.5)."""
 
 import random
+import re
 from types import MappingProxyType
 
 from capture_the_flag.board import SIMPLE_64, Square
@@ -46,30 +47,42 @@ def test_no_attack_uses_plain_dash_form():
     assert _annotate_move(position, CtfPly(_D5, _D6)) == "D5-D6"
 
 
-def test_attacker_wins_marks_the_defender():
+def test_attacker_wins_marks_the_defender_and_reduces_the_attacker():
     # The higher-numbered rank wins (story 00000049 step 14): a Champion
-    # (rank 4) beats a Militia (rank 2), and the defender is removed.
+    # (rank 4) beats a Militia (rank 2). The defender is removed, and the
+    # surviving attacker is reduced to rank 3 (step 15) -- marked at the
+    # source square, where it stood when the move began.
     position = _position(
         {_D5: (Side.WHITE, P.CHAMPION), _D6: (Side.BLACK, P.MILITIA)}
     )
-    assert _annotate_move(position, CtfPly(_D5, _D6)) == "D5-D6x"
+    assert _annotate_move(position, CtfPly(_D5, _D6)) == "D5=3-D6x"
 
 
-def test_attacker_loses_marks_the_attacker():
+def test_attacker_loses_marks_the_attacker_and_reduces_the_defender():
     # A Peasant (rank 1) attacking a Master-of-Arms (rank 5) is a complete
-    # sacrifice: attacker removed, defender stays.
+    # sacrifice: attacker removed, defender survives reduced to rank 4.
     position = _position(
         {_D5: (Side.WHITE, P.PEASANT), _D6: (Side.BLACK, P.MASTER_OF_ARMS)}
     )
-    assert _annotate_move(position, CtfPly(_D5, _D6)) == "D5x-D6"
+    assert _annotate_move(position, CtfPly(_D5, _D6)) == "D5x-D6=4"
 
 
 def test_mutual_loss_marks_both():
-    # Equal-rank attack trades both pieces.
+    # Equal-rank attack trades both pieces; a draw reduces nothing.
     position = _position(
         {_D5: (Side.WHITE, P.FOOT_SOLDIER), _D6: (Side.BLACK, P.FOOT_SOLDIER)}
     )
     assert _annotate_move(position, CtfPly(_D5, _D6)) == "D5x-D6x"
+
+
+def test_flag_capture_marks_only_the_destination():
+    # Capturing the Flag is not combat (rules.md Section 4.5): the attacker
+    # carries no mark and keeps its rank, the only way a move marks one
+    # square and not the other.
+    position = _position(
+        {_D5: (Side.WHITE, P.MASTER_OF_ARMS), _D6: (Side.BLACK, P.FLAG)}
+    )
+    assert _annotate_move(position, CtfPly(_D5, _D6)) == "D5-D6x"
 
 
 def test_annotation_is_not_the_identity_string():
@@ -82,13 +95,15 @@ def test_annotation_is_not_the_identity_string():
     assert _annotate_move(position, ply) != str(ply)
 
 
+_ANNOTATION_RE = re.compile(r"^[A-H]\d+(?:x|=\d+)?-[A-H]\d+(?:x|=\d+)?$")
+
+
 def test_every_logged_ply_in_a_real_game_is_extended_form():
-    # End to end: a full match's game log carries combat notation, one `-` per
-    # ply, and the squares still match the plain identity string.
+    # End to end: a full match's game log carries the extended notation, one
+    # `-` per ply, and each square carries at most one `x`/`=N` mark.
     white = RandomCtfPlayer("W", random.Random(1))
     black = RandomCtfPlayer("B", random.Random(2))
     result = play_match(white, black, PRE_RELEASE_SETUP).game_result
     assert result.game_log
     for annotation, _board in result.game_log:
-        assert annotation.count("-") == 1
-        assert annotation.replace("-", "").replace("x", "").isalnum()
+        assert _ANNOTATION_RE.fullmatch(annotation), annotation

@@ -59,7 +59,8 @@ def test_neural_player_completes_full_match_against_random():
         temperature=0.0,
     )
     neural_player = NeuralCtfPlayer(engine, name="neural")
-    random_player = RandomCtfPlayer(name="random", rng=random.Random(1234))
+    random.seed(1234)
+    random_player = RandomCtfPlayer(name="random")
 
     result = play_match(neural_player, random_player, PRE_RELEASE_SETUP).game_result
 

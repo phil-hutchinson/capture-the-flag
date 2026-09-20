@@ -2,7 +2,6 @@
 `make_player` factory the runners seat players through."""
 
 import random
-from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -21,16 +20,21 @@ class CtfPlayer(Player[CtfPly, CtfPosition], Protocol):
 
 
 class RandomCtfPlayer:
-    """A `CtfPlayer` that moves uniformly at random."""
+    """A `CtfPlayer` that moves uniformly at random.
+
+    Takes no `rng`: `RandomEngine.select_ply` draws from the process-global
+    `random` module, so a seat cannot be seeded independently of the process.
+    Reproducibility comes from the runners' `random.seed(...)` instead — see
+    `batch_runner.play_batch`, which seeds all three of the batch's randomness
+    sources together.
+    """
 
     def __init__(
         self,
         name: str,
-        rng: random.Random | None = None,
         render_before_ply: bool = False,
     ) -> None:
         self._name = name
-        self._rng = rng if rng is not None else random.Random()
         self._render_before_ply = render_before_ply
         self._engine: RandomEngine[CtfPly, CtfPosition] = RandomEngine()
 
@@ -58,25 +62,19 @@ class HumanCtfPlayer:
     """A `CtfPlayer` seat driven by a person at the terminal.
 
     Plies are delegated to the shared `CtfGameUI` prompt, and the board is
-    rendered before every human turn.
-
-    `input_fn`/`print_fn` default to the builtins; tests inject scripted
-    replacements.
+    rendered before every human turn. The UI owns every interaction this seat
+    has, so the seat itself holds no terminal or randomness state -- tests
+    script a human by injecting `input_fn`/`print_fn` into the `CtfGameUI` they
+    hand it.
     """
 
     def __init__(
         self,
         name: str,
         game_ui: CtfGameUI,
-        rng: random.Random | None = None,
-        input_fn: Callable[[str], str] = input,
-        print_fn: Callable[[str], None] = print,
     ) -> None:
         self._name = name
         self._game_ui = game_ui
-        self._rng = rng if rng is not None else random.Random()
-        self._input = input_fn
-        self._print = print_fn
 
     @property
     def name(self) -> str:
@@ -110,10 +108,15 @@ tournament, where there is no UI to drive a human seat."""
 class PlayerContext:
     """Shared resources a player kind may need at construction. Only the pieces a
     given kind uses are read: `human` needs the `game_ui`, `neural` needs the
-    `setup`, every kind takes the `rng` that seeds its random play."""
+    `setup` and the `rng`, and `random` needs neither."""
 
     game_ui: CtfGameUI | None = None
     rng: random.Random | None = None
+    """Seeds the `neural` kind's search, and only that kind: a random seat
+    cannot take one (see `RandomCtfPlayer`) and a human seat has nothing to
+    seed. It stays on the context rather than moving to `make_player`'s
+    signature because the runners build one context and seat both players from
+    it without knowing which kinds they are."""
     setup: GameSetup | None = None
     """The game being seated for. Only the `neural` kind reads it — its evaluator
     and network are shaped by the board and army — and it is optional for the
@@ -144,15 +147,9 @@ def make_player(
     if kind == "human":
         if context.game_ui is None:
             raise ValueError("the 'human' player kind requires an interactive game UI")
-        return HumanCtfPlayer(
-            name,
-            context.game_ui,
-            rng=context.rng,
-        )
+        return HumanCtfPlayer(name, context.game_ui)
     if kind == "random":
-        return RandomCtfPlayer(
-            name, rng=context.rng, render_before_ply=render_before_ply
-        )
+        return RandomCtfPlayer(name, render_before_ply=render_before_ply)
     if kind == "neural":
         if context.setup is None:
             raise ValueError("the 'neural' player kind requires a resolved game setup")

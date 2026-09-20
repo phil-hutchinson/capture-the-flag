@@ -339,9 +339,18 @@ def _decode_white_arrangement(code: str, setup: GameSetup) -> dict[Square, Piece
             f"army: expected {dict(expected_counts)}, got {dict(counts)}"
         )
 
+    # Unreachable while the count check above stands -- it passes only for an
+    # arrangement fielding exactly the composition's pieces, and an
+    # `ArmyComposition` without a Flag is refused at construction. Given a
+    # message anyway: it is one reordering away from being reachable, and every
+    # other check in this function fails by naming what is wrong.
     flag_square = next(
-        square for square, piece in arrangement.items() if piece is PieceType.FLAG
+        (square for square, piece in arrangement.items() if piece is PieceType.FLAG),
+        None,
     )
+    if flag_square is None:
+        raise ValueError(f"{code!r} fields no Flag, which every army must have")
+
     back_row = layout.white_home_rows[0]
     if flag_square.row != back_row:
         raise ValueError(

@@ -54,8 +54,11 @@ _TABLE = {
 
 
 def _play(seed: int):
-    white = RandomCtfPlayer("Random White", random.Random(seed))
-    black = RandomCtfPlayer("Random Black", random.Random(seed + 1))
+    # Seeds the process-global RNG, the way the runners do: `RandomEngine`
+    # draws from it, so that is the only place a random seat can be seeded.
+    random.seed(seed)
+    white = RandomCtfPlayer("Random White")
+    black = RandomCtfPlayer("Random Black")
     return play_match(white, black, PRE_RELEASE_SETUP, render_final_board=False)
 
 

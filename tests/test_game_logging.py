@@ -101,8 +101,9 @@ _ANNOTATION_RE = re.compile(r"^[A-H]\d+(?:x|=\d+)?-[A-H]\d+(?:x|=\d+)?$")
 def test_every_logged_ply_in_a_real_game_is_extended_form():
     # End to end: a full match's game log carries the extended notation, one
     # `-` per ply, and each square carries at most one `x`/`=N` mark.
-    white = RandomCtfPlayer("W", random.Random(1))
-    black = RandomCtfPlayer("B", random.Random(2))
+    random.seed(1)
+    white = RandomCtfPlayer("W")
+    black = RandomCtfPlayer("B")
     result = play_match(white, black, PRE_RELEASE_SETUP).game_result
     assert result.game_log
     for annotation, _board in result.game_log:

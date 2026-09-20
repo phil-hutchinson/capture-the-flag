@@ -32,7 +32,6 @@ def apply_ply(position: CtfPosition, ply: CtfPly) -> CtfPosition:
     elif result is CombatResult.ATTACKER_WINS:
         # Capturing the Flag is not combat, so it reduces nothing (rules.md
         # Section 4.3); otherwise the attacker survives and is reduced.
-        assert destination_occupant is not None
         _, defender_piece = destination_occupant
         winner = (
             mover_piece

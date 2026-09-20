@@ -27,12 +27,7 @@ class _ScriptedPlayer:
         ui = CtfGameUI(
             PRE_RELEASE_SETUP, input_fn=input_fn, print_fn=self.messages.append
         )
-        self.player = HumanCtfPlayer(
-            "Alice",
-            ui,
-            input_fn=input_fn,
-            print_fn=self.messages.append,
-        )
+        self.player = HumanCtfPlayer("Alice", ui)
 
 
 def test_human_player_satisfies_the_ctf_player_protocol():

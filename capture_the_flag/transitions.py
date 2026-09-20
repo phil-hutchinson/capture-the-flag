@@ -1,10 +1,14 @@
-"""Ply application: board transitions and the inactivity clock
-(rules.md Sections 4.3, 5.3).
+"""Ply application: board transitions, rank reduction, and the inactivity
+clock (rules.md Section 4.3, "Rank reduction" and Section 5.3).
+
+`resolve_combat` (see `combat.py`) only decides who survives; reducing the
+survivor by one rank happens here, as the board is rebuilt.
 """
 
 from types import MappingProxyType
 
 from .combat import CombatResult, resolve_combat
+from .pieces import PieceType
 from .ply import CtfPly
 from .position import CtfPosition
 
@@ -26,12 +30,23 @@ def apply_ply(position: CtfPosition, ply: CtfPly) -> CtfPosition:
     if not is_attack:
         new_board[ply.destination] = (mover_side, mover_piece)
     elif result is CombatResult.ATTACKER_WINS:
-        new_board[ply.destination] = (mover_side, mover_piece)
+        # Capturing the Flag is not combat, so it reduces nothing (rules.md
+        # Section 4.3); otherwise the attacker survives and is reduced.
+        assert destination_occupant is not None
+        _, defender_piece = destination_occupant
+        winner = (
+            mover_piece
+            if defender_piece is PieceType.FLAG
+            else mover_piece.reduced()
+        )
+        new_board[ply.destination] = (mover_side, winner)
     elif result is CombatResult.ATTACKER_LOSES:
-        # The defender survives untouched at the destination.
-        pass
+        # The defender survives, reduced by one rank.
+        defender_side, defender_piece = destination_occupant
+        new_board[ply.destination] = (defender_side, defender_piece.reduced())
     else:
         assert result is CombatResult.MUTUAL_LOSS
+        # A draw leaves no survivor, so nothing is reduced.
         del new_board[ply.destination]
 
     # Inactivity clock (Section 5.3): every attack removes at least one piece --

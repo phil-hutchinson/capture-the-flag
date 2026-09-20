@@ -126,3 +126,17 @@ def test_the_weakest_numbered_piece_and_the_flag_have_no_down_rank():
     # weaker to become), and the Flag never enters combat as a combatant at all.
     assert PieceType.PEASANT.down_rank is None
     assert PieceType.FLAG.down_rank is None
+
+
+def test_reduced_returns_the_piece_one_rank_below():
+    assert PieceType.MASTER_OF_ARMS.reduced() is PieceType.CHAMPION
+    assert PieceType.CHAMPION.reduced() is PieceType.FOOT_SOLDIER
+    assert PieceType.FOOT_SOLDIER.reduced() is PieceType.MILITIA
+    assert PieceType.MILITIA.reduced() is PieceType.PEASANT
+
+
+def test_reduced_asserts_on_a_piece_with_no_rank_below():
+    with pytest.raises(AssertionError):
+        PieceType.PEASANT.reduced()
+    with pytest.raises(AssertionError):
+        PieceType.FLAG.reduced()

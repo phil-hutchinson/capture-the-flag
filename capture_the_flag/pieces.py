@@ -67,6 +67,23 @@ class PieceType(Enum):
         self.mobility = mobility
         self.down_rank = down_rank
 
+    def reduced(self) -> "PieceType":
+        """The piece type this becomes after surviving combat (rules.md
+        Section 4.3, rank reduction): one rank weaker.
+
+        Only ever called on a piece that just survived combat. The rank-1
+        floor means that piece can never be rank 1 -- a rank 1 draws against
+        another rank 1 and loses to everything stronger, so it never survives
+        combat and `down_rank` is never `None` here.
+        """
+        assert self.down_rank is not None, f"{self.piece_name} has no rank below it"
+        return _BY_RANK[self.down_rank]
+
+
+_BY_RANK: Mapping[int, PieceType] = MappingProxyType(
+    {piece.rank: piece for piece in PieceType if piece.rank is not None}
+)
+
 
 @dataclass(frozen=True)
 class ArmyComposition:

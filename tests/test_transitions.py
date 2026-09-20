@@ -1,5 +1,5 @@
-"""Tests for apply_ply: board transitions and the inactivity clock
-(rules.md Sections 4.3, 5.3).
+"""Tests for apply_ply: board transitions, rank reduction, and the inactivity
+clock (rules.md Section 4.3, "Rank reduction" and Section 5.3).
 """
 
 from types import MappingProxyType
@@ -37,11 +37,29 @@ def test_plain_move_updates_board_side_and_clock():
     assert new_position.inactivity_counter == 6  # non-attack: +1
 
 
-def test_winning_attack_resets_the_clock():
-    # The higher-numbered rank wins (story 00000049 step 14).
+def test_winning_attack_resets_the_clock_and_reduces_the_attacker():
+    # The higher-numbered rank wins (story 00000049 step 14), and the
+    # surviving attacker is reduced by one rank (step 15): a winning
+    # Master-of-Arms (5) stands on the destination as a Champion (4).
     board = {
         Square(3, 2): (Side.WHITE, P.MASTER_OF_ARMS),
         Square(3, 3): (Side.BLACK, P.PEASANT),
+    }
+    position = _position(board, inactivity_counter=5)
+    ply = CtfPly(Square(3, 2), Square(3, 3))
+
+    new_position = position.apply_ply(ply)
+
+    assert new_position.board == {Square(3, 3): (Side.WHITE, P.CHAMPION)}
+    assert new_position.inactivity_counter == 0  # attack: reset
+
+
+def test_flag_capture_does_not_reduce_the_capturing_piece():
+    # Capturing the Flag is not combat (rules.md Section 4.3), so the
+    # attacker keeps its rank -- unlike an ordinary winning attack.
+    board = {
+        Square(3, 2): (Side.WHITE, P.MASTER_OF_ARMS),
+        Square(3, 3): (Side.BLACK, P.FLAG),
     }
     position = _position(board, inactivity_counter=5)
     ply = CtfPly(Square(3, 2), Square(3, 3))
@@ -52,7 +70,8 @@ def test_winning_attack_resets_the_clock():
     assert new_position.inactivity_counter == 0  # attack: reset
 
 
-def test_mutual_loss_resets_the_clock():
+def test_mutual_loss_resets_the_clock_and_reduces_nothing():
+    # A draw leaves no survivor, so there is nothing left to reduce.
     board = {
         Square(3, 2): (Side.WHITE, P.MILITIA),
         Square(3, 3): (Side.BLACK, P.MILITIA),  # same rank -> mutual loss
@@ -66,7 +85,9 @@ def test_mutual_loss_resets_the_clock():
     assert new_position.inactivity_counter == 0  # attack: reset
 
 
-def test_complete_sacrifice_resets_the_clock():
+def test_complete_sacrifice_resets_the_clock_and_reduces_the_defender():
+    # The attacker loses cleanly and is removed; the surviving defender is
+    # reduced in place by one rank.
     board = {
         Square(3, 2): (Side.WHITE, P.PEASANT),
         Square(3, 3): (Side.BLACK, P.MASTER_OF_ARMS),  # attacker loses cleanly
@@ -76,7 +97,7 @@ def test_complete_sacrifice_resets_the_clock():
 
     new_position = position.apply_ply(ply)
 
-    assert new_position.board == {Square(3, 3): (Side.BLACK, P.MASTER_OF_ARMS)}
+    assert new_position.board == {Square(3, 3): (Side.BLACK, P.CHAMPION)}
     assert new_position.inactivity_counter == 0  # attack (even losing): reset
 
 

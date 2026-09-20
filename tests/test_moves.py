@@ -71,21 +71,63 @@ def test_two_square_move_needs_a_clear_intermediate_square():
     assert {"D2E2", "D2F2"} <= _own_plies(position, "D2")  # other directions open
 
 
-def test_encumbered_piece_is_limited_to_one_square():
-    # A diagonally-adjacent enemy at E3 encumbers D2 without blocking any
-    # orthogonal step, so every legal move is a single square -- including the
-    # diagonal attack on the piece doing the encumbering, which is itself one
-    # square.
+def test_enemy_behind_does_not_encumber_the_forward_direction():
+    # An enemy due south of D2 (behind it, travelling north) does not encumber
+    # the northward direction -- only west, east and south, of which south is
+    # already capped at one square by the board edge (story 00000049 step 12).
+    board = {
+        Square(3, 2): (Side.WHITE, P.FOOT_SOLDIER),
+        Square(3, 1): (Side.BLACK, P.MILITIA),
+    }
+    position = _position(board)
+    assert _own_plies(position, "D2") == {"D2D3", "D2D4", "D2D1", "D2E2", "D2C2"}
+
+
+def test_enemy_diagonally_ahead_removes_only_the_two_square_moves_it_touches():
+    # An enemy at E3 -- north-east of D2 -- sits among the five squares ahead of
+    # or beside D2 for *both* the northward and eastward directions, so those two
+    # lose their two-square bonus while west (unaffected) keeps it.
+    # `D2D1` is the one-square southward step (row 0 is off-board, so south
+    # never had a two-square option to lose).
     board = {
         Square(3, 2): (Side.WHITE, P.FOOT_SOLDIER),
         Square(4, 3): (Side.BLACK, P.MILITIA),
     }
     position = _position(board)
-    assert _own_plies(position, "D2") == {"D2D3", "D2D1", "D2E2", "D2C2", "D2E3"}
+    assert _own_plies(position, "D2") == {
+        "D2D3",
+        "D2D1",
+        "D2E2",
+        "D2C2",
+        "D2B2",  # west stays unencumbered
+        "D2E3",  # the diagonal attack on the encumbering piece itself
+    }
+
+
+def test_piece_unencumbered_one_way_and_encumbered_another():
+    # An enemy immediately west of D2, at C2, is one of the two "beside"
+    # squares for both a northward- and a southward-travelling piece, and is
+    # also the "ahead" square for westward travel itself -- so it encumbers
+    # north, south and west. Eastward travel does not have C2 among its five
+    # squares, and so keeps its two-square move.
+    board = {
+        Square(3, 2): (Side.WHITE, P.FOOT_SOLDIER),
+        Square(2, 2): (Side.BLACK, P.MILITIA),
+    }
+    position = _position(board)
+    assert _own_plies(position, "D2") == {
+        "D2D3",  # north is capped at one square
+        "D2D1",  # south (already capped by the board edge)
+        "D2E2",
+        "D2F2",  # east keeps its two-square move
+        "D2C2",  # west is capped at one square -- and is the attack itself
+    }
 
 
 def test_encumbered_piece_can_still_attack_an_adjacent_enemy():
-    # An orthogonally-adjacent enemy both encumbers the piece and is attackable.
+    # An enemy directly ahead at D3 is attackable, and is one of the five
+    # squares for north, east and west alike, so all three are capped at one
+    # square; south is untouched but was already capped by the board edge.
     board = {
         Square(3, 2): (Side.WHITE, P.FOOT_SOLDIER),
         Square(3, 3): (Side.BLACK, P.MILITIA),
@@ -165,8 +207,10 @@ def test_no_diagonal_move_onto_an_empty_square():
 
 
 def test_the_flag_cannot_be_attacked_diagonally():
-    # The enemy Flag on C4 encumbers D3 -- so the orthogonal steps shorten to
-    # one square -- but it is not a legal diagonal target: the movable-target
+    # The enemy Flag on C4 -- north-west of D3 -- encumbers only north and west
+    # (the two directions with C4 among their five squares), capping each at one
+    # square; south and east are untouched and keep their two-square move. The
+    # Flag is not a legal diagonal target regardless: the movable-target
     # restriction (removed at story 00000049 step 13) still applies. This is
     # what leaves the Flag capturable only from an orthogonally adjacent square
     # (rules.md Section 5.1).
@@ -175,7 +219,14 @@ def test_the_flag_cannot_be_attacked_diagonally():
         Square(2, 4): (Side.BLACK, P.FLAG),
     }
     position = _position(board)
-    assert _own_plies(position, "D3") == {"D3D4", "D3D2", "D3E3", "D3C3"}
+    assert _own_plies(position, "D3") == {
+        "D3D4",  # north capped at one square
+        "D3D2",
+        "D3D1",  # south keeps its two-square move
+        "D3E3",
+        "D3F3",  # east keeps its two-square move
+        "D3C3",  # west capped at one square
+    }
 
 
 def test_unencumbered_bonus_never_extends_a_diagonal():

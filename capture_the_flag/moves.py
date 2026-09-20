@@ -2,8 +2,10 @@
 
 Implements `rules.md` Section 4.2 (Movement): a mobile piece steps one square
 orthogonally, or two squares orthogonally through a clear path when it is
-*unencumbered* (no enemy piece in any of its eight surrounding squares); an
-encumbered piece is limited to one square. It may additionally attack one square
+*unencumbered in that direction of travel* (no enemy piece on any of the five
+squares ahead of or beside it, judged separately for each of the four
+directions); a direction encumbered this way is limited to one square, while
+the other three are unaffected. It may additionally attack one square
 diagonally, which since major 2 is baseline behaviour rather than a variant
 (Section 4.3, "Diagonal attacks"). Legality does not depend on combat outcome --
 sacrificial attacks are always legal (Section 4.3); combat resolution (see
@@ -29,36 +31,47 @@ if TYPE_CHECKING:
 _DIRECTIONS = ((0, 1), (0, -1), (1, 0), (-1, 0))
 
 # The four immediate diagonals, along which a piece may attack but never move
-# (rules.md Section 4.3). One square only: there is no two-square diagonal, and
-# no separate distance bound is needed to say so -- a piece with an enemy on its
-# diagonal is encumbered by definition, so the unencumbered bonus can never be
-# in play at the moment a diagonal attack is available.
+# (rules.md Section 4.3). One square only: `_diagonal_attack_squares` never
+# reaches beyond distance one, so there is no two-square diagonal regardless of
+# encumbrance in any orthogonal direction.
 _DIAGONALS = ((1, 1), (1, -1), (-1, 1), (-1, -1))
 
-# The eight squares surrounding a square (orthogonal and diagonal): the
-# neighbourhood that determines encumbrance (rules.md Section 4.2).
-_SURROUNDING = tuple(
-    (dc, dr) for dc in (-1, 0, 1) for dr in (-1, 0, 1) if (dc, dr) != (0, 0)
-)
 
+def _is_encumbered_in_direction(
+    position: "CtfPosition", source: Square, side: Side, direction: tuple[int, int]
+) -> bool:
+    """Whether an enemy piece stands on any of the five squares ahead of or
+    beside `source` in `direction` (rules.md Section 4.2): the direction itself,
+    its two diagonals ahead, and the two squares directly to either side. The
+    three squares behind -- the reverse direction and its two diagonals -- do
+    not encumber.
 
-def _is_encumbered(position: "CtfPosition", source: Square, side: Side) -> bool:
-    """Whether an enemy piece stands in any of the eight squares surrounding
-    `source` (rules.md Section 4.2). An encumbered piece may move only one
-    square; an unencumbered one may move two.
+    Judged only from `source`'s own neighbourhood, as before -- what stands near
+    the destination square does not matter.
     """
-    for dc, dr in _SURROUNDING:
-        occupant = position.board.get(Square(source.column + dc, source.row + dr))
+    dc, dr = direction
+    perp = (-dr, dc)
+    offsets = (
+        (dc, dr),
+        (dc + perp[0], dr + perp[1]),
+        (dc - perp[0], dr - perp[1]),
+        perp,
+        (-perp[0], -perp[1]),
+    )
+    for odc, odr in offsets:
+        occupant = position.board.get(Square(source.column + odc, source.row + odr))
         if occupant is not None and occupant[0] is not side:
             return True
     return False
 
 
 def _reachable_squares(
-    position: "CtfPosition", source: Square, side: Side, max_distance: int
+    position: "CtfPosition", source: Square, side: Side, allow_two_square: bool
 ) -> list[Square]:
-    """Squares reachable from `source`, walking up to `max_distance` squares in
-    each orthogonal direction.
+    """Squares reachable from `source`, walking up to two squares in each
+    orthogonal direction the piece is unencumbered in, and one square in every
+    other direction. `allow_two_square` is false for the game's first ply
+    (story 00000049 step 11), which drops the two-square bonus outright.
 
     Stops, in each direction, at the board edge or the first occupied square: an
     enemy-occupied square is included as a reachable (attack) destination, but
@@ -68,7 +81,13 @@ def _reachable_squares(
     """
     layout = position.layout
     reachable: list[Square] = []
-    for dc, dr in _DIRECTIONS:
+    for direction in _DIRECTIONS:
+        dc, dr = direction
+        max_distance = 1
+        if allow_two_square and not _is_encumbered_in_direction(
+            position, source, side, direction
+        ):
+            max_distance = 2
         for distance in range(1, max_distance + 1):
             square = Square(
                 source.column + dc * distance, source.row + dr * distance
@@ -119,7 +138,7 @@ def _initial_plies_from_square(
 ) -> list[CtfPly]:
     if piece.mobility is Mobility.IMMOBILE:
         return []
-    destinations = _reachable_squares(position, source, side, 1)
+    destinations = _reachable_squares(position, source, side, False)
     destinations += _diagonal_attack_squares(position, source, side)
     return [CtfPly(source, square) for square in destinations]
 
@@ -128,8 +147,7 @@ def _plies_from_square(
 ) -> list[CtfPly]:
     if piece.mobility is Mobility.IMMOBILE:
         return []
-    max_distance = 1 if _is_encumbered(position, source, side) else 2
-    destinations = _reachable_squares(position, source, side, max_distance)
+    destinations = _reachable_squares(position, source, side, True)
     destinations += _diagonal_attack_squares(position, source, side)
     return [CtfPly(source, square) for square in destinations]
 

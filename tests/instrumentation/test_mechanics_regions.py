@@ -33,8 +33,8 @@ _LAYOUT = PRE_RELEASE_SETUP.layout
 
 def ongoing_position() -> CtfPosition:
     """Both flags standing and both sides mobile — a position whose outcome
-    check runs every rule in Section 5, including the final stalemate
-    assertion (story 00000049 step 16)."""
+    check runs every rule in Section 5 and reaches the end without a
+    terminal."""
     return CtfPosition(
         board=MappingProxyType(
             {
@@ -86,39 +86,34 @@ def test_repeated_access_accumulates_calls() -> None:
     assert child(session.root, LEGAL_PLIES).calls == 5
 
 
-def test_legal_plies_computed_inside_outcome_nests_under_it() -> None:
-    """The final stalemate assertion regenerates the legal plies once every
-    other Section 5 rule has cleared a position, so an outcome check silently
-    pays for a second ply generation. The call-path rule puts that cost under
-    `outcome`, distinct from a direct generation."""
-    position = ongoing_position()
-    with timing_session("test") as session:
-        _ = position.outcome  # reaches the assertion, so generates plies internally
-        _ = position.legal_plies  # a direct generation, from the caller
+def test_an_outcome_check_never_generates_plies() -> None:
+    """Every Section 5 rule is decided from the board, the counter and the side
+    to move, so an outcome check has no `legal-plies` child whichever way it
+    goes — and a direct generation beside it still records at the root.
 
-    outcome = child(session.root, OUTCOME)
-    assert child(outcome, LEGAL_PLIES).calls == 1
-    assert child(session.root, LEGAL_PLIES).calls == 1
-    assert outcome.unattributed_ns == outcome.elapsed_ns - child(
-        outcome, LEGAL_PLIES
-    ).elapsed_ns
-
-
-def test_a_short_circuiting_outcome_does_not_generate_plies() -> None:
-    """The inactivity draw (5.4) is decided before the final stalemate
-    assertion, so a drawn position's outcome check has no `legal-plies` child
-    at all."""
+    This is a cost guard as much as a shape one: while the "no legal move"
+    ending stood in as an assertion (peer review #5), reaching the end of
+    `_evaluate` rebuilt the whole ply set, and the call-path rule billed that
+    second generation to `outcome`. Nothing may quietly put it back.
+    """
+    ongoing = ongoing_position()
     drawn = CtfPosition(
-        board=ongoing_position().board,
+        board=ongoing.board,
         side_to_move=Side.WHITE,
         inactivity_counter=INACTIVITY_LIMIT,
         layout=_LAYOUT,
         ply_count=0,
     )
     with timing_session("test") as session:
-        assert drawn.outcome == 0
+        assert ongoing.outcome is None  # runs every rule and reaches the end
+        assert drawn.outcome == 0  # short-circuits at 5.4
+        _ = ongoing.legal_plies  # a direct generation, from the caller
 
-    assert LEGAL_PLIES not in child(session.root, OUTCOME).children
+    outcome = child(session.root, OUTCOME)
+    assert outcome.calls == 2
+    assert LEGAL_PLIES not in outcome.children
+    assert child(session.root, LEGAL_PLIES).calls == 1
+    assert outcome.unattributed_ns == outcome.elapsed_ns
 
 
 def test_mechanics_nest_under_whatever_region_is_open() -> None:

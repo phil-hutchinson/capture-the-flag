@@ -113,15 +113,20 @@ ACTIVE_EDITIONS: frozenset[str] = frozenset(
 )
 """The editions this build implements, and therefore the ones it can stamp.
 
-**A build implements every Active edition**, not one: since major 2 several
-rulesets are published in parallel and the configuration is selected at run time,
-so this is a set rather than a single pointer.
+**A build implements every Active edition**, not one, and at major 3 that is a
+set of exactly one. It stays a set rather than collapsing to a pointer because
+nothing about the model says a major publishes a single ruleset: major 2 had
+Battle, Clash and Skirmish Active in parallel with the configuration selected
+at run time, and major 3 retired all three rather than making that arrangement
+impossible.
 
-**The minors advance independently.** Skirmish is at minor 1 and Battle at minor
-0 because the Tower lane restriction changed Skirmish's play and not Battle's;
-Clash is at minor 0 because that is its first edition, which is no relationship
-to Battle's at all. The shared major says only that all three are played under
-the same rules text. A notation break is the one thing that moves them together.
+**The minors advance independently, and are namespaced per ruleset.** Under
+major 2, Skirmish reached minor 1 while Battle stayed at minor 0, because the
+Tower lane restriction changed Skirmish's play and not Battle's; Clash's minor
+0 was its first edition and no relationship to Battle's at all. A shared major
+says only that the rulesets sharing it are played under the same rules text. A
+notation break is the one thing that moves every live ruleset together — which
+is what produced this set's lone member.
 
 Note the dash in an edition id — it is a compound label, not a decimal, so a
 minor 10 would not sort before a minor 2.
@@ -142,8 +147,13 @@ ACTIVE_RULESETS: dict[str, str] = {
 """Each live ruleset name and the edition it currently points at.
 
 This is the pointer the vocabulary describes: a **ruleset** is a mutable name and
-an **edition** is immutable, so `BATTLE` means whichever `<major>-<minor>:BATTLE`
-is Active right now. Derived from `ACTIVE_EDITIONS` rather than written out, so
+an **edition** is immutable, so `PRE-RELEASE` means whichever
+`<major>-<minor>:PRE-RELEASE` is Active right now — today `3-0`, where under
+major 1 the same name meant `1-2`. A name that is Active for nothing is absent
+here entirely rather than pointing at its last edition: `BATTLE` was a pointer
+under major 2 and is now only history.
+
+Derived from `ACTIVE_EDITIONS` rather than written out, so
 publishing a new edition of a ruleset moves its pointer with no second edit to
 forget. Runners take a ruleset name from the command line and resolve it here;
 every artifact they write is stamped with the *edition*, never the name, which

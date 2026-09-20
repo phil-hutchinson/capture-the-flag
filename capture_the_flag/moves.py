@@ -40,7 +40,7 @@ _DIRECTIONS = ((0, 1), (0, -1), (1, 0), (-1, 0))
 _DIAGONALS = ((1, 1), (1, -1), (-1, 1), (-1, -1))
 
 
-def _is_encumbered_in_direction(
+def is_encumbered_in_direction(
     position: "CtfPosition", source: Square, side: Side, direction: tuple[int, int]
 ) -> bool:
     """Whether an enemy piece stands on any of the five squares ahead of or
@@ -51,6 +51,10 @@ def _is_encumbered_in_direction(
 
     Judged only from `source`'s own neighbourhood, as before -- what stands near
     the destination square does not matter.
+
+    Public because the interactive UI has to explain a refusal in the terms the
+    rule is written in, and a second implementation of the five-square scan
+    over there would be one that could disagree with this one.
     """
     dc, dr = direction
     perp = (-dr, dc)
@@ -87,7 +91,7 @@ def _reachable_squares(
     for direction in _DIRECTIONS:
         dc, dr = direction
         max_distance = 1
-        if allow_two_square and not _is_encumbered_in_direction(
+        if allow_two_square and not is_encumbered_in_direction(
             position, source, side, direction
         ):
             max_distance = 2
@@ -109,6 +113,36 @@ def _reachable_squares(
     return reachable
 
 
+def diagonal_flank_squares(
+    source: Square, direction: tuple[int, int]
+) -> tuple[Square, Square]:
+    """The two squares orthogonally adjacent to both `source` and the square
+    one step along the diagonal `direction` (rules.md Section 4.4).
+
+    Always both on the board whenever that diagonal square is, since each
+    shares one coordinate with `source` and the other with the diagonal square.
+    """
+    dc, dr = direction
+    return (
+        Square(source.column + dc, source.row),
+        Square(source.column, source.row + dr),
+    )
+
+
+def diagonal_path_is_open(
+    position: "CtfPosition", source: Square, direction: tuple[int, int]
+) -> bool:
+    """Whether at least one flanking square is empty, which is what a diagonal
+    attack along `direction` requires (rules.md Section 4.4).
+
+    Which side occupies the other does not matter: a friendly piece closes a
+    diagonal exactly as an enemy one does. Public for the same reason
+    `is_encumbered_in_direction` is.
+    """
+    flank_a, flank_b = diagonal_flank_squares(source, direction)
+    return flank_a not in position.board or flank_b not in position.board
+
+
 def _diagonal_attack_squares(
     position: "CtfPosition", source: Square, side: Side
 ) -> list[Square]:
@@ -122,17 +156,16 @@ def _diagonal_attack_squares(
     empty diagonal from ever being a destination -- the attack-only rule needs
     no second test.
 
-    The attack additionally needs an **open path**: at least one of the two
-    squares orthogonally adjacent to both `source` and the diagonal square must
-    be empty, regardless of which side occupies the other. Those two squares are
-    always on the board whenever the diagonal square is, since each shares one
-    coordinate with `source` and the other with the diagonal square.
+    The attack additionally needs an **open path** -- see
+    `diagonal_path_is_open`, which is tested last because it is the only one of
+    the three conditions that reads squares beyond the diagonal itself.
 
     Off-board neighbours are absent from `position.board` and so contribute
     nothing, in the same way the encumbrance and formation-bonus scans rely on.
     """
     attackable: list[Square] = []
-    for dc, dr in _DIAGONALS:
+    for direction in _DIAGONALS:
+        dc, dr = direction
         square = Square(source.column + dc, source.row + dr)
         occupant = position.board.get(square)
         if occupant is None:
@@ -140,9 +173,7 @@ def _diagonal_attack_squares(
         occupant_side, _occupant_piece = occupant
         if occupant_side is side:
             continue
-        flank_a = position.board.get(Square(source.column + dc, source.row))
-        flank_b = position.board.get(Square(source.column, source.row + dr))
-        if flank_a is not None and flank_b is not None:
+        if not diagonal_path_is_open(position, source, direction):
             continue
         attackable.append(square)
     return attackable

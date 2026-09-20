@@ -44,6 +44,19 @@ Choose the verification method in this priority order:
 Each step's verification description should be concrete enough that the developer
 knows exactly what to run and what a passing result looks like.
 
+### Cover everything the story enumerates
+
+When the story names required changes by file, module, or surface, check that
+list against the finished steps before treating the plan as done. Every named
+surface needs an owning step — the peripheral ones are what get dropped, because
+they are mentioned in passing rather than driving a step of their own, and a
+sweep step scoped to prose will not pick up a behavioural change.
+
+This is a coverage check, not a structural one: a surface may share a step with
+others, and a story item the plan deliberately defers is fine as long as the
+plan says so. What is not fine is a named surface no step accounts for either
+way.
+
 ### Include a README check
 
 Every plan must include a step (typically the last) that verifies `README.md` is

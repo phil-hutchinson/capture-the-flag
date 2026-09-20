@@ -467,3 +467,31 @@ Depends on: Step 19 (the diff has to be complete for the review to be).
 
 Verification (manual): read the updated `README.md` and confirm every command it
 shows runs as written, and that nothing it describes has been deleted.
+
+---
+
+## Post-plan additions
+
+Recorded after the twenty steps were complete, from the peer review
+(`peer-review.md`). This section is not a step and was not planned; it is here
+so the plan and the branch agree about what was actually built.
+
+**Two surfaces named by the story had no owning step.** Story §10 enumerates
+four peripheral surfaces the rule changes reach: `match.py`, `player.py`,
+`game_view.py`'s captured summary, and `game_ui.py`'s illegal-ply explanations.
+The first two are Step 3; the latter two appear in no step, and Step 19 is
+scoped to prose, so neither behavioural change had an owner. Both were carried
+by the review pass instead:
+
+- **`game_view.py`** (finding #1) — the captured tally is replaced by a census
+  of standing pieces by rank against the army size. The story asked for losses
+  derived from the army total rather than per rank; reporting what is standing
+  answers the same objection and gives the attrition ending a clock on screen.
+- **`game_ui.py`** (finding #2) — `_illegal_reason` gains a branch for each of
+  the four restrictions the story names, reusing the movement predicates rather
+  than restating them.
+
+The gap itself is finding #7, and the guard against a repeat is a coverage rule
+added to `doc/guidelines/implementation-plan-guide.md`: a story that enumerates
+required changes by file or surface has to be checked against the steps before
+the plan is final.

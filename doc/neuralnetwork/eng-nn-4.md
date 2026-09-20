@@ -121,8 +121,30 @@ move produces an equivalent position — the two encode to identical tensors.
   zero everywhere else — this plane is what lets the network tell "off the
   board" from "on it but empty of anything else."
 - 13: Inactivity Count — every square filled uniformly with
-  (current inactivity count / draw threshold). The threshold is 50
-  (rules.md §5.3).
+  (current inactivity count / draw threshold). The threshold is 40
+  (rules.md §5.4).
+
+### Why White's first ply needs no plane
+
+Major 3 limits **White's first move of the game to one square** (rules.md
+§4.1), which makes the legal set depend on something that is not on the board:
+the same arrangement admits two-square plies at ply 1 and does not at ply 0. A
+plane that encoded ply count would answer this, and none is specified. The
+argument that none is needed is worth stating, because the omission otherwise
+looks like a compatibility failure.
+
+Two positions that differ *only* in whether the restriction applies would have
+to share a board, a side to move, and an inactivity count while sitting at ply
+0 and at some later ply. They cannot. Reaching ply 0's arrangement again
+requires that no piece was ever removed — a removal is irreversible, since
+pieces never return to the board and rank reduction only ever moves a survivor
+*down* — and §5.4 raises the inactivity counter on exactly the plies that
+remove nothing. So a later position with ply 0's board has a counter equal to
+its ply count, and ply 0's counter is 0: plane 13 already separates them.
+
+The restriction therefore never collapses two distinguishable positions into
+one tensor, and the network is free to learn it as a property of the
+low-inactivity-count opening rather than from a dedicated input.
 
 ## Output
 

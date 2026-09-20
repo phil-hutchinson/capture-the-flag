@@ -96,9 +96,16 @@ def _evaluate(
     if position.inactivity_counter >= INACTIVITY_LIMIT:
         return 0, REASON_INACTIVITY
 
-    # No stalemate can arise under this ruleset: a player who still has an
-    # army always has a legal move. Kept as an assertion, not an ending --
-    # story 00000049 step 16 replaces the former No Legal Move ending with
-    # attrition above.
-    assert position.legal_plies, "a player with an army always has a legal move"
+    # Nothing left to test: a player who still has an army always has a legal
+    # ply, so there is no ending here for the "no legal move" case major 2 lost
+    # the game for. Step 16 of story 00000049 replaced it with the attrition
+    # check above, and `technical-notes.md` ("Attrition replaced 'no legal
+    # move'") proves the boxed-in state unreachable on a lake-free board --
+    # every numbered piece stuck would need the occupied set's whole on-board
+    # boundary held by friendly non-numbered pieces, and there is one of those.
+    #
+    # Deliberately not asserted: the assertion would have to rebuild the ply
+    # set on every non-terminal evaluation to re-check a published proof, which
+    # measured at roughly half of engine runtime. Anyone reintroducing
+    # impassable terrain restores the ending, not the assertion.
     return None, None

@@ -1,12 +1,11 @@
 """Game endings (rules.md Section 5).
 
 `outcome` is current-player-relative: `1` (active player wins), `0` (draw),
-`-1` (active player loses), or `None` (ongoing). Conditions follow the rulebook's
-section order (5.1 Flag capture, 5.2 No legal move, 5.3 Inactivity draw) with one
-deliberate deviation: the inactivity draw (5.3) is checked *before* the active
-player's no-legal-move loss (5.2), because the shared counter reaches its limit at
-the close of the opponent's just-completed ply -- the moment the draw is met --
-before the active player is asked to move. See `_evaluate` for the rationale.
+`-1` (active player loses), or `None` (ongoing). Conditions follow the
+rulebook's section order: 5.1 Flag capture, 5.2 Attrition, 5.3 Mutual
+attrition, 5.4 Inactivity draw -- except that mutual attrition (both players
+left with no numbered pieces) is tested *before* the single-sided attrition
+check it would otherwise satisfy first. See `_evaluate`.
 """
 
 from typing import TYPE_CHECKING, Literal
@@ -27,12 +26,23 @@ def _has_flag(position: "CtfPosition", side: Side) -> bool:
     )
 
 
+def _has_army(position: "CtfPosition", side: Side) -> bool:
+    """Whether `side` holds any numbered piece (rules.md Section 5.2,
+    Attrition). The Flag does not count: a player holding nothing but their
+    Flag has no army."""
+    return any(
+        piece_side is side and piece.rank is not None
+        for piece_side, piece in position.board.values()
+    )
+
+
 # Reason vocabulary reported through `GamePosition.outcome_reason` and recorded
 # in game-record files (`doc/ruleset/technical-notes.md`). One label per rulebook
 # ending.
 REASON_FLAG_CAPTURED = "Flag Captured"
+REASON_ATTRITION = "Attrition"
+REASON_MUTUAL_ATTRITION = "Mutual Attrition"
 REASON_INACTIVITY = "Inactivity"
-REASON_NO_LEGAL_MOVE = "No Legal Move"
 
 
 def compute_outcome(position: "CtfPosition") -> Literal[1, 0, -1] | None:
@@ -66,15 +76,29 @@ def _evaluate(
     if not _has_flag(position, opponent):
         return 1, REASON_FLAG_CAPTURED
 
-    # 5.3 Draw -- Inactivity. The shared counter reaches its limit on the
-    # opponent's just-completed ply, so the game ends "the moment [it is] met"
-    # (rules.md Section 5) -- before the active player is asked to move -- and it
-    # therefore precedes the active player's no-legal-move loss (5.2).
+    active_has_army = _has_army(position, active)
+    opponent_has_army = _has_army(position, opponent)
+
+    # 5.3 Draw -- Mutual attrition. Tested before the single-sided case below:
+    # a single ply that empties both armies at once (a trade of each side's
+    # last piece) is a draw, not a win for whichever side happens to be
+    # "active" next.
+    if not active_has_army and not opponent_has_army:
+        return 0, REASON_MUTUAL_ATTRITION
+
+    # 5.2 Loss -- Attrition.
+    if not active_has_army:
+        return -1, REASON_ATTRITION
+    if not opponent_has_army:
+        return 1, REASON_ATTRITION
+
+    # 5.4 Draw -- Inactivity.
     if position.inactivity_counter >= INACTIVITY_LIMIT:
         return 0, REASON_INACTIVITY
 
-    # 5.2 Loss -- no legal move.
-    if not position.legal_plies:
-        return -1, REASON_NO_LEGAL_MOVE
-
+    # No stalemate can arise under this ruleset: a player who still has an
+    # army always has a legal move. Kept as an assertion, not an ending --
+    # story 00000049 step 16 replaces the former No Legal Move ending with
+    # attrition above.
+    assert position.legal_plies, "a player with an army always has a legal move"
     return None, None

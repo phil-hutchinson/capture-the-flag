@@ -26,9 +26,10 @@ from capture_the_flag.engines.neural_network.neural_ctf_player import (
 from capture_the_flag.game_setup import PRE_RELEASE_SETUP
 from capture_the_flag.match import play_match
 from capture_the_flag.outcome import (
+    REASON_ATTRITION,
     REASON_FLAG_CAPTURED,
     REASON_INACTIVITY,
-    REASON_NO_LEGAL_MOVE,
+    REASON_MUTUAL_ATTRITION,
 )
 from capture_the_flag.player import RandomCtfPlayer
 from tests.engines.neural_network.small_networks import (
@@ -38,7 +39,7 @@ from tests.engines.neural_network.small_networks import (
 )
 
 _LEGAL_REASONS = frozenset(
-    {REASON_FLAG_CAPTURED, REASON_INACTIVITY, REASON_NO_LEGAL_MOVE}
+    {REASON_FLAG_CAPTURED, REASON_INACTIVITY, REASON_ATTRITION, REASON_MUTUAL_ATTRITION}
 )
 
 

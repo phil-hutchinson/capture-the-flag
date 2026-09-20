@@ -4,16 +4,18 @@ import pytest
 
 from capture_the_flag.batch_runner import run_batch
 from capture_the_flag.outcome import (
+    REASON_ATTRITION,
     REASON_FLAG_CAPTURED,
     REASON_INACTIVITY,
-    REASON_NO_LEGAL_MOVE,
+    REASON_MUTUAL_ATTRITION,
 )
 
 _KNOWN_REASONS = frozenset(
     {
         REASON_FLAG_CAPTURED,
         REASON_INACTIVITY,
-        REASON_NO_LEGAL_MOVE,
+        REASON_ATTRITION,
+        REASON_MUTUAL_ATTRITION,
     }
 )
 

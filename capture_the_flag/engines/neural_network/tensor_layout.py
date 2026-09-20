@@ -47,7 +47,7 @@ TOTAL_FP_COUNT = 14
 
 # Every offset a legal ply can have, in three groups: the one-square orthogonal
 # step, the two-square orthogonal step the unencumbered bonus allows, and the
-# one-square diagonal attack added to the baseline at major 2 (rules.md 4.3).
+# one-square diagonal attack added to the baseline at major 2 (rules.md 4.4).
 #
 # The diagonals are appended rather than interleaved so the orthogonal indices
 # keep the values they had under ENG_NN_2 — which buys nothing at load time

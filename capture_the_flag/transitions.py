@@ -1,5 +1,5 @@
 """Ply application: board transitions, rank reduction, and the inactivity
-clock (rules.md Section 4.3, "Rank reduction" and Section 5.3).
+clock (rules.md Section 4.3, "Rank reduction" and Section 5.4).
 
 `resolve_combat` (see `combat.py`) only decides who survives; reducing the
 survivor by one rank happens here, as the board is rebuilt.
@@ -49,7 +49,7 @@ def apply_ply(position: CtfPosition, ply: CtfPly) -> CtfPosition:
         # A draw leaves no survivor, so nothing is reduced.
         del new_board[ply.destination]
 
-    # Inactivity clock (Section 5.3): every attack removes at least one piece --
+    # Inactivity clock (Section 5.4): every attack removes at least one piece --
     # a winning attack the defender, a complete sacrifice the attacker, a mutual
     # loss both -- so any attack resets the shared counter, and every
     # non-attacking ply raises it by 1.

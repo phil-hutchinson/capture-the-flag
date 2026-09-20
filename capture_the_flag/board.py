@@ -6,7 +6,7 @@ the two ends, and any rows left over between them as neutral buffer.
 board expressed in it (`rules.md` Section 2.1). Coordinates follow the global,
 White's-perspective frame used throughout the project (columns lettered from A
 left to right, rows numbered from 1 with row 1 as White's back rank) — see
-`doc/ruleset/rules.md` Section 2.1 and Section 4.4.
+`doc/ruleset/rules.md` Section 2.1 and Section 4.5.
 
 **A layout is a value, never a module constant.** A `CtfPosition` carries the one
 it is played on, which is the only way move generation can reach it:

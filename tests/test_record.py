@@ -213,9 +213,9 @@ def test_every_active_edition_resolves_to_the_army_it_publishes():
     # Major 3 has one Active edition and its army is fixed directly by the
     # baseline rules text rather than by a flag label (`rules.md` Section 2.2;
     # `doc/ruleset/CLAUDE.md`) -- but the check this exists for is the same one:
-    # placement validation enforces the resolved army on every game, so a
-    # divergence would mean records stamped with the edition were played under
-    # something else.
+    # generation enforces the resolved army on every game, so a divergence
+    # would mean records stamped with the edition were played under something
+    # else.
     #
     # If this fails because the army changed: that is a rules change, and the
     # fix is to update rules.md and publish a *new* edition, not to point the

@@ -245,7 +245,7 @@ def _play_batch(
     )
     # All the games happen inside this one call — the shared runner owns the
     # loop — so `play-games` covers the batch, and per-game structure surfaces
-    # through the placement callback the runner makes once per game.
+    # through the position factory the runner calls once per game.
     with region(PLAY_GAMES):
         result = tournament.run()
 

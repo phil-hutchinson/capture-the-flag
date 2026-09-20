@@ -28,7 +28,7 @@ from .timing_regions import STARTING_POSITION
 
 @dataclass(frozen=True)
 class MatchResult:
-    """A completed match: the phase-2 `GameResult`."""
+    """A completed match: the `GameResult` from playing it out."""
 
     game_result: GameResult
 

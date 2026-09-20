@@ -7,7 +7,7 @@ squares ahead of or beside it, judged separately for each of the four
 directions); a direction encumbered this way is limited to one square, while
 the other three are unaffected. It may additionally attack one square
 diagonally, which since major 2 is baseline behaviour rather than a variant
-(Section 4.3, "Diagonal attacks"). Legality does not depend on combat outcome --
+(Section 4.4, "Diagonal attacks"). Legality does not depend on combat outcome --
 sacrificial attacks are always legal (Section 4.3); combat resolution (see
 `combat.py`) determines the *result* of an attack ply, not whether it exists.
 
@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 _DIRECTIONS = ((0, 1), (0, -1), (1, 0), (-1, 0))
 
 # The four immediate diagonals, along which a piece may attack but never move
-# (rules.md Section 4.3). One square only: `_diagonal_attack_squares` never
+# (rules.md Section 4.4). One square only: `_diagonal_attack_squares` never
 # reaches beyond distance one, so there is no two-square diagonal regardless of
 # encumbrance in any orthogonal direction.
 _DIAGONALS = ((1, 1), (1, -1), (-1, 1), (-1, -1))

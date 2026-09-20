@@ -6,7 +6,7 @@ read straight from a `CtfPosition`: whose turn it is, each side's captured
 pieces so far (derived by diffing the board against the army roster, so no
 capture history is threaded through the game), and the shared inactivity
 counter against its limit, so players can apply the inactivity rule
-(Section 5.3).
+(Section 5.4).
 """
 
 from collections import Counter

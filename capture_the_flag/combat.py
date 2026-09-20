@@ -64,11 +64,10 @@ def resolve_combat(
     never attacks).
 
     **Nothing here depends on the direction the attack came from.** Rank, equal
-    rank, and the formation bonus resolve a diagonal attack exactly as they
-    resolve an orthogonal one, so diagonal attack (baseline since major 2) needed
-    no change in this module. The two outcomes a diagonal attack cannot produce
-    -- Flag capture -- are excluded at generation time by
-    the movable-target rule, not here.
+    rank, the formation bonus, and Flag capture resolve a diagonal attack
+    exactly as they resolve an orthogonal one -- the Flag has no immunity to
+    diagonal attack (rules.md Section 4.4) -- so diagonal attack needed no
+    change in this module.
     """
     attacker_side, attacker_piece = position.board[attacker]
     defender_side, defender_piece = position.board[defender]

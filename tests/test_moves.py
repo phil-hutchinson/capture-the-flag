@@ -252,9 +252,10 @@ def test_diagonal_attack_needs_an_open_path():
 
 
 def test_unencumbered_bonus_never_extends_a_diagonal():
-    # F5 is two squares diagonally from D3 -- outside the eight surrounding
-    # squares, so D3 is unencumbered and does get its two-square orthogonal
-    # moves. It gets no two-square diagonal, because there is no such thing.
+    # F5 is two squares diagonally from D3 -- outside every direction's five
+    # squares -- so D3 is unencumbered in all four and does get its two-square
+    # orthogonal moves. It gets no two-square diagonal, because there is no
+    # such thing.
     board = {
         Square(3, 3): (Side.WHITE, P.FOOT_SOLDIER),
         Square(5, 5): (Side.BLACK, P.MILITIA),

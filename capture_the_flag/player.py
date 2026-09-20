@@ -1,6 +1,5 @@
-"""The `CtfPlayer` seam (phase-1 placement + phase-2 play), the random and human
-player implementations, and the `make_player` factory the runners seat players
-through."""
+"""The `CtfPlayer` seam, the random and human player implementations, and the
+`make_player` factory the runners seat players through."""
 
 import random
 from collections.abc import Callable
@@ -22,8 +21,7 @@ class CtfPlayer(Player[CtfPly, CtfPosition], Protocol):
 
 
 class RandomCtfPlayer:
-    """A `CtfPlayer` that places uniformly at random and moves uniformly at
-    random."""
+    """A `CtfPlayer` that moves uniformly at random."""
 
     def __init__(
         self,
@@ -59,13 +57,8 @@ class RandomCtfPlayer:
 class HumanCtfPlayer:
     """A `CtfPlayer` seat driven by a person at the terminal.
 
-    Placement comes from a placement file named at the prompt — any
-    `PlacementFileError` (missing file, malformed file, wrong piece mix) is
-    printed and re-prompted — or from typing `random` for a random legal
-    placement. Once accepted, the screen is cleared so the typed file name
-    (the only secret in the placement dialogue) is not left visible to the
-    opponent. Plies are delegated to the shared `CtfGameUI` prompt, and the
-    board is rendered before every human turn.
+    Plies are delegated to the shared `CtfGameUI` prompt, and the board is
+    rendered before every human turn.
 
     `input_fn`/`print_fn` default to the builtins; tests inject scripted
     replacements.
@@ -116,9 +109,8 @@ tournament, where there is no UI to drive a human seat."""
 @dataclass
 class PlayerContext:
     """Shared resources a player kind may need at construction. Only the pieces a
-    given kind uses are read: `human` needs the `game_ui` and `placements_dir`,
-    `neural` needs the `setup`, every kind takes the `rng` that seeds its
-    placement (and random play)."""
+    given kind uses are read: `human` needs the `game_ui`, `neural` needs the
+    `setup`, every kind takes the `rng` that seeds its random play."""
 
     game_ui: CtfGameUI | None = None
     rng: random.Random | None = None

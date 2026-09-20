@@ -33,7 +33,8 @@ _LAYOUT = PRE_RELEASE_SETUP.layout
 
 def ongoing_position() -> CtfPosition:
     """Both flags standing and both sides mobile — a position whose outcome
-    check runs every rule in Section 5, including the no-legal-move test."""
+    check runs every rule in Section 5, including the final stalemate
+    assertion (story 00000049 step 16)."""
     return CtfPosition(
         board=MappingProxyType(
             {
@@ -86,12 +87,13 @@ def test_repeated_access_accumulates_calls() -> None:
 
 
 def test_legal_plies_computed_inside_outcome_nests_under_it() -> None:
-    """Section 5.2's no-legal-move test regenerates the legal plies, so an
-    outcome check silently pays for a second ply generation. The call-path rule
-    puts that cost under `outcome`, distinct from a direct generation."""
+    """The final stalemate assertion regenerates the legal plies once every
+    other Section 5 rule has cleared a position, so an outcome check silently
+    pays for a second ply generation. The call-path rule puts that cost under
+    `outcome`, distinct from a direct generation."""
     position = ongoing_position()
     with timing_session("test") as session:
-        _ = position.outcome  # reaches 5.2, so generates plies internally
+        _ = position.outcome  # reaches the assertion, so generates plies internally
         _ = position.legal_plies  # a direct generation, from the caller
 
     outcome = child(session.root, OUTCOME)
@@ -103,8 +105,9 @@ def test_legal_plies_computed_inside_outcome_nests_under_it() -> None:
 
 
 def test_a_short_circuiting_outcome_does_not_generate_plies() -> None:
-    """The inactivity draw (5.3) is decided before the no-legal-move test, so a
-    drawn position's outcome check has no `legal-plies` child at all."""
+    """The inactivity draw (5.4) is decided before the final stalemate
+    assertion, so a drawn position's outcome check has no `legal-plies` child
+    at all."""
     drawn = CtfPosition(
         board=ongoing_position().board,
         side_to_move=Side.WHITE,

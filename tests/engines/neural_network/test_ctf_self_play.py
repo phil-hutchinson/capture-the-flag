@@ -63,7 +63,7 @@ def test_build_self_play_collector_wires_the_game_specific_pieces():
 @pytest.mark.slow
 def test_collect_produces_structurally_valid_samples():
     evaluator = _evaluator()
-    # Every game in the fleet starts from the same placement, which is what makes
+    # Every game in the fleet starts from the same position, which is what makes
     # the fleet-width assertion below countable; the games still diverge, since
     # the search is stochastic at this temperature.
     start = CtfPositionFactory(setup=PRE_RELEASE_SETUP)()

@@ -4,8 +4,8 @@ Implements `game-engine-core`'s `GamePly` protocol. `str(ply)` is the simple
 move notation (e.g. `"A4A5"`) — unique among a position's legal plies and
 sufficient, together with the rules, to replay a game (the combat result is
 recoverable, not stored). `parse_ply` is its exact inverse, used for human
-move entry. The combat notation (the `-`/`x` display variant, `rules.md`
-Section 4.4) is the *logged* form, rendered by
+move entry. The extended move notation (the `-`/`x`/`=N` display variant,
+`rules.md` Section 4.5) is the *logged* form, rendered by
 `CtfGameLogging.ply_annotation`; it never replaces `str(ply)` as the identity.
 """
 

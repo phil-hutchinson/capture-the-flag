@@ -1,11 +1,9 @@
 """Starting-position generation for Capture the Flag (`doc/ruleset/start-position.md`).
 
-There is no placement phase (`rules.md` Section 3): every game begins from a
+There is no placement (`rules.md` Section 3): every game begins from a
 starting position drawn from the constrained set that document defines, rather
 than from choices either player makes. `generate_start_position` is the single
-seam that replaces the phase-1 placement stories 1-48 built, exactly the way
-`placement.random_placement` used to be the seam a game's opening squares came
-from.
+seam a game's opening squares come from.
 
 Generation is two steps, `start-position.md` Sections 2-3:
 

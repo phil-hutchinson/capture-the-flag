@@ -76,8 +76,9 @@ def test_run_batch_zero_pads_filenames_to_batch_width(tmp_path):
 
 def test_run_batch_is_reproducible_with_a_seed(tmp_path):
     # A single `seed` covers every randomness source the batch pulls from
-    # (placement, the process-global `random` behind RandomEngine, and torch),
-    # so two seeded runs produce identical summaries and record files.
+    # (start-position generation, the process-global `random` behind
+    # RandomEngine, and torch), so two seeded runs produce identical summaries
+    # and record files.
     summary_a = run_batch(4, tmp_path / "a", seed=42)
     summary_b = run_batch(4, tmp_path / "b", seed=42)
 

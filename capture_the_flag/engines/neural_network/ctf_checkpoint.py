@@ -52,12 +52,13 @@ Its outcomes on load mirror the reasoning above, one per case:
   about a build carrying only one edition — a build implements every Active
   edition, and refuses only the ones it no longer plays.
 - **present, implementable, and not the configuration this run is playing** —
-  rejected. Two Active editions are live, so "this code can implement it" no
-  longer implies "these weights belong in this game": a Skirmish-trained network
-  seated in a Battle game is implementable and wrong. `unsupported_aspects`
-  cannot see this, because nothing about the stamp is beyond the build; only the
-  run's own configuration can say so, which is why the load path takes the setup
-  it is loading *for*.
+  rejected. Whenever more than one Active edition is live, "this code can
+  implement it" does not imply "these weights belong in this game": a network
+  trained for one Active edition's board and army, seated in a run playing
+  another, is implementable and wrong. `unsupported_aspects` cannot see this,
+  because nothing about the stamp is beyond the build; only the run's own
+  configuration can say so, which is why the load path takes the setup it is
+  loading *for*.
 - **present, implementable, and the run's own** — *adopted*, so a resumed run
   continues under the configuration it was trained under rather than under
   current defaults, exactly as the architecture already is. A checkpoint trained
@@ -114,9 +115,8 @@ from .tensor_layout import TensorLayout
 
 DEFAULT_RUNS_DIR = Path("training-runs")
 """Repo-root-relative base directory for training-run artifacts (checkpoints and
-the run-config record). Gitignored — runs are machine-local — and
-resolved against the current working directory, matching the runners' existing
-`placements/` convention."""
+the run-config record). Gitignored — runs are machine-local — and resolved
+against the current working directory."""
 
 _CHECKPOINT_SPEC_KEY = "spec"
 _CHECKPOINT_STATE_DICT_KEY = "state_dict"
@@ -140,10 +140,11 @@ def save_checkpoint(
     disagreeing with the tensors being written beside it.
 
     `configuration` is that last stamp, and it is **required**. It once defaulted
-    to the active configuration, which was harmless while one edition was live and
-    is not now: a Skirmish-shaped network stamped with Battle's edition is an
-    artifact that contradicts itself, and no default can tell the two apart —
-    a network knows the board and army it was built for, but not which published
+    to the active configuration, which is only harmless while one edition is
+    live: with more than one, a network shaped for one Active edition's board
+    and army but stamped with another's edition id is an artifact that
+    contradicts itself, and no default can tell the two apart — a network
+    knows the board and army it was built for, but not which published
     configuration selected them. The caller is the only one that knows, and it
     always does: a fresh run passes what it resolved, and a resume passes the
     configuration it adopted from the checkpoint it continued from, so the

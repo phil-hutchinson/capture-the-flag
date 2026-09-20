@@ -23,10 +23,10 @@ class CtfGameUI(GameUI[CtfPly, CtfPosition]):
     so the UI holds it for the life of the game.
 
     It is required, and first, for the reason `CtfPosition.layout` carries no
-    default: a UI that fell back to Battle would not fail on a Skirmish game, it
-    would tally the captures against the wrong army and report ranks the game
-    never fielded as missing. A wrong board is worth a `TypeError` at
-    construction; it is not worth a plausible-looking display.
+    default: a UI that silently fell back to some other board and army would
+    tally the captures against the wrong one and report ranks the game never
+    fielded as missing. A wrong board is worth a `TypeError` at construction;
+    it is not worth a plausible-looking display.
 
     `input_fn` and `print_fn` default to the builtins; tests inject scripted
     replacements.

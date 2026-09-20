@@ -1,8 +1,9 @@
 """Integration test for the learned-engine player.
 
-Plays one complete match through `play_match` — the production placement +
-`StandardGame` wrapper — with an untrained `NeuralCtfPlayer` against a random
-opponent, and asserts the game reaches a legal terminal result with no errors.
+Plays one complete match through `play_match` — the production start-position
+generation + `StandardGame` wrapper — with an untrained `NeuralCtfPlayer`
+against a random opponent, and asserts the game reaches a legal terminal
+result with no errors.
 This is the first end-to-end exercise of the whole pipeline across a real game:
 encode -> network -> decode -> MCTS -> applied plies, driven through the same
 seam the runners use.

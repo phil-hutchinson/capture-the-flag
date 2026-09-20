@@ -150,6 +150,6 @@ label — the army-side counterpart of `board.BOARD_LAYOUTS`, and implementabili
 rather than publication for the same reason."""
 
 
-# The symbol -> piece inverse of `PieceType.symbol`, shared by the modules that
-# parse position blocks and placement files.
+# The symbol -> piece inverse of `PieceType.symbol`, used to parse position
+# blocks (see `rendering.py`).
 PIECE_BY_SYMBOL: dict[str, PieceType] = {piece.symbol: piece for piece in PieceType}

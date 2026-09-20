@@ -1,5 +1,5 @@
 """Tests for apply_ply: board transitions, rank reduction, and the inactivity
-clock (rules.md Section 4.3, "Rank reduction" and Section 5.3).
+clock (rules.md Section 4.3, "Rank reduction" and Section 5.4).
 """
 
 from types import MappingProxyType

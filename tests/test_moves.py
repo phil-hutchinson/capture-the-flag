@@ -206,14 +206,12 @@ def test_no_diagonal_move_onto_an_empty_square():
     assert "D3E2" not in strings
 
 
-def test_the_flag_cannot_be_attacked_diagonally():
-    # The enemy Flag on C4 -- north-west of D3 -- encumbers only north and west
-    # (the two directions with C4 among their five squares), capping each at one
-    # square; south and east are untouched and keep their two-square move. The
-    # Flag is not a legal diagonal target regardless: the movable-target
-    # restriction (removed at story 00000049 step 13) still applies. This is
-    # what leaves the Flag capturable only from an orthogonally adjacent square
-    # (rules.md Section 5.1).
+def test_flag_is_attackable_diagonally():
+    # The movable-target restriction is gone (story 00000049 step 13): the
+    # Flag has no immunity to diagonal attack, and D3C4 has an open path (both
+    # of its flanking squares, C3 and D4, are empty). C4 -- north-west of D3 --
+    # also encumbers only north and west, capping each at one square; south and
+    # east are untouched and keep their two-square move.
     board = {
         Square(3, 3): (Side.WHITE, P.FOOT_SOLDIER),
         Square(2, 4): (Side.BLACK, P.FLAG),
@@ -226,7 +224,31 @@ def test_the_flag_cannot_be_attacked_diagonally():
         "D3E3",
         "D3F3",  # east keeps its two-square move
         "D3C3",  # west capped at one square
+        "D3C4",  # the diagonal attack on the Flag itself
     }
+
+
+def test_diagonal_attack_needs_an_open_path():
+    # C3 attacking D4 (rules.md Section 4.4's worked example): legal so long as
+    # at least one of the two flanking squares, C4 and D3, is empty -- and
+    # illegal once both are occupied, even by friendly pieces.
+    base = {
+        Square(2, 3): (Side.WHITE, P.FOOT_SOLDIER),  # C3, the attacker
+        Square(3, 4): (Side.BLACK, P.MILITIA),  # D4, the target
+    }
+
+    c4_occupied = dict(base)
+    c4_occupied[Square(2, 4)] = (Side.BLACK, P.MILITIA)  # C4 occupied, D3 empty
+    assert "C3D4" in _own_plies(_position(c4_occupied), "C3")
+
+    d3_occupied = dict(base)
+    d3_occupied[Square(3, 3)] = (Side.WHITE, P.MILITIA)  # D3 occupied, C4 empty
+    assert "C3D4" in _own_plies(_position(d3_occupied), "C3")
+
+    both_occupied = dict(base)
+    both_occupied[Square(2, 4)] = (Side.WHITE, P.MILITIA)  # friendly C4
+    both_occupied[Square(3, 3)] = (Side.WHITE, P.MILITIA)  # friendly D3
+    assert "C3D4" not in _own_plies(_position(both_occupied), "C3")
 
 
 def test_unencumbered_bonus_never_extends_a_diagonal():

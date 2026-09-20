@@ -12,10 +12,13 @@ sacrificial attacks are always legal (Section 4.3); combat resolution (see
 `combat.py`) determines the *result* of an attack ply, not whether it exists.
 
 The diagonal is an *attacking* direction and nothing else, which is what keeps
-it from being a general mobility increase: it never reaches an empty square, and
-it never reaches the Flag. Those two restrictions live here rather than in
-`combat.py`, because they decide whether the ply exists at all -- a diagonal
-attack that is generated resolves by exactly the rules an orthogonal one does.
+it from being a general mobility increase: it never reaches an empty square,
+and it requires an open path (Section 4.4) -- at least one of the two squares
+orthogonally adjacent to both attacker and target must be empty. Those
+restrictions live here rather than in `combat.py`, because they decide whether
+the ply exists at all -- a diagonal attack that is generated resolves by
+exactly the rules an orthogonal one does, against any enemy piece including the
+Flag.
 """
 
 from typing import TYPE_CHECKING
@@ -109,15 +112,21 @@ def _reachable_squares(
 def _diagonal_attack_squares(
     position: "CtfPosition", source: Square, side: Side
 ) -> list[Square]:
-    """The immediate diagonal squares `source` may attack (rules.md Section 4.3).
+    """The immediate diagonal squares `source` may attack (rules.md Section 4.4).
 
-    A diagonal square qualifies only when it holds an enemy **movable** piece:
-    the Flag may not be attacked diagonally, which is what leaves it capturable
-    from an orthogonally adjacent square alone (Section 5.1).
+    Any enemy piece qualifies, the Flag included -- there is no movable-target
+    restriction, which is what leaves the Flag capturable diagonally as well as
+    orthogonally (Section 5.1).
 
     Requiring an occupant rather than checking separately is also what keeps an
     empty diagonal from ever being a destination -- the attack-only rule needs
     no second test.
+
+    The attack additionally needs an **open path**: at least one of the two
+    squares orthogonally adjacent to both `source` and the diagonal square must
+    be empty, regardless of which side occupies the other. Those two squares are
+    always on the board whenever the diagonal square is, since each shares one
+    coordinate with `source` and the other with the diagonal square.
 
     Off-board neighbours are absent from `position.board` and so contribute
     nothing, in the same way the encumbrance and formation-bonus scans rely on.
@@ -128,9 +137,14 @@ def _diagonal_attack_squares(
         occupant = position.board.get(square)
         if occupant is None:
             continue
-        occupant_side, occupant_piece = occupant
-        if occupant_side is not side and occupant_piece.mobility is Mobility.MOBILE:
-            attackable.append(square)
+        occupant_side, _occupant_piece = occupant
+        if occupant_side is side:
+            continue
+        flank_a = position.board.get(Square(source.column + dc, source.row))
+        flank_b = position.board.get(Square(source.column, source.row + dr))
+        if flank_a is not None and flank_b is not None:
+            continue
+        attackable.append(square)
     return attackable
 
 def _initial_plies_from_square(

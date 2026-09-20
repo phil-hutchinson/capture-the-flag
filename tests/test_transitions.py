@@ -38,18 +38,17 @@ def test_plain_move_updates_board_side_and_clock():
 
 
 def test_winning_attack_resets_the_clock():
-    # Rank comparison is not yet inverted (story 00000049 step 14), so the
-    # numerically lower rank still wins here.
+    # The higher-numbered rank wins (story 00000049 step 14).
     board = {
-        Square(3, 2): (Side.WHITE, P.PEASANT),
-        Square(3, 3): (Side.BLACK, P.MASTER_OF_ARMS),
+        Square(3, 2): (Side.WHITE, P.MASTER_OF_ARMS),
+        Square(3, 3): (Side.BLACK, P.PEASANT),
     }
     position = _position(board, inactivity_counter=5)
     ply = CtfPly(Square(3, 2), Square(3, 3))
 
     new_position = position.apply_ply(ply)
 
-    assert new_position.board == {Square(3, 3): (Side.WHITE, P.PEASANT)}
+    assert new_position.board == {Square(3, 3): (Side.WHITE, P.MASTER_OF_ARMS)}
     assert new_position.inactivity_counter == 0  # attack: reset
 
 
@@ -69,15 +68,15 @@ def test_mutual_loss_resets_the_clock():
 
 def test_complete_sacrifice_resets_the_clock():
     board = {
-        Square(3, 2): (Side.WHITE, P.MASTER_OF_ARMS),
-        Square(3, 3): (Side.BLACK, P.PEASANT),  # attacker loses cleanly
+        Square(3, 2): (Side.WHITE, P.PEASANT),
+        Square(3, 3): (Side.BLACK, P.MASTER_OF_ARMS),  # attacker loses cleanly
     }
     position = _position(board, inactivity_counter=5)
     ply = CtfPly(Square(3, 2), Square(3, 3))
 
     new_position = position.apply_ply(ply)
 
-    assert new_position.board == {Square(3, 3): (Side.BLACK, P.PEASANT)}
+    assert new_position.board == {Square(3, 3): (Side.BLACK, P.MASTER_OF_ARMS)}
     assert new_position.inactivity_counter == 0  # attack (even losing): reset
 
 

@@ -4,9 +4,10 @@ Pure rules over `(position, attacker square, defender square)`: the pieces on
 each square determine rank, and the board context determines the special cases
 -- Flag capture (always an attacker win),
 and the formation bonus, under which a piece with a friendly equal-rank piece
-within one square draws against a piece one rank higher instead of losing.
-Legality of the attack itself is a move-generation concern (see `moves.py`);
-this module only decides the *result* of an attack already determined legal.
+within one square draws against a piece one rank stronger instead of losing.
+The higher-numbered rank is the stronger one. Legality of the attack itself is
+a move-generation concern (see `moves.py`); this module only decides the
+*result* of an attack already determined legal.
 """
 
 from enum import Enum
@@ -87,11 +88,11 @@ def resolve_combat(
     if attacker_rank == defender_rank:
         return CombatResult.MUTUAL_LOSS
 
-    if attacker_rank < defender_rank:
+    if attacker_rank > defender_rank:
         # The attacker is stronger. The defender loses unless it is exactly one
         # rank weaker and has the formation bonus, which turns its loss into a
         # draw (both removed).
-        if defender_rank == attacker_rank + 1 and _has_formation_bonus(
+        if defender_rank == attacker_rank - 1 and _has_formation_bonus(
             position, defender, defender_side, defender_rank
         ):
             return CombatResult.MUTUAL_LOSS
@@ -99,7 +100,7 @@ def resolve_combat(
 
     # The attacker is weaker. It loses unless it is exactly one rank weaker and
     # has the formation bonus, checked at its pre-move square.
-    if attacker_rank == defender_rank + 1 and _has_formation_bonus(
+    if attacker_rank == defender_rank - 1 and _has_formation_bonus(
         position, attacker, attacker_side, attacker_rank
     ):
         return CombatResult.MUTUAL_LOSS

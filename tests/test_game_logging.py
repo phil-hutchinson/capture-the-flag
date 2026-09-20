@@ -47,20 +47,19 @@ def test_no_attack_uses_plain_dash_form():
 
 
 def test_attacker_wins_marks_the_defender():
-    # Rank comparison is not yet inverted (story 00000049 step 14): a Militia
-    # (rank 2) beats a Champion (rank 4), and the defender is removed.
+    # The higher-numbered rank wins (story 00000049 step 14): a Champion
+    # (rank 4) beats a Militia (rank 2), and the defender is removed.
     position = _position(
-        {_D5: (Side.WHITE, P.MILITIA), _D6: (Side.BLACK, P.CHAMPION)}
+        {_D5: (Side.WHITE, P.CHAMPION), _D6: (Side.BLACK, P.MILITIA)}
     )
     assert _annotate_move(position, CtfPly(_D5, _D6)) == "D5-D6x"
 
 
 def test_attacker_loses_marks_the_attacker():
-    # A Master-of-Arms (rank 5) attacking a Peasant (rank 1) is a complete
-    # sacrifice under the not-yet-inverted rank comparison: attacker removed,
-    # defender stays.
+    # A Peasant (rank 1) attacking a Master-of-Arms (rank 5) is a complete
+    # sacrifice: attacker removed, defender stays.
     position = _position(
-        {_D5: (Side.WHITE, P.MASTER_OF_ARMS), _D6: (Side.BLACK, P.PEASANT)}
+        {_D5: (Side.WHITE, P.PEASANT), _D6: (Side.BLACK, P.MASTER_OF_ARMS)}
     )
     assert _annotate_move(position, CtfPly(_D5, _D6)) == "D5x-D6"
 

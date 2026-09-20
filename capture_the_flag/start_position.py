@@ -99,6 +99,7 @@ def _assemble_position(
         side_to_move=Side.WHITE,
         inactivity_counter=0,
         layout=setup.layout,
+        ply_count=0,
     )
 
 

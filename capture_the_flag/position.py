@@ -42,6 +42,7 @@ class CtfPosition:
     side_to_move: Side
     inactivity_counter: int
     layout: BoardLayout
+    ply_count: int
 
     @property
     def active_player_id(self) -> Literal[1, -1]:

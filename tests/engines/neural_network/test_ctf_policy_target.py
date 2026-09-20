@@ -30,7 +30,7 @@ def _create_policy_logits_bottom_left(a1a2: float, a1a3: float, b1b2: float, b1b
 
 
 def test_transform_policies_to_white_perspective_transforms_black():
-    position = CtfPosition({}, Side.BLACK, 0, SIMPLE_64)
+    position = CtfPosition({}, Side.BLACK, 0, SIMPLE_64, 0)
 
     policy_orig: dict[str, float] = {
         "A3A4": 3.0,
@@ -46,7 +46,7 @@ def test_transform_policies_to_white_perspective_transforms_black():
     assert policy_conv["C3A3"] == 5.0
 
 def test_transform_policies_to_white_perspective_leaves_white_unchanged():
-    position = CtfPosition({}, Side.WHITE, 0, SIMPLE_64)
+    position = CtfPosition({}, Side.WHITE, 0, SIMPLE_64, 0)
 
     policy_orig: dict[str, float] = {
         "A3A4": 3.0,
@@ -67,8 +67,8 @@ def test_transform_resolves_the_frame_per_position_not_per_call():
     # frame once — from the first position, say — would rotate the White entry too
     # and pass every single-mover test above.
     positions = [
-        CtfPosition({}, Side.BLACK, 0, SIMPLE_64),
-        CtfPosition({}, Side.WHITE, 0, SIMPLE_64),
+        CtfPosition({}, Side.BLACK, 0, SIMPLE_64, 0),
+        CtfPosition({}, Side.WHITE, 0, SIMPLE_64, 0),
     ]
     policies: list[dict[str, float]] = [{"A3A4": 3.0}, {"A3A4": 3.0}]
 
@@ -79,20 +79,20 @@ def test_transform_resolves_the_frame_per_position_not_per_call():
     assert transformed[1] == {"A3A4": 3.0}   # White to move: untouched
 
 def test_transform_rejects_a_policy_batch_that_does_not_match_the_positions():
-    positions = [CtfPosition({}, Side.BLACK, 0, SIMPLE_64)]
+    positions = [CtfPosition({}, Side.BLACK, 0, SIMPLE_64, 0)]
 
     with pytest.raises(ValueError):
         transform_policies_to_white_perspective(positions, [{"A3A4": 3.0}, {"A3A4": 3.0}])
 
 def test_transform_and_loss_pipeline_correct():
-    black_position = CtfPosition({}, Side.BLACK, 0, SIMPLE_64)
+    black_position = CtfPosition({}, Side.BLACK, 0, SIMPLE_64, 0)
     black_target: dict[str, float] = {
         "C3C4": 2.5,
         "F6H6": 7.0,
     }
     black_target_conv = transform_policies_to_white_perspective([black_position], [black_target])[0]
 
-    white_position = CtfPosition({}, Side.WHITE, 0, SIMPLE_64)
+    white_position = CtfPosition({}, Side.WHITE, 0, SIMPLE_64, 0)
     white_target: dict[str, float] = {
         "F6F5": 2.5,
         "C3A3": 7.0,

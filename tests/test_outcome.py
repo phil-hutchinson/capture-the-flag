@@ -28,6 +28,7 @@ def _position(
         side_to_move=side_to_move,
         inactivity_counter=inactivity_counter,
         layout=SIMPLE_64,
+        ply_count=0,
     )
 
 

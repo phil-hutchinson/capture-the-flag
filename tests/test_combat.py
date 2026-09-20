@@ -23,6 +23,7 @@ def _position(board: dict) -> CtfPosition:
         side_to_move=Side.WHITE,
         inactivity_counter=0,
         layout=SIMPLE_64,
+        ply_count=0,
     )
 
 

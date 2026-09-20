@@ -46,6 +46,7 @@ def ongoing_position() -> CtfPosition:
         side_to_move=Side.WHITE,
         inactivity_counter=0,
         layout=_LAYOUT,
+        ply_count=0,
     )
 
 
@@ -109,6 +110,7 @@ def test_a_short_circuiting_outcome_does_not_generate_plies() -> None:
         side_to_move=Side.WHITE,
         inactivity_counter=INACTIVITY_LIMIT,
         layout=_LAYOUT,
+        ply_count=0,
     )
     with timing_session("test") as session:
         assert drawn.outcome == 0

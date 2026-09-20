@@ -45,4 +45,5 @@ def apply_ply(position: CtfPosition, ply: CtfPly) -> CtfPosition:
         side_to_move=opponent,
         inactivity_counter=new_inactivity_counter,
         layout=position.layout,
+        ply_count=position.ply_count + 1,
     )

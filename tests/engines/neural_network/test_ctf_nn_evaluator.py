@@ -48,6 +48,7 @@ def _position(board: dict, side_to_move: Side = Side.WHITE, inactivity_counter: 
         side_to_move=side_to_move,
         inactivity_counter=inactivity_counter,
         layout=SIMPLE_64,
+        ply_count=0,
     )
 
 def _matching_white_position(inactivity_counter: int = 0) -> CtfPosition:
@@ -125,7 +126,7 @@ def _setup_policy_logits(seed = 987) -> Tensor:
 
 def _setup_position_legal_plies(side: Side, monkeypatch) -> CtfPosition:
     board = {}
-    position = CtfPosition(board, side, 0, SIMPLE_64)
+    position = CtfPosition(board, side, 0, SIMPLE_64, 0)
     square_1_from = Square(0, 2) if side == Side.WHITE else Square(7, 7)
     square_1_to = Square(0, 4) if side == Side.WHITE else Square(7, 5)
     square_2_from = Square(3, 4) if side == Side.WHITE else Square(4, 5)
@@ -452,6 +453,7 @@ def _other_position(
         side_to_move=side_to_move,
         inactivity_counter=inactivity_counter,
         layout=OTHER_SETUP.layout,
+        ply_count=0,
     )
 
 def _other_full_army_position() -> CtfPosition:

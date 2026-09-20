@@ -47,6 +47,7 @@ def test_select_ply_delegates_to_the_ui_prompt():
         side_to_move=Side.WHITE,
         inactivity_counter=0,
         layout=SIMPLE_64,
+        ply_count=0,
     )
     scripted = _ScriptedPlayer(["D2D3"])
     assert scripted.player.select_ply(position) == CtfPly(Square(3, 2), Square(3, 3))

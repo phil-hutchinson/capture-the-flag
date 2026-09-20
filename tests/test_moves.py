@@ -8,13 +8,18 @@ from capture_the_flag.position import CtfPosition
 from capture_the_flag.side import Side
 
 
-def _position(board: dict, side_to_move: Side = Side.WHITE) -> CtfPosition:
+def _position(
+    board: dict, side_to_move: Side = Side.WHITE, ply_count: int = 1
+) -> CtfPosition:
+    # `ply_count` defaults non-zero: these tests exercise ordinary movement,
+    # not the game's first ply (story 00000049 step 11), which is covered
+    # separately by `test_first_ply_is_limited_to_one_square`.
     return CtfPosition(
         board=MappingProxyType(board),
         side_to_move=side_to_move,
         inactivity_counter=0,
         layout=SIMPLE_64,
-        ply_count=0,
+        ply_count=ply_count,
     )
 
 
@@ -39,6 +44,18 @@ def test_unencumbered_piece_moves_one_or_two_squares_orthogonally():
         "D2C2",
         "D2B2",  # two squares west
     }
+
+
+def test_first_ply_is_limited_to_one_square():
+    # The game's first ply (ply_count == 0) drops the two-square bonus even for
+    # an otherwise-unencumbered piece; the same board at a later ply is
+    # unaffected (story 00000049 step 11).
+    board = {Square(3, 2): (Side.WHITE, P.FOOT_SOLDIER)}
+    first_ply = _position(board, ply_count=0)
+    later_ply = _position(board, ply_count=1)
+
+    assert _ply_strings(first_ply) == {"D2D3", "D2D1", "D2E2", "D2C2"}
+    assert {"D2D4", "D2F2", "D2B2"} <= _ply_strings(later_ply)
 
 
 def test_two_square_move_needs_a_clear_intermediate_square():

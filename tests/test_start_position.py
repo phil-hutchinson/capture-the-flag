@@ -153,8 +153,9 @@ def test_opening_plies_originate_only_from_the_front_row():
     # The cheapest check that generation and the rules agree: a completely full
     # home area encloses every back-row piece (`start-position.md` Section 1),
     # so only the eight front-row (numbered) pieces can move, and only forwards.
-    # Movement's own first-ply restriction lands at step 11, so each front-row
-    # piece still has both its one- and two-square forward move here.
+    # Movement's first-ply restriction (step 11) limits each of them to one
+    # square, so there are exactly eight opening plies -- the document's
+    # stronger claim, only checkable once that restriction exists.
     layout = PRE_RELEASE_SETUP.layout
     front_row = layout.white_home_rows[-1]
     expected_sources = {Square(column, front_row) for column in range(layout.columns)}
@@ -164,10 +165,10 @@ def test_opening_plies_originate_only_from_the_front_row():
         legal_plies = position.legal_plies
 
         assert {ply.source for ply in legal_plies} == expected_sources
-        assert len(legal_plies) == 2 * layout.columns
+        assert len(legal_plies) == layout.columns
         for ply in legal_plies:
             assert ply.destination.column == ply.source.column
-            assert ply.destination.row in (ply.source.row + 1, ply.source.row + 2)
+            assert ply.destination.row == ply.source.row + 1
 
 
 # --- Position IDs (start-position.md Section 5) ------------------------------

@@ -114,6 +114,14 @@ def _diagonal_attack_squares(
             attackable.append(square)
     return attackable
 
+def _initial_plies_from_square(
+    position: "CtfPosition", source: Square, side: Side, piece: PieceType    
+) -> list[CtfPly]:
+    if piece.mobility is Mobility.IMMOBILE:
+        return []
+    destinations = _reachable_squares(position, source, side, 1)
+    destinations += _diagonal_attack_squares(position, source, side)
+    return [CtfPly(source, square) for square in destinations]
 
 def _plies_from_square(
     position: "CtfPosition", source: Square, side: Side, piece: PieceType
@@ -125,9 +133,19 @@ def _plies_from_square(
     destinations += _diagonal_attack_squares(position, source, side)
     return [CtfPly(source, square) for square in destinations]
 
+def _initial_legal_plies(position: "CtfPosition") -> tuple[CtfPly, ...]:
+    """Every legal ply for the side to move in `position`."""
+    side = position.side_to_move
+    plies: list[CtfPly] = []
+    for square, (occupant_side, piece) in position.board.items():
+        if occupant_side is side:
+            plies.extend(_initial_plies_from_square(position, square, side, piece))
+    return tuple(plies)
 
 def legal_plies(position: "CtfPosition") -> tuple[CtfPly, ...]:
     """Every legal ply for the side to move in `position`."""
+    if position.ply_count == 0:
+        return _initial_legal_plies(position)
     side = position.side_to_move
     plies: list[CtfPly] = []
     for square, (occupant_side, piece) in position.board.items():

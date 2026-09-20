@@ -87,8 +87,8 @@ machine-vs-machine game, so it can be watched).
 
 Moves are typed in the simple source–destination notation (e.g. `A2A3`);
 malformed or illegal input re-prompts with an explanation, and each turn's
-display shows the coordinate-labelled board, captured pieces, and the inactivity
-clock.
+display shows the coordinate-labelled board, each side's standing pieces by
+rank, and the inactivity clock.
 
 ## Training the engine
 

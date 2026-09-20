@@ -18,15 +18,15 @@ class CtfGameUI(GameUI[CtfPly, CtfPosition]):
     """Interactive board display and human move entry for a `CtfPosition`.
 
     `setup` is the board and army being played. The `GameUI` protocol hands
-    `render_board` a position and nothing else, and the captured-piece tally
-    needs the army that started on the board, which a position does not carry --
-    so the UI holds it for the life of the game.
+    `render_board` a position and nothing else, and the standing-piece census
+    is reported against the army that started on the board, which a position
+    does not carry -- so the UI holds it for the life of the game.
 
     It is required, and first, for the reason `CtfPosition.layout` carries no
     default: a UI that silently fell back to some other board and army would
-    tally the captures against the wrong one and report ranks the game never
-    fielded as missing. A wrong board is worth a `TypeError` at construction;
-    it is not worth a plausible-looking display.
+    measure each side's remaining strength against an army the game never
+    fielded. A wrong board is worth a `TypeError` at construction; it is not
+    worth a plausible-looking display.
 
     `input_fn` and `print_fn` default to the builtins; tests inject scripted
     replacements.

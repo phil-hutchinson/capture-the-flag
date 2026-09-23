@@ -5,7 +5,7 @@ from types import MappingProxyType
 
 import pytest
 
-from capture_the_flag.board import STANDARD_144, Square
+from capture_the_flag.board import SIMPLE_64, Square
 from capture_the_flag.combat import CombatResult, resolve_combat
 from capture_the_flag.pieces import PieceType as P
 from capture_the_flag.position import CtfPosition
@@ -22,7 +22,8 @@ def _position(board: dict) -> CtfPosition:
         board=MappingProxyType(board),
         side_to_move=Side.WHITE,
         inactivity_counter=0,
-        layout=STANDARD_144,
+        layout=SIMPLE_64,
+        ply_count=0,
     )
 
 
@@ -49,20 +50,16 @@ def _resolve(
 )
 def test_rank_order_table(attacker_piece, defender_piece):
     # No friendly neighbours on the board, so no formation bonus is in play.
+    # The higher-numbered rank is the stronger one (story 00000049 step 14).
     assert attacker_piece.rank is not None
     assert defender_piece.rank is not None
     result = _resolve(attacker_piece, defender_piece)
-    if attacker_piece.rank < defender_piece.rank:
+    if attacker_piece.rank > defender_piece.rank:
         assert result is CombatResult.ATTACKER_WINS
-    elif attacker_piece.rank > defender_piece.rank:
+    elif attacker_piece.rank < defender_piece.rank:
         assert result is CombatResult.ATTACKER_LOSES
     else:
         assert result is CombatResult.MUTUAL_LOSS
-
-
-@pytest.mark.parametrize("attacker_piece", NUMBERED_PIECES)
-def test_any_attack_on_a_tower_is_a_mutual_loss(attacker_piece):
-    assert _resolve(attacker_piece, P.TOWER) is CombatResult.MUTUAL_LOSS
 
 
 @pytest.mark.parametrize("attacker_piece", NUMBERED_PIECES)
@@ -82,44 +79,61 @@ def test_flag_capture_ignores_formation_bonus():
     )
 
 
-def test_defender_formation_bonus_draws_against_one_rank_higher():
-    # Champion (2) beats Knight (3) cleanly, but a friendly Knight beside the
-    # defending Knight turns the loss into a draw (both removed).
-    friend = {Square(4, 3): (Side.BLACK, P.KNIGHT)}  # E3, adjacent to D3
-    assert _resolve(P.CHAMPION, P.KNIGHT) is CombatResult.ATTACKER_WINS
-    assert _resolve(P.CHAMPION, P.KNIGHT, extra=friend) is CombatResult.MUTUAL_LOSS
+def test_defender_formation_bonus_draws_against_one_rank_stronger():
+    # Champion (4) beats Foot Soldier (3) cleanly, but a friendly Foot Soldier
+    # beside the defending Foot Soldier turns the loss into a draw (both
+    # removed).
+    friend = {Square(4, 3): (Side.BLACK, P.FOOT_SOLDIER)}  # E3, adjacent to D3
+    assert _resolve(P.CHAMPION, P.FOOT_SOLDIER) is CombatResult.ATTACKER_WINS
+    assert (
+        _resolve(P.CHAMPION, P.FOOT_SOLDIER, extra=friend)
+        is CombatResult.MUTUAL_LOSS
+    )
 
 
-def test_attacker_formation_bonus_draws_against_one_rank_higher():
-    # A Knight (3) attacking a Champion (2) normally loses; a friendly Knight
-    # beside the attacker (checked at its pre-move square) makes it a draw.
-    friend = {Square(4, 2): (Side.WHITE, P.KNIGHT)}  # E2, adjacent to D2
-    assert _resolve(P.KNIGHT, P.CHAMPION) is CombatResult.ATTACKER_LOSES
-    assert _resolve(P.KNIGHT, P.CHAMPION, extra=friend) is CombatResult.MUTUAL_LOSS
+def test_attacker_formation_bonus_draws_against_one_rank_stronger():
+    # A Foot Soldier (3) attacking a Champion (4) normally loses; a friendly
+    # Foot Soldier beside the attacker (checked at its pre-move square) makes
+    # it a draw.
+    friend = {Square(4, 2): (Side.WHITE, P.FOOT_SOLDIER)}  # E2, adjacent to D2
+    assert _resolve(P.FOOT_SOLDIER, P.CHAMPION) is CombatResult.ATTACKER_LOSES
+    assert (
+        _resolve(P.FOOT_SOLDIER, P.CHAMPION, extra=friend)
+        is CombatResult.MUTUAL_LOSS
+    )
 
 
 def test_formation_bonus_counts_diagonal_neighbours():
-    friend = {Square(4, 4): (Side.BLACK, P.KNIGHT)}  # E4, diagonal to D3
-    assert _resolve(P.CHAMPION, P.KNIGHT, extra=friend) is CombatResult.MUTUAL_LOSS
+    friend = {Square(4, 4): (Side.BLACK, P.FOOT_SOLDIER)}  # E4, diagonal to D3
+    assert (
+        _resolve(P.CHAMPION, P.FOOT_SOLDIER, extra=friend)
+        is CombatResult.MUTUAL_LOSS
+    )
 
 
 def test_no_formation_bonus_when_rank_gap_exceeds_one():
-    # Master-of-Arms (1) vs Knight (3): a two-rank gap, so a friendly Knight
-    # beside the defender provides no rescue.
-    friend = {Square(4, 3): (Side.BLACK, P.KNIGHT)}
-    assert _resolve(P.MASTER_OF_ARMS, P.KNIGHT, extra=friend) is (
+    # Champion (4) vs Peasant (1): more than a one-rank gap, so a friendly
+    # Peasant beside the defender provides no rescue.
+    friend = {Square(4, 3): (Side.BLACK, P.PEASANT)}
+    assert _resolve(P.CHAMPION, P.PEASANT, extra=friend) is (
         CombatResult.ATTACKER_WINS
     )
 
 
 def test_no_formation_bonus_from_a_different_rank_neighbour():
     # A friendly neighbour of a *different* rank does not form a formation.
-    friend = {Square(4, 3): (Side.BLACK, P.MILITIA)}  # rank 6, not 3
-    assert _resolve(P.CHAMPION, P.KNIGHT, extra=friend) is CombatResult.ATTACKER_WINS
+    friend = {Square(4, 3): (Side.BLACK, P.MILITIA)}  # rank 2, not 3
+    assert (
+        _resolve(P.CHAMPION, P.FOOT_SOLDIER, extra=friend)
+        is CombatResult.ATTACKER_WINS
+    )
 
 
 def test_no_formation_bonus_from_an_enemy_neighbour():
     # An equal-rank neighbour on the *attacker's* side does not help the
-    # defending Knight.
-    enemy = {Square(4, 3): (Side.WHITE, P.KNIGHT)}
-    assert _resolve(P.CHAMPION, P.KNIGHT, extra=enemy) is CombatResult.ATTACKER_WINS
+    # defending Foot Soldier.
+    enemy = {Square(4, 3): (Side.WHITE, P.FOOT_SOLDIER)}
+    assert (
+        _resolve(P.CHAMPION, P.FOOT_SOLDIER, extra=enemy)
+        is CombatResult.ATTACKER_WINS
+    )

@@ -1,4 +1,4 @@
-"""Single-game terminal runner: any kind of player vs any kind, placement to
+"""Single-game terminal runner: any kind of player vs any kind, start to
 outcome.
 
 Runnable as a module: `python -m capture_the_flag.game_runner [options]`. Each
@@ -14,16 +14,15 @@ to avoid drawing the board twice around a move the human didn't make).
 import argparse
 import random
 from collections.abc import Sequence
-from pathlib import Path
 
 from game_engine_core.models.game_result import GameResult
 
 from .game_setup import setup_for_ruleset
 from .game_ui import CtfGameUI
 from .match import play_match
-from .placement_file import DEFAULT_PLACEMENT_DIR
 from .player import PLAYER_KINDS, PlayerContext, make_player
 from .record import ACTIVE_RULESETS, DEFAULT_RULESET
+from .start_position import decode_position_id, generate_start_position, position_id
 
 
 def announce_result(result: GameResult, white_name: str, black_name: str) -> str:
@@ -68,17 +67,19 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="display name of the second-moving player (default: Black)",
     )
     parser.add_argument(
-        "-p",
-        "--placements-dir",
-        type=Path,
-        default=DEFAULT_PLACEMENT_DIR,
-        help="folder placement files are read from (default: ./placements)",
-    )
-    parser.add_argument(
         "--seed",
         type=int,
         default=None,
-        help="seed placement, random play, and neural network init for reproducibility",
+        help="seed start-position generation, random play, and neural network "
+        "init for reproducibility",
+    )
+    parser.add_argument(
+        "--start-position",
+        default=None,
+        metavar="ID",
+        help="play a specific starting position, named by its 16-character "
+        "position ID (doc/ruleset/start-position.md), instead of generating "
+        "one; overrides --seed's effect on position generation",
     )
     parser.add_argument(
         "--ruleset",
@@ -122,10 +123,14 @@ def main(argv: Sequence[str] | None = None) -> None:
             torch.manual_seed(args.seed)
 
     setup = setup_for_ruleset(args.ruleset)
+    if args.start_position is not None:
+        initial_position = decode_position_id(args.start_position, setup)
+    else:
+        initial_position = generate_start_position(setup, rng)
+    print(f"Starting position: {position_id(initial_position)}")
+
     game_ui = CtfGameUI(setup=setup)
-    context = PlayerContext(
-        game_ui=game_ui, placements_dir=args.placements_dir, rng=rng, setup=setup
-    )
+    context = PlayerContext(game_ui=game_ui, rng=rng, setup=setup)
     # Machine seats render only when there is no human in the game (so a
     # machine-vs-machine game is watchable, but a human-vs-machine game renders
     # around the human's turns alone). Human seats always render regardless.
@@ -148,7 +153,9 @@ def main(argv: Sequence[str] | None = None) -> None:
         temperature=args.temperature,
     )
 
-    match_result = play_match(white, black, setup, game_ui=game_ui)
+    match_result = play_match(
+        white, black, setup, start_position=initial_position, game_ui=game_ui
+    )
     print()
     print(announce_result(match_result.game_result, args.white_name, args.black_name))
 

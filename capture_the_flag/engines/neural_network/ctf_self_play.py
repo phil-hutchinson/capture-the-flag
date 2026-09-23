@@ -2,8 +2,8 @@
 
 Composes the shared `SelfPlayCollector` from the game-specific pieces: the
 learned-engine evaluator, the engine factory (self-play search budget +
-exploration temperature), the random-placement position factory, and the
-capture-time policy transform.
+exploration temperature), the start-position factory, and the capture-time
+policy transform.
 
 The transform is the load-bearing wiring. It re-keys each MCTS visit
 distribution into the network's white-normalized frame *while the collector

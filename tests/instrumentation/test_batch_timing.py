@@ -37,7 +37,7 @@ def test_the_record_holds_the_whole_tree_under_one_root(tmp_path: Path) -> None:
     play_games = next(
         child for child in timings["children"] if child["name"] == PLAY_GAMES
     )
-    # Two games, so the placement callback ran twice inside the shared runner.
+    # Two games, so the position factory ran twice inside the shared runner.
     starting = next(
         child for child in play_games["children"] if child["name"] == "starting-position"
     )

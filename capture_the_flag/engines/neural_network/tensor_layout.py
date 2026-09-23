@@ -4,16 +4,15 @@
 a network is built at, and the engine-spec name a checkpoint trained against them
 is stamped with. It is derived from a `GameSetup`, so a run plays, encodes, and
 trains under one configuration rather than under a build constant — the plane
-layout below is the same for every setup, but its extent and its per-rank
-normalisers are not.
+layout below is the same for every setup, but its extent is not.
 
 The plane indices, `TOTAL_FP_COUNT`, and `MOVEMENT_INDEX` stay module constants
 because they are the part of the contract that does *not* vary: every
-composition encodes into the same thirty-four planes, and every board addresses
+composition encodes into the same fourteen planes, and every board addresses
 the same twelve movement offsets. That is deliberate rather than incidental — see
 `TOTAL_FP_COUNT` and `MOVEMENTS_PER_POSITION` below.
 
-The specification these constants implement is `doc/neuralnetwork/eng-nn-3.md`.
+The specification these constants implement is `doc/neuralnetwork/eng-nn-4.md`.
 """
 
 from dataclasses import dataclass, field
@@ -26,63 +25,29 @@ from ...pieces import ArmyComposition
 # checkpoint saved against a superseded spec is rejected at load time instead of
 # silently mismapping onto the current, differently-shaped input (see
 # ctf_checkpoint.py).
-#
-# ENG_NN_3 supersedes ENG_NN_2 (doc/neuralnetwork/eng-nn-2.md) because major 2's
-# diagonal attack is exactly the case doc/neuralnetwork/README.md names as
-# forcing a new spec: ply geometry the old action space cannot address.
-ENGINE_SPEC_NAME = "ENG_NN_3"
+ENGINE_SPEC_NAME = "ENG_NN_4"
 
 # Feature Planes:
 FP_OUR_FLAG = 0
-FP_OUR_TOWER = 1
-FP_OUR_RANK_1 = 2
-FP_OUR_RANK_2 = 3
-FP_OUR_RANK_3 = 4
-FP_OUR_RANK_4 = 5
-FP_OUR_RANK_5 = 6
-FP_OUR_RANK_6 = 7
-FP_THEIR_FLAG = 8
-FP_THEIR_TOWER = 9
-FP_THEIR_RANK_1 = 10
-FP_THEIR_RANK_2 = 11
-FP_THEIR_RANK_3 = 12
-FP_THEIR_RANK_4 = 13
-FP_THEIR_RANK_5 = 14
-FP_THEIR_RANK_6 = 15
-FP_PASSABLE = 16
-FP_INACTIVITY_COUNT = 17
-# Engineered Planes
-FP_OUR_FLAG_RELATIVE_ROW = 18
-FP_OUR_FLAG_RELATIVE_COLUMN = 19
-FP_THEIR_FLAG_RELATIVE_ROW = 20
-FP_THEIR_FLAG_RELATIVE_COLUMN = 21
-FP_OUR_RANK_1_QUANTITY = 22
-FP_OUR_RANK_2_QUANTITY = 23
-FP_OUR_RANK_3_QUANTITY = 24
-FP_OUR_RANK_4_QUANTITY = 25
-FP_OUR_RANK_5_QUANTITY = 26
-FP_OUR_RANK_6_QUANTITY = 27
-FP_THEIR_RANK_1_QUANTITY = 28
-FP_THEIR_RANK_2_QUANTITY = 29
-FP_THEIR_RANK_3_QUANTITY = 30
-FP_THEIR_RANK_4_QUANTITY = 31
-FP_THEIR_RANK_5_QUANTITY = 32
-FP_THEIR_RANK_6_QUANTITY = 33
+FP_OUR_RANK_5 = 1
+FP_OUR_RANK_4 = 2
+FP_OUR_RANK_3 = 3
+FP_OUR_RANK_2 = 4
+FP_OUR_RANK_1 = 5
+FP_THEIR_FLAG = 6
+FP_THEIR_RANK_5 = 7
+FP_THEIR_RANK_4 = 8
+FP_THEIR_RANK_3 = 9
+FP_THEIR_RANK_2 = 10
+FP_THEIR_RANK_1 = 11
+FP_PASSABLE = 12
+FP_INACTIVITY_COUNT = 13
 
-TOTAL_FP_COUNT = 34
-"""The plane count, which is **one number across every composition**.
-
-An army fielding no Foot Soldier still encodes into a tensor with a Foot Soldier
-presence plane and a Foot Soldier quantity plane; both simply read zero
-throughout. Dropping the unused planes would shrink `standard_skirmish`'s input
-by four channels and make the two compositions two different contracts, under
-which the question of whether a Battle-trained trunk transfers to Skirmish could
-not even be asked. Keeping the layout fixed leaves that an open experiment rather
-than a foreclosed one, at the cost of four dead channels on the smaller army."""
+TOTAL_FP_COUNT = 14
 
 # Every offset a legal ply can have, in three groups: the one-square orthogonal
 # step, the two-square orthogonal step the unencumbered bonus allows, and the
-# one-square diagonal attack added to the baseline at major 2 (rules.md 4.3).
+# one-square diagonal attack added to the baseline at major 2 (rules.md 4.4).
 #
 # The diagonals are appended rather than interleaved so the orthogonal indices
 # keep the values they had under ENG_NN_2 — which buys nothing at load time
@@ -120,12 +85,11 @@ every layout; only how many source squares they are addressed *from* changes."""
 class TensorLayout:
     """The shapes and spec name one board and army encode to.
 
-    Held as a value rather than read from module constants because several
-    rulesets are live and their boards differ: a 12 x 12 encoder, a 10 x 10 one
-    and an 8 x 8 one are three incompatible tensor contracts, and a position from
-    the wrong one would index cleanly into another rather than failing.
-    Everything that builds a network, encodes a position, or stamps a checkpoint
-    takes one of these.
+    Held as a value rather than read from module constants because a board is a
+    property of the ruleset, not a build default: a position from a differently
+    shaped board would index cleanly into this one's tensor rather than failing,
+    so the contract has to be checked rather than assumed. Everything that builds
+    a network, encodes a position, or stamps a checkpoint takes one of these.
 
     Board and composition are held separately rather than as the `GameSetup` they
     came from: two setups resolved from different configurations that reach the

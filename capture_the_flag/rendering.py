@@ -7,13 +7,12 @@ at the left — as one line per board row, cells space-separated. This is the sa
 string reused by the game-record file and the library-facing `text_board`.
 `parse_position_block` is its inverse.
 
-**The block is size-describing, not fully self-describing.** Since major 2 the
-board is a rectangular grid of any size, so a reader recovers its *dimensions* by
-counting lines and cells and its *lakes* from the `XXX` cells — which is why
-parsing needs no layout, while rendering does. What the block cannot carry is the
-home-zone row count: a mid-game position does not reveal where the home zones
-were. Nothing here needs it, and anything that does reads it from the
-configuration's `BOARD_LAYOUT` value.
+**The block is size-describing, not fully self-describing.** The board is a
+rectangular grid of any size, so a reader recovers its *dimensions* by counting
+lines and cells — which is why parsing needs no layout, while rendering does.
+What the block cannot carry is the home-zone row count: a mid-game position does
+not reveal where the home zones were. Nothing here needs it, and anything that
+does reads it from the configuration's `BOARD_LAYOUT` value.
 """
 
 from collections.abc import Mapping
@@ -25,13 +24,11 @@ from .side import Side
 Board = Mapping[Square, tuple[Side, PieceType]]
 
 
-def _render_cell(square: Square, board: Board, layout: BoardLayout) -> str:
+def _render_cell(square: Square, board: Board) -> str:
     occupant = board.get(square)
     if occupant is not None:
         side, piece = occupant
         return f"[{piece.symbol}]" if side is Side.WHITE else f"*{piece.symbol}*"
-    if layout.is_lake(square):
-        return "XXX"
     return "---"
 
 
@@ -39,14 +36,13 @@ def render_position_block(board: Board, layout: BoardLayout) -> str:
     """The position block for `board` on `layout`.
 
     One line per board row of space-separated 3-character cells: `[R]` a White
-    piece, `*R*` a Black piece, `XXX` a lake, `---` an empty square. The
-    highest-numbered row is the first line, row 1 the last; column A is the first
-    cell of every line.
+    piece, `*R*` a Black piece, `---` an empty square. The highest-numbered row
+    is the first line, row 1 the last; column A is the first cell of every line.
     """
     lines = []
     for row in range(layout.rows, 0, -1):
         cells = (
-            _render_cell(Square(column, row), board, layout)
+            _render_cell(Square(column, row), board)
             for column in range(layout.columns)
         )
         lines.append(" ".join(cells))
@@ -54,7 +50,7 @@ def render_position_block(board: Board, layout: BoardLayout) -> str:
 
 
 def _parse_cell(cell: str) -> tuple[Side, PieceType] | None:
-    if cell == "---" or cell == "XXX":
+    if cell == "---":
         return None
     if len(cell) == 3 and cell[0] == "[" and cell[2] == "]":
         return Side.WHITE, _piece_from_symbol(cell[1])

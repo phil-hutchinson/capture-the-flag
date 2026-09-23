@@ -164,7 +164,7 @@ def train_generations(
     if config.seed is not None:
         # Seed every stochastic source so the run is reproducible given the same
         # environment: torch (network init), the process-global `random` (the
-        # search draws from it), and the placement factory (its own rng, seeded
+        # search draws from it), and the position factory (its own rng, seeded
         # here so the self-play games are reproducible too rather than drawn from
         # OS entropy).
         torch.manual_seed(config.seed)

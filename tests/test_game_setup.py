@@ -1,60 +1,56 @@
 """Tests for `GameSetup`: the board and army pairing, and which pairings are
-playable at all (rules.md Appendix A, "Combining these two")."""
+playable at all (rules.md Section 2)."""
 
 import dataclasses
 
 import pytest
 
-from capture_the_flag.board import STANDARD_144, BoardLayout, Square
+from capture_the_flag.board import SIMPLE_64, BoardLayout
 from capture_the_flag.game_setup import (
-    BATTLE_SETUP,
-    SPACING_AND_LANES,
+    PRE_RELEASE_SETUP,
     GameSetup,
     resolve_setup,
     setup_for_ruleset,
 )
-from capture_the_flag.pieces import STANDARD_BATTLE, ArmyComposition, PieceType
-from capture_the_flag.record import (
-    RulesetConfiguration,
-    active_configuration,
-    unsupported_aspects,
-)
-from capture_the_flag.side import Side
+from capture_the_flag.pieces import STANDARD_ARMY, ArmyComposition, PieceType
+from capture_the_flag.record import RulesetConfiguration, active_configuration
 
 _SMALL_BOARD = BoardLayout(
     layout_id="small",
     columns=4,
     rows=8,
     home_rows=2,  # 8 home squares per side
-    lake_rows=(4, 5),
-    lake_pattern=(False, True, True, False),
 )
 
 
-def test_battle_setup_pairs_the_battle_board_and_army():
-    assert BATTLE_SETUP.layout is STANDARD_144
-    assert BATTLE_SETUP.composition is STANDARD_BATTLE
-    # 25 pieces into 48 home squares, so the home zone is not full and a player
-    # has a choice of which squares to occupy (rules.md Section 2.1).
-    assert BATTLE_SETUP.composition.size < len(STANDARD_144.white_home_squares)
+def test_pre_release_setup_pairs_the_board_and_army():
+    assert PRE_RELEASE_SETUP.layout is SIMPLE_64
+    assert PRE_RELEASE_SETUP.composition is STANDARD_ARMY
+    # 16 pieces into 16 home squares: the home zone is completely full, since
+    # major 3's army must fill it exactly rather than merely fit (rules.md
+    # Section 2).
+    assert PRE_RELEASE_SETUP.composition.size == len(SIMPLE_64.white_home_squares)
 
 
-def test_an_army_that_does_not_fit_its_home_zone_is_rejected():
-    # The shape of the invalid combination the rules name: an army must fit one
-    # piece per home square. `standard_battle` on `standard_64` is this case
-    # (25 pieces, 24 squares); here it is 9 into 8.
-    too_big = ArmyComposition(
+def test_an_army_that_underfills_its_home_zone_is_rejected():
+    too_few = ArmyComposition(
+        composition_id="seven_pieces",
+        counts={PieceType.MASTER_OF_ARMS: 6, PieceType.FLAG: 1},
+    )
+    with pytest.raises(ValueError, match="does not fill"):
+        GameSetup(layout=_SMALL_BOARD, composition=too_few)
+
+
+def test_an_army_that_overflows_its_home_zone_is_rejected():
+    too_many = ArmyComposition(
         composition_id="nine_pieces",
         counts={PieceType.MASTER_OF_ARMS: 8, PieceType.FLAG: 1},
     )
-    with pytest.raises(ValueError, match="does not fit"):
-        GameSetup(layout=_SMALL_BOARD, composition=too_big)
+    with pytest.raises(ValueError, match="does not fill"):
+        GameSetup(layout=_SMALL_BOARD, composition=too_many)
 
 
 def test_an_army_exactly_filling_its_home_zone_is_allowed():
-    # Exactly filling is playable, if joyless: every square is occupied, so
-    # placement offers no choice. The rules bar an army that cannot fit, not one
-    # that fits with nothing to spare.
     exact = ArmyComposition(
         composition_id="eight_pieces",
         counts={PieceType.MASTER_OF_ARMS: 7, PieceType.FLAG: 1},
@@ -64,10 +60,10 @@ def test_an_army_exactly_filling_its_home_zone_is_allowed():
 
 
 def test_resolve_setup_builds_what_the_active_edition_names():
-    setup = resolve_setup(active_configuration("2-0:BATTLE"))
-    assert setup == BATTLE_SETUP
-    assert setup.layout.layout_id == "standard_144"
-    assert setup.composition.composition_id == "standard_battle"
+    setup = resolve_setup(active_configuration("3-0:PRE-RELEASE"))
+    assert setup == PRE_RELEASE_SETUP
+    assert setup.layout.layout_id == "simple_64"
+    assert setup.composition.composition_id == "standard_army"
 
 
 def test_resolve_setup_refuses_a_historical_edition():
@@ -83,54 +79,25 @@ def test_resolve_setup_refuses_an_edition_it_has_never_heard_of():
         resolve_setup(RulesetConfiguration("9-9:BERSERKER"))
 
 
-def test_the_published_invalid_combination_is_refused():
-    # The combination the rules name where they introduce the two flags: the
-    # 25-piece Battle army on the 8 x 8 Skirmish board asks 25 pieces to occupy
-    # 24 home squares. Both labels are published and both are built here — it is
-    # the *pairing* that cannot be played, which is why this is the only check
-    # `GameSetup` can make and the only place it can make it.
+def test_resolve_setup_refuses_any_flag_deviation():
+    # Major 3 publishes no flags at all (`record.RULE_FLAGS`) -- the board and
+    # army are each a single value named directly by the edition -- so a
+    # configuration naming a flag, any flag, is beyond this build.
     configuration = RulesetConfiguration(
-        "2-0:BATTLE", {"BOARD_LAYOUT": "standard_64"}
+        "3-0:PRE-RELEASE", {"BOARD_LAYOUT": "standard_64"}
     )
-    assert unsupported_aspects(configuration) == []  # nothing unpublished here
-    with pytest.raises(ValueError, match="25 pieces into 24 home squares"):
+    with pytest.raises(ValueError, match="no such flag"):
         resolve_setup(configuration)
 
 
-def test_a_deviating_flag_actually_changes_what_is_resolved():
-    # The mechanism the flag model rests on: a configuration deviating from its
-    # edition resolves to something its edition alone would not. Skirmish's army
-    # on Skirmish's board via a deviation from BATTLE is the same setup
-    # `2-1:SKIRMISH` names — reached by two routes, which is what makes flags
-    # rather than editions the unit of variation.
-    deviating = RulesetConfiguration(
-        "2-0:BATTLE",
-        {
-            "BOARD_LAYOUT": "standard_64",
-            "ARMY_COMPOSITION": "standard_skirmish",
-            "TOWER_PLACEMENT": "spacing_and_lanes",
-        },
-    )
-    resolved = resolve_setup(deviating)
-    skirmish = setup_for_ruleset("SKIRMISH")
-    assert resolved.layout is skirmish.layout
-    assert resolved.composition is skirmish.composition
-    assert resolved.tower_placement == skirmish.tower_placement
-    # Same rules, different stamp: the deviation is recorded as what it is rather
-    # than silently renamed to the edition that happens to mean the same.
-    assert resolved.stamp != skirmish.stamp
-
-
 def test_a_ruleset_name_resolves_to_its_current_edition():
-    # The pointer the vocabulary describes: a ruleset name is mutable, an edition
-    # is not, so `BATTLE` means whichever `<major>-<minor>:BATTLE` is Active now.
-    setup = setup_for_ruleset("BATTLE")
-    assert setup.stamp.edition == "2-0:BATTLE"
-    assert setup == BATTLE_SETUP
+    setup = setup_for_ruleset("PRE-RELEASE")
+    assert setup.stamp.edition == "3-0:PRE-RELEASE"
+    assert setup == PRE_RELEASE_SETUP
 
 
 def test_a_ruleset_name_is_matched_case_insensitively():
-    assert setup_for_ruleset("battle") == setup_for_ruleset("BATTLE")
+    assert setup_for_ruleset("pre-release") == setup_for_ruleset("PRE-RELEASE")
 
 
 def test_an_unknown_ruleset_name_names_the_live_ones():
@@ -138,77 +105,18 @@ def test_an_unknown_ruleset_name_names_the_live_ones():
         setup_for_ruleset("BERSERKER")
 
 
-def test_skirmish_resolves_to_its_published_board_and_army():
-    setup = setup_for_ruleset("SKIRMISH")
-    assert setup.stamp.edition == "2-1:SKIRMISH"
-    # 8 x 8, 3 home rows each side, 2 lake rows, no neutral buffer.
-    assert (setup.layout.columns, setup.layout.rows) == (8, 8)
-    assert setup.layout.white_home_rows == range(1, 4)
-    assert setup.layout.black_home_rows == range(6, 9)
-    assert setup.layout.lake_rows == (4, 5)
-    # Two separate 2 x 2 lakes on columns B/C and F/G.
-    assert setup.layout.lake_squares == {
-        Square(column, row) for row in (4, 5) for column in (1, 2, 5, 6)
-    }
-    # 16 pieces into 24 home squares — 67% filled, against Battle's 52%.
-    assert setup.composition.size == 16
-    assert len(setup.layout.white_home_squares) == 24
-    # Ranks 5 and 6 do not appear.
-    assert setup.composition.count(PieceType.FOOT_SOLDIER) == 0
-    assert setup.composition.count(PieceType.MILITIA) == 0
-
-
-def test_clash_resolves_to_its_published_board_and_army():
-    setup = setup_for_ruleset("CLASH")
-    assert setup.stamp.edition == "2-0:CLASH"
-    # 10 x 10, 3 home rows each side, 2 lake rows, a buffer row on each side.
-    assert (setup.layout.columns, setup.layout.rows) == (10, 10)
-    assert setup.layout.white_home_rows == range(1, 4)
-    assert setup.layout.black_home_rows == range(8, 11)
-    assert setup.layout.lake_rows == (5, 6)
-    # Lakes on columns A, D and G-I: unequal widths, and no lane at the left
-    # edge, which no other published board does.
-    assert setup.layout.lake_squares == {
-        Square(column, row) for row in (5, 6) for column in (0, 3, 6, 7, 8)
-    }
-    # 20 pieces into 30 home squares — 67% filled, as Skirmish is.
-    assert setup.composition.size == 20
-    assert len(setup.layout.white_home_squares) == 30
-    # Rank 6 does not appear; rank 5, which Skirmish also drops, does.
-    assert setup.composition.count(PieceType.FOOT_SOLDIER) == 3
-    assert setup.composition.count(PieceType.MILITIA) == 0
-
-
-def test_the_lane_restriction_closes_nothing_on_clash_under_either_value():
-    # Clash publishes `spacing_only`, but the reason to leave it there is that
-    # the other value would be inert: the restriction closes a square only where
-    # a home zone abuts a lake row, and Clash has a buffer row on each side, as
-    # Battle does. Asserting it under *both* values is what makes that a property
-    # of the board rather than of the edition's choice.
-    clash = setup_for_ruleset("CLASH")
-    lanes_on = resolve_setup(
-        RulesetConfiguration(
-            edition="2-0:CLASH", flags={"TOWER_PLACEMENT": SPACING_AND_LANES}
-        )
-    )
-    for setup in (clash, lanes_on):
-        for side in Side:
-            assert setup.forbidden_tower_squares(side) == frozenset()
-
-
 def test_a_resolved_setup_carries_what_to_stamp_it_as():
-    assert BATTLE_SETUP.stamp.render() == "2-0:BATTLE"
+    assert PRE_RELEASE_SETUP.stamp.render() == "3-0:PRE-RELEASE"
 
 
 def test_a_hand_built_setup_has_nothing_to_stamp_itself_as():
-    # A board and an army are independent flags, so a playable pairing can exist
-    # that no published edition names. It plays; it cannot be recorded, because
-    # there is no honest thing to write in the Ruleset tag.
+    # Not every playable pairing is a published one: it plays, but it cannot be
+    # recorded, because there is no honest thing to write in the Ruleset tag.
     ad_hoc = GameSetup(
         layout=_SMALL_BOARD,
         composition=ArmyComposition(
-            composition_id="two_pieces",
-            counts={PieceType.MASTER_OF_ARMS: 1, PieceType.FLAG: 1},
+            composition_id="eight_pieces",
+            counts={PieceType.MASTER_OF_ARMS: 7, PieceType.FLAG: 1},
         ),
     )
     assert ad_hoc.configuration is None
@@ -217,41 +125,13 @@ def test_a_hand_built_setup_has_nothing_to_stamp_itself_as():
 
 
 def test_a_setup_cannot_carry_a_configuration_that_describes_another_game():
-    # The mirror of the case above: a setup with no configuration cannot be
-    # stamped, and one whose configuration resolves to different rules must not
-    # exist at all. `2-0:BATTLE` resolves TOWER_PLACEMENT to `spacing_only`, so a
-    # setup playing `spacing_and_lanes` under that stamp would record every game
-    # as having been played under rules it was not.
-    with pytest.raises(ValueError, match="cannot be stamped '2-0:BATTLE'"):
-        dataclasses.replace(BATTLE_SETUP, tower_placement=SPACING_AND_LANES)
-
-
-def test_the_mismatch_names_every_flag_that_disagrees():
-    # A setup assembled from another edition's board and army disagrees on both,
-    # and reporting them together is what makes a wrong configuration one read
-    # rather than three.
-    skirmish = setup_for_ruleset("SKIRMISH")
-    with pytest.raises(ValueError) as rejection:
-        GameSetup(
-            layout=skirmish.layout,
-            composition=skirmish.composition,
-            configuration=BATTLE_SETUP.stamp,
-            tower_placement=SPACING_AND_LANES,
-        )
-    message = str(rejection.value)
-    assert "BOARD_LAYOUT" in message
-    assert "ARMY_COMPOSITION" in message
-    assert "TOWER_PLACEMENT" in message
-
-
-def test_a_deviating_flag_is_a_configuration_a_setup_can_carry():
-    # Deviation is not mismatch: a configuration that names the deviation
-    # resolves to the setup's own fields and is stampable, which is how a variant
-    # is played before any edition adopts it.
-    setup = resolve_setup(
-        RulesetConfiguration(
-            edition="2-0:BATTLE", flags={"TOWER_PLACEMENT": SPACING_AND_LANES}
-        )
+    # A setup whose configuration resolves to a different board or army must
+    # not exist: `3-0:PRE-RELEASE` resolves to `simple_64` / `standard_army`, so
+    # a setup naming some other pairing under that stamp would record every
+    # game as having been played under rules it was not.
+    other_army = ArmyComposition(
+        composition_id="other_army",
+        counts={PieceType.MASTER_OF_ARMS: 15, PieceType.FLAG: 1},
     )
-    assert setup.tower_placement == SPACING_AND_LANES
-    assert setup.stamp.render() == "2-0:BATTLE TOWER_PLACEMENT=spacing_and_lanes"
+    with pytest.raises(ValueError, match="cannot be stamped '3-0:PRE-RELEASE'"):
+        dataclasses.replace(PRE_RELEASE_SETUP, composition=other_army)

@@ -2,11 +2,12 @@
 
 from types import MappingProxyType
 
-from capture_the_flag.board import STANDARD_144, Square
+from capture_the_flag.board import SIMPLE_64, Square
 from capture_the_flag.outcome import (
+    REASON_ATTRITION,
     REASON_FLAG_CAPTURED,
     REASON_INACTIVITY,
-    REASON_NO_LEGAL_MOVE,
+    REASON_MUTUAL_ATTRITION,
 )
 from capture_the_flag.pieces import PieceType as P
 from capture_the_flag.position import CtfPosition
@@ -14,8 +15,8 @@ from capture_the_flag.side import Side
 
 # Neutral squares to park each side's Flag in tests that aren't about flag
 # capture -- the outcome check for Section 5.1 requires both to be present.
-_WHITE_FLAG_SQUARE = Square(11, 1)  # L1
-_BLACK_FLAG_SQUARE = Square(11, 12)  # L12
+_WHITE_FLAG_SQUARE = Square(7, 1)  # H1
+_BLACK_FLAG_SQUARE = Square(7, 8)  # H8
 
 
 def _position(
@@ -27,7 +28,8 @@ def _position(
         board=MappingProxyType(board),
         side_to_move=side_to_move,
         inactivity_counter=inactivity_counter,
-        layout=STANDARD_144,
+        layout=SIMPLE_64,
+        ply_count=0,
     )
 
 
@@ -41,13 +43,22 @@ def _ongoing_board() -> dict:
     }
 
 
-def _boxed_in_white_board() -> dict:
-    # White has only immobile pieces (Flag + Tower), so no legal ply.
+def _white_attrition_board() -> dict:
+    # White holds nothing but its Flag -- no numbered pieces, an immediate
+    # loss for White regardless of whose turn it is (rules.md Section 5.2).
     return {
-        Square(0, 1): (Side.WHITE, P.FLAG),
-        Square(0, 2): (Side.WHITE, P.TOWER),
+        _WHITE_FLAG_SQUARE: (Side.WHITE, P.FLAG),
         _BLACK_FLAG_SQUARE: (Side.BLACK, P.FLAG),
         Square(5, 8): (Side.BLACK, P.FOOT_SOLDIER),
+    }
+
+
+def _mutual_attrition_board() -> dict:
+    # Neither side has a numbered piece left, as if a single ply had just
+    # traded off each side's last piece at once (rules.md Section 5.3).
+    return {
+        _WHITE_FLAG_SQUARE: (Side.WHITE, P.FLAG),
+        _BLACK_FLAG_SQUARE: (Side.BLACK, P.FLAG),
     }
 
 
@@ -75,38 +86,53 @@ def test_opponents_flag_missing_is_a_win():
     assert position.outcome == 1
 
 
-def test_no_legal_move_is_a_loss():
-    position = _position(_boxed_in_white_board(), side_to_move=Side.WHITE)
-    assert position.legal_plies == ()
+def test_attrition_is_a_loss_for_the_side_with_no_army():
+    white_to_move = _position(_white_attrition_board(), side_to_move=Side.WHITE)
+    assert white_to_move.outcome == -1
+
+    black_to_move = _position(_white_attrition_board(), side_to_move=Side.BLACK)
+    assert black_to_move.outcome == 1  # Black's opponent has no army
+
+
+def test_mutual_attrition_is_a_draw():
+    position = _position(_mutual_attrition_board())
+    assert position.outcome == 0
+
+
+def test_mutual_attrition_precedes_single_sided_attrition():
+    # Both the mutual case and the single-sided case are satisfied by this
+    # board; the mutual check runs first, so the result is a draw rather than
+    # a win for whichever side happens to be "active".
+    for side in (Side.WHITE, Side.BLACK):
+        position = _position(_mutual_attrition_board(), side_to_move=side)
+        assert position.outcome == 0
+
+
+def test_attrition_precedes_inactivity():
+    # Even with the inactivity counter also at its limit, an emptied army
+    # reports as attrition.
+    position = _position(
+        _white_attrition_board(), side_to_move=Side.WHITE, inactivity_counter=40
+    )
     assert position.outcome == -1
+    assert position.outcome_reason == REASON_ATTRITION
 
 
 def test_inactivity_at_limit_is_a_draw():
-    position = _position(_ongoing_board(), inactivity_counter=50)
+    position = _position(_ongoing_board(), inactivity_counter=40)
     assert position.outcome == 0
 
 
 def test_inactivity_draw_is_side_independent():
     # The shared counter draws for whoever is to move.
-    white = _position(_ongoing_board(), side_to_move=Side.WHITE, inactivity_counter=50)
-    black = _position(_ongoing_board(), side_to_move=Side.BLACK, inactivity_counter=50)
+    white = _position(_ongoing_board(), side_to_move=Side.WHITE, inactivity_counter=40)
+    black = _position(_ongoing_board(), side_to_move=Side.BLACK, inactivity_counter=40)
     assert white.outcome == 0
     assert black.outcome == 0
 
 
-def test_inactivity_draw_precedes_active_no_legal_move():
-    # White is boxed in, but the shared counter already hit its limit on Black's
-    # previous ply -- the game ended in a draw before White's turn begins, rather
-    # than as a White loss for having no legal move.
-    position = _position(
-        _boxed_in_white_board(), side_to_move=Side.WHITE, inactivity_counter=50
-    )
-    assert position.legal_plies == ()  # White really is boxed in
-    assert position.outcome == 0
-
-
 def test_below_inactivity_limit_is_still_ongoing():
-    position = _position(_ongoing_board(), inactivity_counter=49)
+    position = _position(_ongoing_board(), inactivity_counter=39)
     assert position.outcome is None
 
 
@@ -130,12 +156,16 @@ def test_flag_capture_reason():
     assert position.outcome_reason == REASON_FLAG_CAPTURED
 
 
-def test_no_legal_move_reason():
-    position = _position(_boxed_in_white_board(), side_to_move=Side.WHITE)
-    assert position.legal_plies == ()
-    assert position.outcome_reason == REASON_NO_LEGAL_MOVE
+def test_attrition_reason():
+    position = _position(_white_attrition_board(), side_to_move=Side.WHITE)
+    assert position.outcome_reason == REASON_ATTRITION
+
+
+def test_mutual_attrition_reason():
+    position = _position(_mutual_attrition_board())
+    assert position.outcome_reason == REASON_MUTUAL_ATTRITION
 
 
 def test_inactivity_reason():
-    position = _position(_ongoing_board(), inactivity_counter=50)
+    position = _position(_ongoing_board(), inactivity_counter=40)
     assert position.outcome_reason == REASON_INACTIVITY

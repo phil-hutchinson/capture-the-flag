@@ -2,11 +2,12 @@
 
 Pure rules over `(position, attacker square, defender square)`: the pieces on
 each square determine rank, and the board context determines the special cases
--- Flag capture (always an attacker win), Tower attacks (always a mutual loss),
+-- Flag capture (always an attacker win),
 and the formation bonus, under which a piece with a friendly equal-rank piece
-within one square draws against a piece one rank higher instead of losing.
-Legality of the attack itself is a move-generation concern (see `moves.py`);
-this module only decides the *result* of an attack already determined legal.
+within one square draws against a piece one rank stronger instead of losing.
+The higher-numbered rank is the stronger one. Legality of the attack itself is
+a move-generation concern (see `moves.py`); this module only decides the
+*result* of an attack already determined legal.
 """
 
 from enum import Enum
@@ -59,41 +60,38 @@ def resolve_combat(
 
     Assumes `attacker` and `defender` are a legal attack (see `moves.py`):
     orthogonally in line, or immediately diagonal, and occupied by opposing
-    sides. The attacker is always a mobile, numbered piece (Towers and the Flag
-    never attack).
+    sides. The attacker is always a mobile, numbered piece (the Flag
+    never attacks).
 
     **Nothing here depends on the direction the attack came from.** Rank, equal
-    rank, and the formation bonus resolve a diagonal attack exactly as they
-    resolve an orthogonal one, so diagonal attack (baseline since major 2) needed
-    no change in this module. The two outcomes a diagonal attack cannot produce
-    -- Flag capture and Tower destruction -- are excluded at generation time by
-    the movable-target rule, not here.
+    rank, the formation bonus, and Flag capture resolve a diagonal attack
+    exactly as they resolve an orthogonal one -- the Flag has no immunity to
+    diagonal attack (rules.md Section 4.4) -- so diagonal attack needed no
+    change in this module.
     """
     attacker_side, attacker_piece = position.board[attacker]
     defender_side, defender_piece = position.board[defender]
 
-    # Capturing the Flag is an immediate win; attacking a Tower is a mutual loss
+    # Capturing the Flag is an immediate win
     # regardless of the attacker's rank (rules.md Section 4.3).
     if defender_piece is PieceType.FLAG:
         return CombatResult.ATTACKER_WINS
-    if defender_piece is PieceType.TOWER:
-        return CombatResult.MUTUAL_LOSS
 
     attacker_rank = attacker_piece.rank
     defender_rank = defender_piece.rank
-    assert attacker_rank is not None, "a Tower or Flag cannot attack"
-    assert defender_rank is not None, "Tower/Flag defenders are handled above"
+    assert attacker_rank is not None, "a Flag cannot attack"
+    assert defender_rank is not None, "Flag defenders are handled above"
 
     # Equal rank is always a draw; the formation bonus only ever rescues the
     # weaker piece in a one-rank mismatch, so it cannot change this outcome.
     if attacker_rank == defender_rank:
         return CombatResult.MUTUAL_LOSS
 
-    if attacker_rank < defender_rank:
+    if attacker_rank > defender_rank:
         # The attacker is stronger. The defender loses unless it is exactly one
         # rank weaker and has the formation bonus, which turns its loss into a
         # draw (both removed).
-        if defender_rank == attacker_rank + 1 and _has_formation_bonus(
+        if defender_rank == attacker_rank - 1 and _has_formation_bonus(
             position, defender, defender_side, defender_rank
         ):
             return CombatResult.MUTUAL_LOSS
@@ -101,7 +99,7 @@ def resolve_combat(
 
     # The attacker is weaker. It loses unless it is exactly one rank weaker and
     # has the formation bonus, checked at its pre-move square.
-    if attacker_rank == defender_rank + 1 and _has_formation_bonus(
+    if attacker_rank == defender_rank - 1 and _has_formation_bonus(
         position, attacker, attacker_side, attacker_rank
     ):
         return CombatResult.MUTUAL_LOSS

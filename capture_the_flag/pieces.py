@@ -23,10 +23,9 @@ from types import MappingProxyType
 class Mobility(Enum):
     """How a piece is permitted to move, independent of combat legality.
 
-    Under the revamped ruleset every mobile piece shares one movement rule (a
-    one-square orthogonal step, extended to two when unencumbered — see
-    `moves.py`), so mobility is a simple binary: the Tower and Flag never move,
-    everything else does.
+    Every mobile piece shares one movement rule (a one-square orthogonal step,
+    extended to two when unencumbered — see `moves.py`), so mobility is a
+    simple binary: the Flag never moves, everything else does.
     """
 
     IMMOBILE = "immobile"
@@ -34,11 +33,11 @@ class Mobility(Enum):
 
 
 class PieceType(Enum):
-    """One of the eight piece types, with its rank, symbol, and mobility.
+    """One of the six piece types, with its rank, symbol, and mobility.
 
-    `rank` is `None` for the two pieces that never fight by rank (Tower, Flag);
-    the six numbered pieces form a strict strength order from rank 1 (strongest)
-    to rank 6 (weakest).
+    `rank` is `None` for the Flag, the one piece that never fights by rank; the
+    five numbered pieces form a strict strength order from rank 5 (strongest)
+    to rank 1 (weakest).
 
     Every piece type is defined here whether or not a given army fields any: the
     enum is the vocabulary of the game, and how many of each an army holds is an
@@ -47,14 +46,12 @@ class PieceType(Enum):
     has to name it.
     """
 
-    MASTER_OF_ARMS = ("1", "Master-of-Arms", 1, Mobility.MOBILE)
-    CHAMPION = ("2", "Champion", 2, Mobility.MOBILE)
-    KNIGHT = ("3", "Knight", 3, Mobility.MOBILE)
-    HALBERDIER = ("4", "Halberdier", 4, Mobility.MOBILE)
-    FOOT_SOLDIER = ("5", "Foot Soldier", 5, Mobility.MOBILE)
-    MILITIA = ("6", "Militia", 6, Mobility.MOBILE)
-    TOWER = ("T", "Tower", None, Mobility.IMMOBILE)
-    FLAG = ("F", "Flag", None, Mobility.IMMOBILE)
+    MASTER_OF_ARMS = ("5", "Master-of-Arms", 5, Mobility.MOBILE, 4)
+    CHAMPION = ("4", "Champion", 4, Mobility.MOBILE, 3)
+    FOOT_SOLDIER = ("3", "Foot Soldier", 3, Mobility.MOBILE, 2)
+    MILITIA = ("2", "Militia", 2, Mobility.MOBILE, 1)
+    PEASANT = ("1", "Peasant", 1, Mobility.MOBILE, None)
+    FLAG = ("F", "Flag", None, Mobility.IMMOBILE, None)
 
     def __init__(
         self,
@@ -62,11 +59,30 @@ class PieceType(Enum):
         piece_name: str,
         rank: int | None,
         mobility: Mobility,
+        down_rank: int | None,
     ) -> None:
         self.symbol = symbol
         self.piece_name = piece_name
         self.rank = rank
         self.mobility = mobility
+        self.down_rank = down_rank
+
+    def reduced(self) -> "PieceType":
+        """The piece type this becomes after surviving combat (rules.md
+        Section 4.3, rank reduction): one rank weaker.
+
+        Only ever called on a piece that just survived combat. The rank-1
+        floor means that piece can never be rank 1 -- a rank 1 draws against
+        another rank 1 and loses to everything stronger, so it never survives
+        combat and `down_rank` is never `None` here.
+        """
+        assert self.down_rank is not None, f"{self.piece_name} has no rank below it"
+        return _BY_RANK[self.down_rank]
+
+
+_BY_RANK: Mapping[int, PieceType] = MappingProxyType(
+    {piece.rank: piece for piece in PieceType if piece.rank is not None}
+)
 
 
 @dataclass(frozen=True)
@@ -113,65 +129,27 @@ class ArmyComposition:
         return self.counts.get(piece, 0)
 
 
-STANDARD_BATTLE: ArmyComposition = ArmyComposition(
-    composition_id="standard_battle",
+STANDARD_ARMY: ArmyComposition = ArmyComposition(
+    composition_id="standard_army",
     counts={
         PieceType.MASTER_OF_ARMS: 3,
         PieceType.CHAMPION: 3,
-        PieceType.KNIGHT: 3,
-        PieceType.HALBERDIER: 3,
         PieceType.FOOT_SOLDIER: 3,
         PieceType.MILITIA: 3,
-        PieceType.TOWER: 6,
+        PieceType.PEASANT: 3,
         PieceType.FLAG: 1,
     },
 )
-"""The Battle army: 3 each of ranks 1-6, 6 Towers, 1 Flag — 25 pieces."""
-
-STANDARD_CLASH: ArmyComposition = ArmyComposition(
-    composition_id="standard_clash",
-    counts={
-        PieceType.MASTER_OF_ARMS: 3,
-        PieceType.CHAMPION: 3,
-        PieceType.KNIGHT: 3,
-        PieceType.HALBERDIER: 3,
-        PieceType.FOOT_SOLDIER: 3,
-        PieceType.TOWER: 4,
-        PieceType.FLAG: 1,
-    },
-)
-"""The Clash army: 3 each of ranks 1-5, 4 Towers, 1 Flag — 20 pieces.
-
-The top five ranks; Militia does not appear. Like `standard_skirmish` it
-truncates the rank order rather than skipping within it, just one rank later —
-so *which* ranks resolve to a count of 0 differs by composition and is never a
-fixed set for the build to assume."""
-
-STANDARD_SKIRMISH: ArmyComposition = ArmyComposition(
-    composition_id="standard_skirmish",
-    counts={
-        PieceType.MASTER_OF_ARMS: 3,
-        PieceType.CHAMPION: 3,
-        PieceType.KNIGHT: 3,
-        PieceType.HALBERDIER: 3,
-        PieceType.TOWER: 3,
-        PieceType.FLAG: 1,
-    },
-)
-"""The Skirmish army: 3 each of ranks 1-4, 3 Towers, 1 Flag — 16 pieces.
-
-The top four ranks only; Foot Soldier and Militia do not appear, and `count`
-answers 0 for them rather than raising."""
+"""The Standard army: 3 each of ranks 1-5, 1 Flag — 16 pieces."""
 
 ARMY_COMPOSITIONS: dict[str, ArmyComposition] = {
-    composition.composition_id: composition
-    for composition in (STANDARD_BATTLE, STANDARD_CLASH, STANDARD_SKIRMISH)
+    STANDARD_ARMY.composition_id: STANDARD_ARMY,
 }
 """Every `ARMY_COMPOSITION` value this build can actually field, keyed by its
 label — the army-side counterpart of `board.BOARD_LAYOUTS`, and implementability
 rather than publication for the same reason."""
 
 
-# The symbol -> piece inverse of `PieceType.symbol`, shared by the modules that
-# parse position blocks and placement files.
+# The symbol -> piece inverse of `PieceType.symbol`, used to parse position
+# blocks (see `rendering.py`).
 PIECE_BY_SYMBOL: dict[str, PieceType] = {piece.symbol: piece for piece in PieceType}

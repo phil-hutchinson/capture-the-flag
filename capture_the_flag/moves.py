@@ -2,19 +2,23 @@
 
 Implements `rules.md` Section 4.2 (Movement): a mobile piece steps one square
 orthogonally, or two squares orthogonally through a clear path when it is
-*unencumbered* (no enemy piece in any of its eight surrounding squares); an
-encumbered piece is limited to one square. It may additionally attack one square
+*unencumbered in that direction of travel* (no enemy piece on any of the five
+squares ahead of or beside it, judged separately for each of the four
+directions); a direction encumbered this way is limited to one square, while
+the other three are unaffected. It may additionally attack one square
 diagonally, which since major 2 is baseline behaviour rather than a variant
-(Section 4.3, "Diagonal attacks"). Legality does not depend on combat outcome --
+(Section 4.4, "Diagonal attacks"). Legality does not depend on combat outcome --
 sacrificial attacks are always legal (Section 4.3); combat resolution (see
 `combat.py`) determines the *result* of an attack ply, not whether it exists.
 
 The diagonal is an *attacking* direction and nothing else, which is what keeps
-it from being a general mobility increase: it never reaches an empty square, and
-it never reaches a Tower or the Flag. Those two restrictions live here rather
-than in `combat.py`, because they decide whether the ply exists at all -- a
-diagonal attack that is generated resolves by exactly the rules an orthogonal
-one does.
+it from being a general mobility increase: it never reaches an empty square,
+and it requires an open path (Section 4.4) -- at least one of the two squares
+orthogonally adjacent to both attacker and target must be empty. Those
+restrictions live here rather than in `combat.py`, because they decide whether
+the ply exists at all -- a diagonal attack that is generated resolves by
+exactly the rules an orthogonal one does, against any enemy piece including the
+Flag.
 """
 
 from typing import TYPE_CHECKING
@@ -30,53 +34,72 @@ if TYPE_CHECKING:
 _DIRECTIONS = ((0, 1), (0, -1), (1, 0), (-1, 0))
 
 # The four immediate diagonals, along which a piece may attack but never move
-# (rules.md Section 4.3). One square only: there is no two-square diagonal, and
-# no separate distance bound is needed to say so -- a piece with an enemy on its
-# diagonal is encumbered by definition, so the unencumbered bonus can never be
-# in play at the moment a diagonal attack is available.
+# (rules.md Section 4.4). One square only: `_diagonal_attack_squares` never
+# reaches beyond distance one, so there is no two-square diagonal regardless of
+# encumbrance in any orthogonal direction.
 _DIAGONALS = ((1, 1), (1, -1), (-1, 1), (-1, -1))
 
-# The eight squares surrounding a square (orthogonal and diagonal): the
-# neighbourhood that determines encumbrance (rules.md Section 4.2).
-_SURROUNDING = tuple(
-    (dc, dr) for dc in (-1, 0, 1) for dr in (-1, 0, 1) if (dc, dr) != (0, 0)
-)
 
+def is_encumbered_in_direction(
+    position: "CtfPosition", source: Square, side: Side, direction: tuple[int, int]
+) -> bool:
+    """Whether an enemy piece stands on any of the five squares ahead of or
+    beside `source` in `direction` (rules.md Section 4.2): the direction itself,
+    its two diagonals ahead, and the two squares directly to either side. The
+    three squares behind -- the reverse direction and its two diagonals -- do
+    not encumber.
 
-def _is_encumbered(position: "CtfPosition", source: Square, side: Side) -> bool:
-    """Whether an enemy piece stands in any of the eight squares surrounding
-    `source` (rules.md Section 4.2). An encumbered piece may move only one
-    square; an unencumbered one may move two.
+    Judged only from `source`'s own neighbourhood, as before -- what stands near
+    the destination square does not matter.
+
+    Public because the interactive UI has to explain a refusal in the terms the
+    rule is written in, and a second implementation of the five-square scan
+    over there would be one that could disagree with this one.
     """
-    for dc, dr in _SURROUNDING:
-        occupant = position.board.get(Square(source.column + dc, source.row + dr))
+    dc, dr = direction
+    perp = (-dr, dc)
+    offsets = (
+        (dc, dr),
+        (dc + perp[0], dr + perp[1]),
+        (dc - perp[0], dr - perp[1]),
+        perp,
+        (-perp[0], -perp[1]),
+    )
+    for odc, odr in offsets:
+        occupant = position.board.get(Square(source.column + odc, source.row + odr))
         if occupant is not None and occupant[0] is not side:
             return True
     return False
 
 
 def _reachable_squares(
-    position: "CtfPosition", source: Square, side: Side, max_distance: int
+    position: "CtfPosition", source: Square, side: Side, allow_two_square: bool
 ) -> list[Square]:
-    """Squares reachable from `source`, walking up to `max_distance` squares in
-    each orthogonal direction.
+    """Squares reachable from `source`, walking up to two squares in each
+    orthogonal direction the piece is unencumbered in, and one square in every
+    other direction. `allow_two_square` is false for the game's first ply
+    (story 00000049 step 11), which drops the two-square bonus outright.
 
-    Stops, in each direction, at the board edge, a lake, or the first occupied
-    square: an enemy-occupied square is included as a reachable (attack)
-    destination, but nothing beyond it is; a friendly-occupied square blocks the
-    direction entirely (not itself included). A multi-square move therefore
-    requires an empty intermediate path.
+    Stops, in each direction, at the board edge or the first occupied square: an
+    enemy-occupied square is included as a reachable (attack) destination, but
+    nothing beyond it is; a friendly-occupied square blocks the direction
+    entirely (not itself included). A multi-square move therefore requires an
+    empty intermediate path.
     """
     layout = position.layout
     reachable: list[Square] = []
-    for dc, dr in _DIRECTIONS:
+    for direction in _DIRECTIONS:
+        dc, dr = direction
+        max_distance = 1
+        if allow_two_square and not is_encumbered_in_direction(
+            position, source, side, direction
+        ):
+            max_distance = 2
         for distance in range(1, max_distance + 1):
             square = Square(
                 source.column + dc * distance, source.row + dr * distance
             )
             if not layout.contains(square):
-                break
-            if layout.is_lake(square):
                 break
             occupant = position.board.get(square)
             if occupant is None:
@@ -90,50 +113,102 @@ def _reachable_squares(
     return reachable
 
 
+def diagonal_flank_squares(
+    source: Square, direction: tuple[int, int]
+) -> tuple[Square, Square]:
+    """The two squares orthogonally adjacent to both `source` and the square
+    one step along the diagonal `direction` (rules.md Section 4.4).
+
+    Always both on the board whenever that diagonal square is, since each
+    shares one coordinate with `source` and the other with the diagonal square.
+    """
+    dc, dr = direction
+    return (
+        Square(source.column + dc, source.row),
+        Square(source.column, source.row + dr),
+    )
+
+
+def diagonal_path_is_open(
+    position: "CtfPosition", source: Square, direction: tuple[int, int]
+) -> bool:
+    """Whether at least one flanking square is empty, which is what a diagonal
+    attack along `direction` requires (rules.md Section 4.4).
+
+    Which side occupies the other does not matter: a friendly piece closes a
+    diagonal exactly as an enemy one does. Public for the same reason
+    `is_encumbered_in_direction` is.
+    """
+    flank_a, flank_b = diagonal_flank_squares(source, direction)
+    return flank_a not in position.board or flank_b not in position.board
+
+
 def _diagonal_attack_squares(
     position: "CtfPosition", source: Square, side: Side
 ) -> list[Square]:
-    """The immediate diagonal squares `source` may attack (rules.md Section 4.3).
+    """The immediate diagonal squares `source` may attack (rules.md Section 4.4).
 
-    A diagonal square qualifies only when it holds an enemy **movable** piece: a
-    Tower or the Flag may not be attacked diagonally, which is what leaves the
-    Flag capturable from an orthogonally adjacent square alone (Section 5.1).
+    Any enemy piece qualifies, the Flag included -- there is no movable-target
+    restriction, which is what leaves the Flag capturable diagonally as well as
+    orthogonally (Section 5.1).
 
-    Two things fall out of requiring an occupant rather than being checked
-    separately. An empty diagonal is never a destination, so the attack-only rule
-    needs no second test; and a lake square never holds a piece, so a lake is
-    excluded without naming it. Note this is exactly why a lake *corner* does not
-    block: a one-square diagonal has no intermediate square to clear, so only the
-    attacked square itself has to be open, and one holding a piece always is.
+    Requiring an occupant rather than checking separately is also what keeps an
+    empty diagonal from ever being a destination -- the attack-only rule needs
+    no second test.
+
+    The attack additionally needs an **open path** -- see
+    `diagonal_path_is_open`, which is tested last because it is the only one of
+    the three conditions that reads squares beyond the diagonal itself.
 
     Off-board neighbours are absent from `position.board` and so contribute
     nothing, in the same way the encumbrance and formation-bonus scans rely on.
     """
     attackable: list[Square] = []
-    for dc, dr in _DIAGONALS:
+    for direction in _DIAGONALS:
+        dc, dr = direction
         square = Square(source.column + dc, source.row + dr)
         occupant = position.board.get(square)
         if occupant is None:
             continue
-        occupant_side, occupant_piece = occupant
-        if occupant_side is not side and occupant_piece.mobility is Mobility.MOBILE:
-            attackable.append(square)
+        occupant_side, _occupant_piece = occupant
+        if occupant_side is side:
+            continue
+        if not diagonal_path_is_open(position, source, direction):
+            continue
+        attackable.append(square)
     return attackable
 
+def _initial_plies_from_square(
+    position: "CtfPosition", source: Square, side: Side, piece: PieceType    
+) -> list[CtfPly]:
+    if piece.mobility is Mobility.IMMOBILE:
+        return []
+    destinations = _reachable_squares(position, source, side, False)
+    destinations += _diagonal_attack_squares(position, source, side)
+    return [CtfPly(source, square) for square in destinations]
 
 def _plies_from_square(
     position: "CtfPosition", source: Square, side: Side, piece: PieceType
 ) -> list[CtfPly]:
     if piece.mobility is Mobility.IMMOBILE:
         return []
-    max_distance = 1 if _is_encumbered(position, source, side) else 2
-    destinations = _reachable_squares(position, source, side, max_distance)
+    destinations = _reachable_squares(position, source, side, True)
     destinations += _diagonal_attack_squares(position, source, side)
     return [CtfPly(source, square) for square in destinations]
 
+def _initial_legal_plies(position: "CtfPosition") -> tuple[CtfPly, ...]:
+    """Every legal ply for the side to move in `position`."""
+    side = position.side_to_move
+    plies: list[CtfPly] = []
+    for square, (occupant_side, piece) in position.board.items():
+        if occupant_side is side:
+            plies.extend(_initial_plies_from_square(position, square, side, piece))
+    return tuple(plies)
 
 def legal_plies(position: "CtfPosition") -> tuple[CtfPly, ...]:
     """Every legal ply for the side to move in `position`."""
+    if position.ply_count == 0:
+        return _initial_legal_plies(position)
     side = position.side_to_move
     plies: list[CtfPly] = []
     for square, (occupant_side, piece) in position.board.items():

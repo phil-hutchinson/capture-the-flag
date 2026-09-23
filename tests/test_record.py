@@ -6,13 +6,9 @@ import random
 
 import pytest
 
-from capture_the_flag.game_setup import BATTLE_SETUP, resolve_setup
+from capture_the_flag.game_setup import PRE_RELEASE_SETUP, resolve_setup
 from capture_the_flag.match import play_match
-from capture_the_flag.pieces import (
-    STANDARD_BATTLE,
-    STANDARD_CLASH,
-    STANDARD_SKIRMISH,
-)
+from capture_the_flag.pieces import STANDARD_ARMY
 from capture_the_flag.player import RandomCtfPlayer
 from capture_the_flag.record import (
     ACTIVE_EDITIONS,
@@ -58,16 +54,19 @@ _TABLE = {
 
 
 def _play(seed: int):
-    white = RandomCtfPlayer("Random White", random.Random(seed))
-    black = RandomCtfPlayer("Random Black", random.Random(seed + 1))
-    return play_match(white, black, BATTLE_SETUP, render_final_board=False)
+    # Seeds the process-global RNG, the way the runners do: `RandomEngine`
+    # draws from it, so that is the only place a random seat can be seeded.
+    random.seed(seed)
+    white = RandomCtfPlayer("Random White")
+    black = RandomCtfPlayer("Random Black")
+    return play_match(white, black, PRE_RELEASE_SETUP, render_final_board=False)
 
 
 def test_write_record_has_the_documented_sections_in_order():
     match_result = _play(1)
     record = write_record(
         match_result.game_result,
-        configuration=BATTLE_SETUP.stamp,
+        configuration=PRE_RELEASE_SETUP.stamp,
         white_name="White",
         black_name="Black",
         event="Event",
@@ -92,7 +91,7 @@ def test_write_record_has_the_documented_sections_in_order():
     ]
 
     assert position_block == match_result.game_result.opening_board
-    assert len(position_block.splitlines()) == 12
+    assert len(position_block.splitlines()) == 8
 
     move_lines = move_sequence.splitlines()
     total_plies = len(match_result.game_result.game_log)
@@ -102,7 +101,7 @@ def test_write_record_has_the_documented_sections_in_order():
 
 def test_write_record_omits_unpopulated_tags():
     match_result = _play(5)
-    record = write_record(match_result.game_result, configuration=BATTLE_SETUP.stamp)
+    record = write_record(match_result.game_result, configuration=PRE_RELEASE_SETUP.stamp)
     expected_result = _RESULT_TAGS[match_result.game_result.outcome]
 
     header = record.strip("\n").split("\n\n")[0]
@@ -117,7 +116,7 @@ def test_write_record_omits_tags_individually():
     match_result = _play(5)
     record = write_record(
         match_result.game_result,
-        configuration=BATTLE_SETUP.stamp,
+        configuration=PRE_RELEASE_SETUP.stamp,
         white_name="White",
     )
     expected_result = _RESULT_TAGS[match_result.game_result.outcome]
@@ -135,18 +134,35 @@ def test_write_record_always_includes_ruleset_tag():
     # The Ruleset tag is mandatory even when no roster tags are supplied, so the
     # rules a stored game was played under are recoverable from the record alone.
     match_result = _play(5)
-    record = write_record(match_result.game_result, configuration=BATTLE_SETUP.stamp)
+    record = write_record(match_result.game_result, configuration=PRE_RELEASE_SETUP.stamp)
     assert _RULESET_TAG in record
     # The full edition id, never a bare ruleset name: the name is a pointer that
     # moves, so it would not pin anything.
-    assert _RULESET_TAG == '[Ruleset "2-0:BATTLE"]'
+    assert _RULESET_TAG == '[Ruleset "3-0:PRE-RELEASE"]'
 
 
 def test_write_record_result_reflects_absolute_outcome():
     match_result = _play(5)
-    record = write_record(match_result.game_result, configuration=BATTLE_SETUP.stamp)
+    record = write_record(match_result.game_result, configuration=PRE_RELEASE_SETUP.stamp)
     expected_result = _RESULT_TAGS[match_result.game_result.outcome]
     assert f'[Result "{expected_result}"]' in record
+
+
+def test_write_record_start_position_tag_is_omitted_by_default():
+    match_result = _play(5)
+    record = write_record(match_result.game_result, configuration=PRE_RELEASE_SETUP.stamp)
+    assert "[StartPosition " not in record
+
+
+def test_write_record_includes_the_start_position_tag_when_given():
+    match_result = _play(5)
+    record = write_record(
+        match_result.game_result,
+        configuration=PRE_RELEASE_SETUP.stamp,
+        start_position="1112223F33444555",
+    )
+    header = record.strip("\n").split("\n\n")[0]
+    assert header.splitlines()[-1] == '[StartPosition "1112223F33444555"]'
 
 
 def test_write_record_result_reason_reflects_the_ending():
@@ -154,7 +170,7 @@ def test_write_record_result_reason_reflects_the_ending():
     # the old "Unknown" placeholder.
     match_result = _play(5)
     reason = match_result.game_result.result_reason
-    record = write_record(match_result.game_result, configuration=BATTLE_SETUP.stamp)
+    record = write_record(match_result.game_result, configuration=PRE_RELEASE_SETUP.stamp)
     assert reason
     assert '[ResultReason "Unknown"]' not in record
     assert f'[ResultReason "{reason}"]' in record
@@ -164,7 +180,7 @@ def test_write_record_escapes_quotes_and_backslashes_in_tag_values():
     match_result = _play(5)
     record = write_record(
         match_result.game_result,
-        configuration=BATTLE_SETUP.stamp,
+        configuration=PRE_RELEASE_SETUP.stamp,
         white_name='Ann "Ace" \\ Smith',
         event="Line1\nLine2",
     )
@@ -189,7 +205,7 @@ def test_write_record_lone_final_white_ply_on_odd_length_games():
         game_result = dataclasses.replace(match_result.game_result, game_log=game_log)
         match_result = dataclasses.replace(match_result, game_result=game_result)
 
-    record = write_record(match_result.game_result, configuration=BATTLE_SETUP.stamp)
+    record = write_record(match_result.game_result, configuration=PRE_RELEASE_SETUP.stamp)
     move_sequence = record.strip("\n").split("\n\n")[2]
     last_line = move_sequence.splitlines()[-1]
     # A lone final White ply: "N. <ply>" with no second ply on that line.
@@ -197,39 +213,28 @@ def test_write_record_lone_final_white_ply_on_odd_length_games():
 
 
 def test_every_active_edition_resolves_to_the_army_it_publishes():
-    # Per-edition since major 2: with more than one Active edition there is no
-    # single roster to compare against, and a check covering only one of them
-    # would leave the other unguarded.
+    # Major 3 has one Active edition and its army is fixed directly by the
+    # baseline rules text rather than by a flag label (`rules.md` Section 2.2;
+    # `doc/ruleset/CLAUDE.md`) -- but the check this exists for is the same one:
+    # generation enforces the resolved army on every game, so a divergence
+    # would mean records stamped with the edition were played under something
+    # else.
     #
-    # An edition names its army by flag *label*, and the label resolves to the
-    # composition the engine actually sets up with. This is the check that keeps
-    # the two honest: placement validation enforces the resolved army on every
-    # game, so a divergence would mean records stamped with an edition were
-    # played under something else.
-    #
-    # If this fails because a composition changed: that is a rules change, and
-    # the fix is to update rules.md and publish a *new* edition, not to point the
-    # existing edition at a different label. See doc/ruleset/CLAUDE.md, "The
+    # If this fails because the army changed: that is a rules change, and the
+    # fix is to update rules.md and publish a *new* edition, not to point the
+    # existing edition at a different army. See doc/ruleset/CLAUDE.md, "The
     # document leads; the code follows" — this assertion cannot tell those two
     # apart, so making it green is not evidence of having done the right one.
-    published_armies = {
-        "2-0:BATTLE": STANDARD_BATTLE.counts,
-        "2-0:CLASH": STANDARD_CLASH.counts,
-        "2-1:SKIRMISH": STANDARD_SKIRMISH.counts,
-    }
-    for edition_id in ACTIVE_EDITIONS:
-        setup = resolve_setup(active_configuration(edition_id))
-        assert setup.composition.counts == published_armies[edition_id], edition_id
-    # Every Active edition is covered, so adding one without stating its army
-    # here fails rather than passing silently.
-    assert set(published_armies) == set(ACTIVE_EDITIONS)
+    assert ACTIVE_EDITIONS == {"3-0:PRE-RELEASE"}
+    setup = resolve_setup(active_configuration("3-0:PRE-RELEASE"))
+    assert setup.composition.counts == STANDARD_ARMY.counts
 
 
 def test_active_configuration_names_the_active_edition_with_no_deviations():
     configuration = active_configuration()
     assert configuration.edition == DEFAULT_EDITION
-    # Every Active edition sets all three published flags explicitly, so a flag at
-    # its resolved value is omitted and no real configuration carries a deviation.
+    # Major 3 publishes no flags at all, so there is nothing a real
+    # configuration could ever carry as a deviation.
     assert configuration.flags == {}
 
 
@@ -240,7 +245,7 @@ def test_active_configuration_refuses_an_edition_this_build_does_not_play():
 
 def test_render_is_the_bare_edition_id_when_nothing_deviates():
     assert active_configuration().render() == DEFAULT_EDITION
-    assert active_configuration().render() == "2-0:BATTLE"  # dash, not dot
+    assert active_configuration().render() == "3-0:PRE-RELEASE"  # dash, not dot
 
 
 def test_render_orders_flags_alphabetically_whatever_the_insertion_order():

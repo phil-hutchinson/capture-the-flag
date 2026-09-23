@@ -27,21 +27,22 @@ class CtfPosition:
 
     `board` maps an occupied square to the `(Side, PieceType)` standing on it; a
     square absent from `board` is empty. `inactivity_counter` is the single
-    shared clock (rules.md Section 5.3): it rises by 1 on every non-capturing ply
+    shared clock (rules.md Section 5.4): it rises by 1 on every non-capturing ply
     and resets to 0 on any attack that removes a piece.
 
     `layout` is the board being played on. It rides on the position rather than
     sitting in a module constant because `legal_plies` is a protocol property
     with no arguments, so this is the only channel move generation has to reach
-    the board's dimensions and lakes. It carries no default deliberately: a
-    default would silently hand Battle's geometry to any caller that forgot to
-    say which board it meant.
+    the board's dimensions. It carries no default deliberately: a default would
+    silently hand one board's geometry to any caller that forgot to say which
+    board it meant.
     """
 
     board: Mapping[Square, tuple[Side, PieceType]]
     side_to_move: Side
     inactivity_counter: int
     layout: BoardLayout
+    ply_count: int
 
     @property
     def active_player_id(self) -> Literal[1, -1]:
@@ -63,7 +64,7 @@ class CtfPosition:
 
     def apply_ply(self, ply: CtfPly) -> "CtfPosition":
         """The successor position after applying `ply` (rules.md Sections
-        4.3, 5.3)."""
+        4.3, 5.4)."""
         from .transitions import apply_ply as _apply_ply
 
         with region(APPLY_PLY):

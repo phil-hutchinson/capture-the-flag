@@ -8,7 +8,7 @@ determinism property the story relies on for before/after comparisons.
 
 from types import MappingProxyType
 
-from capture_the_flag.board import STANDARD_144, Square
+from capture_the_flag.board import Square
 from capture_the_flag.engines.neural_network.ctf_position_factory import (
     CtfPositionFactory,
 )
@@ -24,27 +24,30 @@ from capture_the_flag.timing_regions import (
     OUTCOME_REASON,
     STARTING_POSITION,
 )
-from tests.engines.neural_network.small_networks import BATTLE_SETUP
+from tests.engines.neural_network.small_networks import PRE_RELEASE_SETUP
 
-_WHITE_FLAG_SQUARE = Square(11, 1)  # L1
-_BLACK_FLAG_SQUARE = Square(11, 12)  # L12
+_WHITE_FLAG_SQUARE = Square(7, 1)  # H1
+_BLACK_FLAG_SQUARE = Square(7, 8)  # H8
+_LAYOUT = PRE_RELEASE_SETUP.layout
 
 
 def ongoing_position() -> CtfPosition:
     """Both flags standing and both sides mobile — a position whose outcome
-    check runs every rule in Section 5, including the no-legal-move test."""
+    check runs every rule in Section 5 and reaches the end without a
+    terminal."""
     return CtfPosition(
         board=MappingProxyType(
             {
                 _WHITE_FLAG_SQUARE: (Side.WHITE, P.FLAG),
                 _BLACK_FLAG_SQUARE: (Side.BLACK, P.FLAG),
                 Square(3, 2): (Side.WHITE, P.FOOT_SOLDIER),
-                Square(5, 8): (Side.BLACK, P.FOOT_SOLDIER),
+                Square(4, 7): (Side.BLACK, P.FOOT_SOLDIER),
             }
         ),
         side_to_move=Side.WHITE,
         inactivity_counter=0,
-        layout=STANDARD_144,
+        layout=_LAYOUT,
+        ply_count=0,
     )
 
 
@@ -83,36 +86,34 @@ def test_repeated_access_accumulates_calls() -> None:
     assert child(session.root, LEGAL_PLIES).calls == 5
 
 
-def test_legal_plies_computed_inside_outcome_nests_under_it() -> None:
-    """Section 5.2's no-legal-move test regenerates the legal plies, so an
-    outcome check silently pays for a second ply generation. The call-path rule
-    puts that cost under `outcome`, distinct from a direct generation."""
-    position = ongoing_position()
-    with timing_session("test") as session:
-        _ = position.outcome  # reaches 5.2, so generates plies internally
-        _ = position.legal_plies  # a direct generation, from the caller
+def test_an_outcome_check_never_generates_plies() -> None:
+    """Every Section 5 rule is decided from the board, the counter and the side
+    to move, so an outcome check has no `legal-plies` child whichever way it
+    goes — and a direct generation beside it still records at the root.
 
-    outcome = child(session.root, OUTCOME)
-    assert child(outcome, LEGAL_PLIES).calls == 1
-    assert child(session.root, LEGAL_PLIES).calls == 1
-    assert outcome.unattributed_ns == outcome.elapsed_ns - child(
-        outcome, LEGAL_PLIES
-    ).elapsed_ns
-
-
-def test_a_short_circuiting_outcome_does_not_generate_plies() -> None:
-    """The inactivity draw (5.3) is decided before the no-legal-move test, so a
-    drawn position's outcome check has no `legal-plies` child at all."""
+    This is a cost guard as much as a shape one: while the "no legal move"
+    ending stood in as an assertion (peer review #5), reaching the end of
+    `_evaluate` rebuilt the whole ply set, and the call-path rule billed that
+    second generation to `outcome`. Nothing may quietly put it back.
+    """
+    ongoing = ongoing_position()
     drawn = CtfPosition(
-        board=ongoing_position().board,
+        board=ongoing.board,
         side_to_move=Side.WHITE,
         inactivity_counter=INACTIVITY_LIMIT,
-        layout=STANDARD_144,
+        layout=_LAYOUT,
+        ply_count=0,
     )
     with timing_session("test") as session:
-        assert drawn.outcome == 0
+        assert ongoing.outcome is None  # runs every rule and reaches the end
+        assert drawn.outcome == 0  # short-circuits at 5.4
+        _ = ongoing.legal_plies  # a direct generation, from the caller
 
-    assert LEGAL_PLIES not in child(session.root, OUTCOME).children
+    outcome = child(session.root, OUTCOME)
+    assert outcome.calls == 2
+    assert LEGAL_PLIES not in outcome.children
+    assert child(session.root, LEGAL_PLIES).calls == 1
+    assert outcome.unattributed_ns == outcome.elapsed_ns
 
 
 def test_mechanics_nest_under_whatever_region_is_open() -> None:
@@ -132,7 +133,7 @@ def test_mechanics_nest_under_whatever_region_is_open() -> None:
 
 
 def test_starting_position_generation_is_timed() -> None:
-    factory = CtfPositionFactory(setup=BATTLE_SETUP)
+    factory = CtfPositionFactory(setup=PRE_RELEASE_SETUP)
     with timing_session("test") as session:
         for _ in range(2):
             factory()

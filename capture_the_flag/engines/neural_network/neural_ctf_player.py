@@ -1,10 +1,9 @@
 """The learned-engine player and its untrained-play search settings.
 
-`NeuralCtfPlayer` is a thin `CtfPlayer`: phase-2 play is delegated to an injected
-`MCTSEngine` (over the learned evaluator), and `get_placement` returns a random
-placement for now — placement intelligence is out of scope here.
-`build_neural_player` is the construction seam the runners use; it is the only
-place `torch` (via the network and evaluator) is pulled in.
+`NeuralCtfPlayer` is a thin `CtfPlayer`: play is delegated to an injected
+`MCTSEngine` over the learned evaluator. `build_neural_player` is the
+construction seam the runners use; it is the only place `torch` (via the
+network and evaluator) is pulled in.
 
 The class still inherits the shared library's `AIPlayer` (its generic engine
 seat), but everything game-specific here is named "neural" to match the player
@@ -19,11 +18,9 @@ from game_engine_core.protocols.game_engine import GameEngine
 
 from ...game_setup import GameSetup
 from ...instrumentation.timed_search import TimedMCTSEngine
-from ...placement import Placement, random_placement
 from ...player import CtfPlayer
 from ...ply import CtfPly
 from ...position import CtfPosition
-from ...side import Side
 from .ctf_crn import CtfCrn
 from .ctf_nn_evaluator import CtfNNEvaluator
 from .tensor_layout import TensorLayout
@@ -37,8 +34,7 @@ DEFAULT_TEMPERATURE = 0.0
 
 
 class NeuralCtfPlayer(AIPlayer[CtfPly, CtfPosition], CtfPlayer):
-    """A `CtfPlayer` whose phase-2 play comes from the injected engine and whose
-    phase-1 placement is (for now) drawn at random from `rng`."""
+    """A `CtfPlayer` whose play comes from the injected engine."""
 
     def __init__(
         self,
@@ -49,11 +45,6 @@ class NeuralCtfPlayer(AIPlayer[CtfPly, CtfPosition], CtfPlayer):
     ) -> None:
         super().__init__(engine, name, render_before_ply)
         self._rng = rng if rng is not None else random.Random()
-
-    def get_placement(self, side: Side, setup: GameSetup) -> Placement:
-        """A random legal placement. Placement intelligence is out of scope for
-        now."""
-        return random_placement(side, setup, self._rng)
 
 
 def build_neural_player(

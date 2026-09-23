@@ -147,8 +147,9 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--seed",
         type=int,
         default=None,
-        help="seed network init, self-play placements, and the process-global RNG "
-        "so a fresh run reproduces in the same environment (resumes are not reseeded)",
+        help="seed network init, self-play starting positions, and the process-global "
+        "RNG so a fresh run reproduces in the same environment (resumes are not "
+        "reseeded)",
     )
     parser.add_argument(
         "-o",

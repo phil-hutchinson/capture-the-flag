@@ -1,11 +1,10 @@
-"""Tests for static piece domain data: symbols, ranks, and army compositions."""
+"""Tests for static piece domain data: symbols, ranks, and the army composition."""
 
 import pytest
 
 from capture_the_flag.pieces import (
     ARMY_COMPOSITIONS,
-    STANDARD_BATTLE,
-    STANDARD_CLASH,
+    STANDARD_ARMY,
     ArmyComposition,
     Mobility,
     PieceType,
@@ -15,67 +14,33 @@ from capture_the_flag.pieces import (
 EXPECTED_COUNTS = {
     PieceType.MASTER_OF_ARMS: 3,
     PieceType.CHAMPION: 3,
-    PieceType.KNIGHT: 3,
-    PieceType.HALBERDIER: 3,
     PieceType.FOOT_SOLDIER: 3,
     PieceType.MILITIA: 3,
-    PieceType.TOWER: 6,
+    PieceType.PEASANT: 3,
     PieceType.FLAG: 1,
 }
 
 
-def test_standard_battle_sums_to_25():
-    assert STANDARD_BATTLE.size == 25
-    assert sum(STANDARD_BATTLE.counts.values()) == 25
+def test_standard_army_sums_to_16():
+    assert STANDARD_ARMY.size == 16
+    assert sum(STANDARD_ARMY.counts.values()) == 16
 
 
 def test_per_rank_counts_match_rules_table():
-    assert STANDARD_BATTLE.counts == EXPECTED_COUNTS
+    assert STANDARD_ARMY.counts == EXPECTED_COUNTS
     for piece, count in EXPECTED_COUNTS.items():
-        assert STANDARD_BATTLE.count(piece) == count
+        assert STANDARD_ARMY.count(piece) == count
 
 
-def test_standard_clash_fields_twenty_pieces_across_the_top_five_ranks():
-    # rules.md Section 2.2, Clash: 3 each of ranks 1-5, 4 Towers, 1 Flag.
-    assert STANDARD_CLASH.size == 20
-    assert STANDARD_CLASH.counts == {
-        PieceType.MASTER_OF_ARMS: 3,
-        PieceType.CHAMPION: 3,
-        PieceType.KNIGHT: 3,
-        PieceType.HALBERDIER: 3,
-        PieceType.FOOT_SOLDIER: 3,
-        PieceType.TOWER: 4,
-        PieceType.FLAG: 1,
-    }
-    # Militia is the one rank Clash omits, and asking about it is not an error --
-    # the learned evaluator normalises a per-rank plane by exactly this number
-    # and needs 0, not a KeyError.
-    assert STANDARD_CLASH.count(PieceType.MILITIA) == 0
-
-
-def test_each_published_composition_omits_a_different_set_of_ranks():
-    # Which ranks a composition leaves at 0 is not a fixed set: Battle omits
-    # none, Clash omits Militia, Skirmish omits Foot Soldier and Militia. Code
-    # that hardcodes "the ranks Skirmish is missing" is wrong on Clash.
-    omitted = {
-        composition.composition_id: {
-            piece.piece_name
-            for piece in PieceType
-            if piece.rank is not None and composition.count(piece) == 0
-        }
-        for composition in ARMY_COMPOSITIONS.values()
-    }
-    assert omitted == {
-        "standard_battle": set(),
-        "standard_clash": {"Militia"},
-        "standard_skirmish": {"Foot Soldier", "Militia"},
-    }
+def test_the_standard_army_is_the_only_registered_composition():
+    # Major 3 publishes one army; nothing omits a rank, unlike major 2's several
+    # compositions.
+    assert ARMY_COMPOSITIONS == {"standard_army": STANDARD_ARMY}
 
 
 def test_count_is_zero_for_a_piece_the_army_does_not_field():
     # A composition names what it fields; every other type has a count of 0
-    # rather than being an error to ask about. `standard_skirmish` will field no
-    # Foot Soldier, and code that asks how many there are wants 0.
+    # rather than being an error to ask about.
     partial = ArmyComposition(
         composition_id="ranks_1_and_2_only",
         counts={
@@ -85,7 +50,7 @@ def test_count_is_zero_for_a_piece_the_army_does_not_field():
         },
     )
     assert partial.count(PieceType.MILITIA) == 0
-    assert partial.count(PieceType.TOWER) == 0
+    assert partial.count(PieceType.PEASANT) == 0
     assert partial.size == 7
 
 
@@ -108,31 +73,70 @@ def test_a_composition_must_field_exactly_one_flag():
 
 
 def test_army_count_no_longer_lives_on_the_piece():
-    # How many of a piece an army fields is an ArmyComposition question since
-    # major 2: a count on the enum would be a single global army by
-    # construction, which two live rulesets cannot have.
+    # How many of a piece an army fields is an ArmyComposition question, not a
+    # property of the enum: a count on the enum would be a single global army by
+    # construction, which two live rulesets could not share.
     assert not hasattr(PieceType.MILITIA, "army_count")
 
 
 def test_numbered_pieces_have_strict_rank_order():
     ranks = sorted(piece.rank for piece in PieceType if piece.rank is not None)
-    assert ranks == list(range(1, 7))
+    assert ranks == list(range(1, 6))
 
 
-def test_tower_and_flag_have_no_rank():
-    for piece in (PieceType.TOWER, PieceType.FLAG):
-        assert piece.rank is None
+def test_master_of_arms_is_the_strongest_rank():
+    # Since major 3, rank 5 is the top rank -- the reverse of major 2's rank 1
+    # (rules.md Section 2.2).
+    assert PieceType.MASTER_OF_ARMS.rank == 5
+    assert PieceType.PEASANT.rank == 1
+
+
+def test_only_the_flag_has_no_rank():
+    assert PieceType.FLAG.rank is None
+    assert all(
+        piece.rank is not None for piece in PieceType if piece is not PieceType.FLAG
+    )
 
 
 def test_mobility_categories():
-    assert PieceType.TOWER.mobility is Mobility.IMMOBILE
     assert PieceType.FLAG.mobility is Mobility.IMMOBILE
 
-    others = set(PieceType) - {PieceType.TOWER, PieceType.FLAG}
+    others = set(PieceType) - {PieceType.FLAG}
     assert all(piece.mobility is Mobility.MOBILE for piece in others)
 
 
 def test_symbols_are_unique_and_match_notation_spec():
     symbols = {piece.symbol for piece in PieceType}
     assert len(symbols) == len(PieceType)
-    assert symbols == set("123456") | {"T", "F"}
+    assert symbols == set("12345") | {"F"}
+
+
+def test_down_rank_is_one_rank_below_each_numbered_piece():
+    # The rank-reduction relation (rules.md Section 4.3, formation loss): the
+    # piece a surviving attacker or defender becomes after combat reduces it.
+    for piece in PieceType:
+        if piece.rank is None or piece.rank == 1:
+            continue
+        reduced = next(p for p in PieceType if p.rank == piece.rank - 1)
+        assert piece.down_rank == reduced.rank
+
+
+def test_the_weakest_numbered_piece_and_the_flag_have_no_down_rank():
+    # A rank-1 piece never survives combat as a reduced piece (there is nothing
+    # weaker to become), and the Flag never enters combat as a combatant at all.
+    assert PieceType.PEASANT.down_rank is None
+    assert PieceType.FLAG.down_rank is None
+
+
+def test_reduced_returns_the_piece_one_rank_below():
+    assert PieceType.MASTER_OF_ARMS.reduced() is PieceType.CHAMPION
+    assert PieceType.CHAMPION.reduced() is PieceType.FOOT_SOLDIER
+    assert PieceType.FOOT_SOLDIER.reduced() is PieceType.MILITIA
+    assert PieceType.MILITIA.reduced() is PieceType.PEASANT
+
+
+def test_reduced_asserts_on_a_piece_with_no_rank_below():
+    with pytest.raises(AssertionError):
+        PieceType.PEASANT.reduced()
+    with pytest.raises(AssertionError):
+        PieceType.FLAG.reduced()

@@ -48,27 +48,15 @@ class RuleFlag:
     default: str
 
 
-RULE_FLAGS: dict[str, RuleFlag] = {
-    flag.flag_id: flag
-    for flag in (
-        RuleFlag(
-            flag_id="BOARD_LAYOUT",
-            values=("standard_144", "asymmetric_100", "standard_64"),
-            default="standard_144",
-        ),
-        RuleFlag(
-            flag_id="ARMY_COMPOSITION",
-            values=("standard_battle", "standard_clash", "standard_skirmish"),
-            default="standard_battle",
-        ),
-        RuleFlag(
-            flag_id="TOWER_PLACEMENT",
-            values=("spacing_only", "spacing_and_lanes"),
-            default="spacing_only",
-        ),
-    )
-}
+RULE_FLAGS: dict[str, RuleFlag] = {}
 """The published flag registry, keyed by flag id.
+
+**Empty at major 3.** Major 3 publishes no rule flags at all (`rules.md`
+Appendix A; `doc/ruleset/CLAUDE.md`) — the board and army each collapse to a
+single value named directly by the edition, not selected through a flag — so
+there is nothing to register. Major 2's three flags (`BOARD_LAYOUT`,
+`ARMY_COMPOSITION`, `TOWER_PLACEMENT`) lived here; they are gone with the
+editions that carried them, not superseded by entries of the same name.
 
 Flags are created lazily — standard behavior stays unflagged until someone wants
 to test a variant of it — so this grows one entry at a time as variants graduate
@@ -76,15 +64,7 @@ from `doc/ruleset/proposed-variants.md`.
 
 The document appendices are the source of truth for what is published (see
 `doc/ruleset/rules.md` Appendix A); this is the engine's own copy of the part it
-must act on. Every default reproduces what `1-2:PRE-RELEASE` played, which is what
-made introducing each one a no-op for every edition and record that predates it —
-`TOWER_PLACEMENT` included, since no published edition sets it away from
-`spacing_only` at the point it is registered.
-
-A value label appearing here is a claim about what is *published*, not about what
-this build can set up: `board.BOARD_LAYOUTS` and `pieces.ARMY_COMPOSITIONS` say
-which labels resolve to something playable, and `unsupported_aspects` reports the
-difference.
+must act on.
 """
 
 
@@ -129,33 +109,36 @@ class Edition:
 
 
 ACTIVE_EDITIONS: frozenset[str] = frozenset(
-    {"2-0:BATTLE", "2-0:CLASH", "2-1:SKIRMISH"}
+    {"3-0:PRE-RELEASE"}
 )
 """The editions this build implements, and therefore the ones it can stamp.
 
-**A build implements every Active edition**, not one: since major 2 several
-rulesets are published in parallel and the configuration is selected at run time,
-so this is a set rather than a single pointer.
+**A build implements every Active edition**, not one, and at major 3 that is a
+set of exactly one. It stays a set rather than collapsing to a pointer because
+nothing about the model says a major publishes a single ruleset: major 2 had
+Battle, Clash and Skirmish Active in parallel with the configuration selected
+at run time, and major 3 retired all three rather than making that arrangement
+impossible.
 
-**The minors advance independently.** Skirmish is at minor 1 and Battle at minor
-0 because the Tower lane restriction changed Skirmish's play and not Battle's;
-Clash is at minor 0 because that is its first edition, which is no relationship
-to Battle's at all. The shared major says only that all three are played under
-the same rules text. A notation break is the one thing that moves them together.
+**The minors advance independently, and are namespaced per ruleset.** Under
+major 2, Skirmish reached minor 1 while Battle stayed at minor 0, because the
+Tower lane restriction changed Skirmish's play and not Battle's; Clash's minor
+0 was its first edition and no relationship to Battle's at all. A shared major
+says only that the rulesets sharing it are played under the same rules text. A
+notation break is the one thing that moves every live ruleset together — which
+is what produced this set's lone member.
 
 Note the dash in an edition id — it is a compound label, not a decimal, so a
 minor 10 would not sort before a minor 2.
 """
 
-DEFAULT_EDITION = "2-0:BATTLE"
+DEFAULT_EDITION = "3-0:PRE-RELEASE"
 """The edition a run plays when it is not told which.
 
-Not an arbitrary pick among the Active editions: `BOARD_LAYOUT` and
-`ARMY_COMPOSITION` both default to Battle's values (`standard_144`,
-`standard_battle`), so Battle *is* what the rules resolve to in the absence of a
-choice. Publishing further editions does not disturb that — a flag's default is
-permanent, so the default edition follows from the flags rather than from which
-rulesets happen to be Active.
+Not an arbitrary pick: it is the one member of `ACTIVE_EDITIONS`. Major 2 had
+several Active editions at once and a default among them had to be justified by
+what the (then three) flags defaulted to; major 3 publishes none, so there is
+only one edition to default to in the first place.
 """
 
 ACTIVE_RULESETS: dict[str, str] = {
@@ -164,8 +147,13 @@ ACTIVE_RULESETS: dict[str, str] = {
 """Each live ruleset name and the edition it currently points at.
 
 This is the pointer the vocabulary describes: a **ruleset** is a mutable name and
-an **edition** is immutable, so `BATTLE` means whichever `<major>-<minor>:BATTLE`
-is Active right now. Derived from `ACTIVE_EDITIONS` rather than written out, so
+an **edition** is immutable, so `PRE-RELEASE` means whichever
+`<major>-<minor>:PRE-RELEASE` is Active right now — today `3-0`, where under
+major 1 the same name meant `1-2`. A name that is Active for nothing is absent
+here entirely rather than pointing at its last edition: `BATTLE` was a pointer
+under major 2 and is now only history.
+
+Derived from `ACTIVE_EDITIONS` rather than written out, so
 publishing a new edition of a ruleset moves its pointer with no second edit to
 forget. Runners take a ruleset name from the command line and resolve it here;
 every artifact they write is stamped with the *edition*, never the name, which
@@ -179,6 +167,7 @@ as a name, so the two cannot drift apart."""
 EDITIONS: dict[str, Edition] = {
     edition.edition_id: edition
     for edition in (
+        Edition(edition_id="3-0:PRE-RELEASE", flag_values={}),
         Edition(
             edition_id="2-0:BATTLE",
             flag_values={
@@ -224,9 +213,11 @@ Membership is therefore *not* implementability: a historical entry is a label
 this code can recognise, not a ruleset it can run. `unsupported_aspects` draws
 that line.
 
-`1-2:PRE-RELEASE` sets no flag values because it predates all three flags, so each
-resolves to its own registry default — which is exactly the behavior it was
-played under, since a flag's default is always what preceded it.
+`1-2:PRE-RELEASE` sets no flag values because it predates all three major-2
+flags, so each resolved to its own registry default — which is exactly the
+behavior it was played under, since a flag's default is always what preceded it.
+`3-0:PRE-RELEASE` also sets none, for the opposite reason: major 3 publishes no
+flags at all (see `RULE_FLAGS`), so there is nothing for it to set.
 
 `2-0:SKIRMISH` states `TOWER_PLACEMENT=spacing_only` explicitly even though that
 is also the registry default. It is what `rules.md` Appendix B publishes for it,
@@ -568,6 +559,7 @@ def write_record(
     site: str | None = None,
     date: str | None = None,
     round_number: str | None = None,
+    start_position: str | None = None,
 ) -> str:
     """Build a complete game-record file for a finished game.
 
@@ -582,6 +574,12 @@ def write_record(
     a moving pointer. It is passed in rather than read from a build constant:
     since major 2 a build implements several editions and the game was played
     under whichever one this run selected.
+
+    `start_position`, when given, is the 16-character ID (`start-position.md`
+    Section 5) naming the game's starting arrangement, written as the optional
+    `StartPosition` tag (`technical-notes.md`, "Record file format"). It is
+    redundant for replay -- the position block that follows already carries
+    the full starting board -- so it is omitted when not supplied.
 
     Tag values are escaped for the `[Name "value"]` syntax (see
     `_escape_tag_value`): `\\` and `"` are backslash-escaped and newlines are
@@ -604,6 +602,8 @@ def write_record(
     header_lines.append(f'[Ruleset "{_escape_tag_value(configuration.render())}"]')
     header_lines.append(f'[Result "{_RESULT_TAGS[game_result.outcome]}"]')
     header_lines.append(f'[ResultReason "{_escape_tag_value(game_result.result_reason)}"]')
+    if start_position is not None:
+        header_lines.append(f'[StartPosition "{_escape_tag_value(start_position)}"]')
 
     header = "\n".join(header_lines)
     move_sequence = _build_move_sequence(game_result.game_log)

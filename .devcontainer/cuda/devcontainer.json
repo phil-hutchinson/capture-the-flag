@@ -11,11 +11,27 @@
         "context": "..",
         "args": {
             // GPU-capable wheels of the same torch version the CPU
-            // configuration installs. cu126 rather than a newer index: it is
-            // the widest driver compatibility that still covers this
-            // developer's card, and torch's CUDA minor-version compatibility
-            // means a cu126 build runs on any CUDA 12.x-capable driver.
-            "TORCH_INDEX_URL": "https://download.pytorch.org/whl/cu126"
+            // configuration installs.
+            //
+            // Which index, as a rule rather than a value: the newest one that
+            // still ships the pinned torch version and whose CUDA version is at
+            // or below what `nvidia-smi` reports on the host. cu130 is what that
+            // resolves to against a driver reporting CUDA 13.1. cu132 would sit
+            // above it and would rely on minor-version forward compatibility;
+            // cu128 no longer ships the pinned version at all.
+            //
+            // The constraint is architecture coverage, not driver version. A
+            // wheel carries compiled kernels for a fixed set of compute
+            // capabilities, and a card newer than the build is detected but
+            // cannot be run on -- no driver version adds an architecture to a
+            // wheel that has no SASS for it and no PTX to JIT from.
+            //
+            // Do not re-justify this pin by naming the current GPU. The comment
+            // replaced here did exactly that, and it went stale silently when
+            // the card changed: nothing signals that a card-specific premise has
+            // expired. The rule above can be re-checked against the host; a
+            // claim about one card cannot.
+            "TORCH_INDEX_URL": "https://download.pytorch.org/whl/cu130"
         }
     },
     "features": {

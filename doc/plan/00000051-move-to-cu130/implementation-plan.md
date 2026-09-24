@@ -35,9 +35,11 @@ made it work.
 
 Verification (manual): The first command reports `2.13.0+cu126`, a CUDA version,
 and `True`. The second raises rather than printing a tensor, and the output names
-`sm_120` as incompatible. Both outputs are pasted into the peer review or the
-commit message for the change, so the before/after pair lives in the repository
-rather than in a terminal.
+`sm_120` as incompatible. Both outputs are recorded in
+[`baseline.md`](baseline.md), alongside the Step 3 outputs, so the before/after
+pair lives in the repository rather than in a terminal. (The plan originally named
+the peer review or a commit message; a dedicated file keeps the pair together and
+leaves room for the architecture-list inspection Step 3 added.)
 
 ## Step 2 — Move the build argument and rewrite its rationale
 
@@ -49,7 +51,10 @@ and names architecture coverage, not driver compatibility, as the constraint tha
 governs. It must not justify the choice by reference to the current card, which is
 the failure mode being removed.
 
-Nothing else in the file changes. The Dockerfile is not touched: the torch version
+Nothing else in the file changes, with one exception found in peer review: the
+`postCreateCommand` comment named the installed build as `2.13.0+cu126`, and is
+reworded not to name the index at all — the same staleness this story removes.
+The Dockerfile is not touched: the torch version
 stays pinned there, outside the build argument, so the two configurations cannot
 drift apart on version.
 
@@ -57,7 +62,8 @@ Depends on: Step 1 (the before-state must be captured while it still exists).
 
 Verification (manual, partial — and deliberately so): confirm the file is valid
 JSON with comments as the devcontainer format expects, that the only changed
-values are the index URL and the comment, and that `git diff` shows no change to
+values are the index URL, its comment, and the `postCreateCommand` comment's
+build reference, and that `git diff` shows no change to
 `.devcontainer/Dockerfile` or to the CPU configuration. **Runtime verification is
 not possible in this step** and is deferred to Step 3: a build argument is inert
 until an image is built from it, so there is nothing to execute here. This is the
@@ -111,7 +117,15 @@ had forced a different index, this is the prose that would have to say so.
 
 Verification (manual): read the section back and confirm it names the same rule as
 the devcontainer comment, and that a reader hitting the `sm_120` failure could
-reach `cu130` by following it. Then confirm by inspection that the story's
+reach `cu130` by following it.
+
+Scope note, recorded after peer review: the section also gains the
+architecture-list check (`torch.cuda.get_arch_list()` against
+`get_device_capability`), promoted from the Step 3 inspection in
+`baseline.md`, and the rule gains the matching floor clause — the card's `sm_`
+entry must be in the wheel's list. Without it the rule is ceiling-only and would
+send a pre-Turing card to an index that has dropped its architecture. The
+devcontainer comment states the same three-clause rule. Then confirm by inspection that the story's
 deliberate non-edits are intact: **the "What the CUDA configuration does not do"
 section is unchanged**, because it is still true word for word — nothing in this
 repository places a tensor on a GPU.

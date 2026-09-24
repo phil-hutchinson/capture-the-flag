@@ -15,10 +15,12 @@
             //
             // Which index, as a rule rather than a value: the newest one that
             // still ships the pinned torch version and whose CUDA version is at
-            // or below what `nvidia-smi` reports on the host. cu130 is what that
-            // resolves to against a driver reporting CUDA 13.1. cu132 would sit
-            // above it and would rely on minor-version forward compatibility;
-            // cu128 no longer ships the pinned version at all.
+            // or below what `nvidia-smi` reports on the host, and whose
+            // compiled architecture list includes the card's `sm_` entry.
+            // As of story 51, against a driver reporting CUDA 13.1, that
+            // resolves to cu130: cu132 would sit above the driver and rely on
+            // minor-version forward compatibility, and cu128 did not ship the
+            // pinned version.
             //
             // The constraint is architecture coverage, not driver version. A
             // wheel carries compiled kernels for a fixed set of compute
@@ -26,11 +28,9 @@
             // cannot be run on -- no driver version adds an architecture to a
             // wheel that has no SASS for it and no PTX to JIT from.
             //
-            // Do not re-justify this pin by naming the current GPU. The comment
-            // replaced here did exactly that, and it went stale silently when
-            // the card changed: nothing signals that a card-specific premise has
-            // expired. The rule above can be re-checked against the host; a
-            // claim about one card cannot.
+            // Do not re-justify this pin by naming the current GPU: a
+            // card-specific premise expires silently when the card changes,
+            // whereas the rule above can be re-checked against the host.
             "TORCH_INDEX_URL": "https://download.pytorch.org/whl/cu130"
         }
     },
@@ -78,7 +78,8 @@
     //    already baked into the image) from GitHub, so it links the workspace
     //    source and clones one git dependency — fast on rebuild. The CUDA wheel
     //    survives this: game-engine-core asks for torch>=2.0, which the
-    //    installed 2.13.0+cu126 already satisfies, so pip leaves it alone.
+    //    installed CUDA build of 2.13.0 already satisfies, so pip leaves it
+    //    alone.
     "postCreateCommand": "sudo chown -R vscode:vscode /home/vscode/.claude && pip install --editable '.'",
     "customizations": {
         "vscode": {

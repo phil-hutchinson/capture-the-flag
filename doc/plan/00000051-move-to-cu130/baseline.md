@@ -97,5 +97,34 @@ Compare the two architecture lists. `cu126` covered `sm_50` through `sm_90`;
 `sm_70`. The "widest driver compatibility" the deleted comment was reaching for
 is therefore a real trade-off and not an imaginary one — it just does not apply
 to a single-developer repository with one known card. If this project ever needs
-to run on pre-Turing hardware, that constraint returns and the selection rule
-gains a floor as well as a ceiling.
+to run on pre-Turing hardware, that constraint returns — which is why the
+selection rule carries a floor (the card's `sm_` entry must be in the wheel's
+architecture list) as well as a ceiling (the driver's CUDA version).
+
+## Step 5 — nothing else moved
+
+Run in the rebuilt `cu130` container, with no Python changes on the branch:
+
+- `pyright`: 0 errors, 0 warnings, 0 informations.
+- `ruff check .`: all checks passed.
+- `pytest`: `413 passed, 16 deselected`; the 16 are the `slow` marker the
+  default configuration excludes, and `pytest -m slow` passes them too
+  (`16 passed`).
+
+A smoke training run — one generation, two games, 20 iterations, a
+16-feature / 1-block network, written outside the repository — completed and
+wrote `checkpoint-00001.pt`. Its `timings.json` records:
+
+```
+"torch": "2.13.0+cu130"
+"torch_device": "cpu"
+```
+
+The image moved and the computation did not: the run uses the new build and
+still places nothing on the GPU, exactly as the story says it should.
+
+## Step 6 — README
+
+`README.md` describes the CUDA configuration only generically ("an optional
+GPU-capable variant that installs CUDA torch wheels", with nothing yet running on
+a GPU) and names no index. It needs no change.

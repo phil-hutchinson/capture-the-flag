@@ -50,6 +50,52 @@ Three things worth keeping from this output:
 
 ## After — `TORCH_INDEX_URL=.../whl/cu130`
 
-To be filled in at Step 3, from the rebuilt container. A pass is: a `+cu130`
-build with the torch version still `2.13.0`, a printed tensor, and **no**
-compute-capability warning.
+Recorded from a container rebuilt from scratch on the same host.
+
+`CONTRIBUTING.md:63` — the torch version is unchanged, so parity with the CPU
+configuration holds:
+
+```
+2.13.0+cu130 13.0 True
+```
+
+`CONTRIBUTING.md:74` — prints a tensor, with **no warning of any kind** on import
+or on first CUDA use:
+
+```
+tensor([1.], device='cuda:0')
+```
+
+All three acceptance conditions met: a `+cu130` build, torch still at `2.13.0`,
+a printed tensor, and a silent import.
+
+### Confirming it is kernels, not a JIT fallback
+
+A printed tensor alone would not distinguish real compiled kernels from PTX
+JIT'd at load time, so the architecture list the wheel was built for was read
+directly rather than inferred from torch's recommendation:
+
+```
+arch list: ['sm_75', 'sm_80', 'sm_86', 'sm_90', 'sm_100', 'sm_120']
+device cc: (12, 0)
+device   : NVIDIA GeForce RTX 5060 Ti
+```
+
+`sm_120` is present and matches the device's compute capability exactly. This
+closes the one gap the story acknowledged: the choice of `cu130` rested on
+torch's own warning naming it as a fix, which is a recommendation rather than an
+inspection. It is now an inspection.
+
+A 512 × 512 `matmul` was also run to exercise cuBLAS rather than only the
+elementwise add in the documented check, and completed with a correct result
+after an explicit `synchronize()`.
+
+### A note for whoever revisits the index
+
+Compare the two architecture lists. `cu126` covered `sm_50` through `sm_90`;
+`cu130` covers `sm_75` through `sm_120`, having **dropped** `sm_50`, `sm_60` and
+`sm_70`. The "widest driver compatibility" the deleted comment was reaching for
+is therefore a real trade-off and not an imaginary one — it just does not apply
+to a single-developer repository with one known card. If this project ever needs
+to run on pre-Turing hardware, that constraint returns and the selection rule
+gains a floor as well as a ceiling.

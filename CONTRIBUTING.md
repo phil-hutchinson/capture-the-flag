@@ -80,8 +80,24 @@ the build is detected but cannot be run on: `is_available()` returns `True`, and
 the first kernel launch fails with *"no kernel image is available for execution
 on the device"*. If that happens, the fix is the `TORCH_INDEX_URL` build argument
 in [`.devcontainer/cuda/devcontainer.json`](.devcontainer/cuda/devcontainer.json),
-pointed at a CUDA build new enough for the card — **not** a different torch
-version, which would break the version parity the paragraph above requires.
+repointed by this rule: **the newest `cuXXX` index that still ships the pinned
+torch version, and whose CUDA version is at or below the one `nvidia-smi` reports
+on the host.** It is **not** a different torch version, which would break the
+version parity the paragraph above requires.
+
+Confirm a candidate index actually covers the card rather than trusting the
+suggestion torch prints — that suggestion is a recommendation, not an inspection.
+Compare the wheel's compiled architectures against the device:
+
+```bash
+python -c "import torch; print(torch.cuda.get_arch_list(), torch.cuda.get_device_capability(0))"
+```
+
+The card's `sm_` entry must appear in the list; if it does not, a kernel launch
+will fail however current the driver is. Note that a new CUDA release **drops**
+old architectures as well as adding new ones, so an index can be too new for an
+old card just as easily as too old for a new one — the rule has a floor as well
+as a ceiling.
 
 ### Type checking and linting
 
